@@ -1,0 +1,2 @@
+parado: privada=5,6 MB, WS=36 MB, CPU em 30 s=0,000 s (0,000% de 1 nucleo)
+durante o selftest (abrir/fechar/abas): pico privada=49.8 MB, ultima amostra=49.8 MB, exit=0

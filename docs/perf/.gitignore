@@ -1,0 +1,7 @@
+*.exe
+d_*/
+c_*.csv
+p_*.csv
+run.log
+run2.log
+cpu.log

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Eavely: ilha pendurada no topo com um olho (original). -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#232733"/><stop offset="1" stop-color="#0B0C10"/></linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="58" fill="url(#tile)"/>
+  <path d="M52 0H204V74A48 48 0 0 1 156 122H100A48 48 0 0 1 52 74Z" fill="#FFFFFF"/>
+  <path d="M82 70Q128 32 174 70Q128 108 82 70Z" fill="#0B0C10"/>
+  <circle cx="128" cy="70" r="17" fill="#7CC4FF"/>
+  <circle cx="128" cy="70" r="7" fill="#0B0C10"/>
+  <circle cx="122" cy="63" r="3.2" fill="#FFFFFF"/>
+  <rect x="62" y="176" width="132" height="10" rx="5" fill="#FFFFFF" fill-opacity=".16"/>
+  <rect x="62" y="176" width="58" height="10" rx="5" fill="#7CC4FF"/>
+</svg>

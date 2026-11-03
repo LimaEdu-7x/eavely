@@ -1,0 +1,12 @@
+reduced_motion=false versao=0.1.5 build=20261103.1507
+abrir-do-repouso         quadros= 87 dur=2194ms w   59.6-> 420.0 pico  496.0 min   59.6 | h   6.3->140.0 pico 148.6 min   6.3 | passo_max_w= 45.3 dt_max=91.9  PASS
+fechar                   quadros= 43 dur= 563ms w  413.7-> 150.0 pico  413.7 min  131.6 | h 137.4-> 30.0 pico 137.4 min  22.5 | passo_max_w= 40.6 dt_max=20.2  PASS
+abrir-renderer-quente    quadros= 94 dur=2261ms w  150.9-> 420.0 pico  474.8 min  150.9 | h  30.3->140.0 pico 146.8 min  30.3 | passo_max_w= 30.3 dt_max=92.1  PASS
+fechar-2                 quadros= 44 dur= 588ms w  419.7-> 150.0 pico  419.7 min  131.6 | h 139.9-> 30.0 pico 139.9 min  22.5 | passo_max_w= 32.4 dt_max=23.0  PASS
+abrir-do-repouso-2       quadros= 74 dur=2275ms w  150.6-> 420.0 pico  474.6 min  150.6 | h  30.2->140.0 pico 146.8 min  30.2 | passo_max_w= 26.9 dt_max=93.2  PASS
+fechar-3                 quadros= 46 dur= 604ms w  411.7-> 150.0 pico  411.7 min  131.6 | h 136.6-> 30.0 pico 136.6 min  22.5 | passo_max_w= 30.0 dt_max=18.2  PASS
+mini-notch               quadros= 40 dur= 537ms w  146.9->  56.0 pico  146.9 min   56.0 | h  29.2->  5.0 pico  29.2 min   5.0 | passo_max_w=  8.6 dt_max=21.6  PASS
+mini-para-compacto       quadros= 42 dur= 547ms w   60.1-> 150.0 pico  150.0 min   60.1 | h   6.1-> 30.0 pico  30.0 min   6.1 | passo_max_w=  8.4 dt_max=15.1  PASS
+abrir-para-abas          quadros= 77 dur=2479ms w  150.5-> 420.0 pico  474.6 min  150.5 | h  30.2->140.0 pico 146.8 min  30.2 | passo_max_w= 25.4 dt_max=92.7  PASS
+aba-lateral-ida          quadros= 15 dur= 190ms w    2.3-> 100.0 pico  100.0 min    2.3 | h   0.0->  0.0 pico   0.0 min   0.0 | passo_max_w= 12.4 dt_max=16.0  PASS
+aba-lateral-volta        quadros= 15 dur= 192ms w    2.5-> 100.0 pico  100.0 min    2.5 | h   0.0->  0.0 pico   0.0 min   0.0 | passo_max_w= 12.3 dt_max=15.2  PASS

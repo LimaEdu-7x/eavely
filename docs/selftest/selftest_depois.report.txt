@@ -1,0 +1,9 @@
+reduced_motion=false versao=0.1.2 build=20261103.1403
+abrir-do-repouso         quadros= 79 dur=2220ms w   59.2-> 420.0 pico  495.6 min   59.2 | h   6.2->140.0 pico 148.5 min   6.2 | passo_max_w= 35.5 dt_max=92.9  PASS
+fechar                   quadros= 45 dur= 592ms w  419.8-> 150.0 pico  419.8 min  131.6 | h 139.9-> 30.0 pico 139.9 min  22.5 | passo_max_w= 32.6 dt_max=16.9  PASS
+abrir-renderer-quente    quadros= 91 dur=2260ms w  151.2-> 420.0 pico  474.7 min  151.2 | h  30.5->140.0 pico 146.8 min  30.5 | passo_max_w= 25.0 dt_max=94.8  PASS
+fechar-2                 quadros= 45 dur= 590ms w  419.0-> 150.0 pico  419.0 min  131.6 | h 139.6-> 30.0 pico 139.6 min  22.5 | passo_max_w= 30.3 dt_max=15.9  PASS
+abrir-do-repouso-2       quadros= 74 dur=2271ms w  150.8-> 420.0 pico  474.5 min  150.8 | h  30.3->140.0 pico 146.8 min  30.3 | passo_max_w= 24.6 dt_max=93.7  PASS
+fechar-3                 quadros= 46 dur= 603ms w  418.8-> 150.0 pico  418.8 min  131.6 | h 139.5-> 30.0 pico 139.5 min  22.5 | passo_max_w= 32.7 dt_max=17.1  PASS
+mini-notch               quadros= 42 dur= 545ms w  148.7->  56.0 pico  148.7 min   56.0 | h  29.7->  5.0 pico  29.7 min   5.0 | passo_max_w=  9.0 dt_max=16.9  PASS
+mini-para-compacto       quadros= 42 dur= 544ms w   57.9-> 150.0 pico  150.0 min   57.9 | h   5.5-> 30.0 pico  30.0 min   5.5 | passo_max_w=  8.9 dt_max=15.7  PASS

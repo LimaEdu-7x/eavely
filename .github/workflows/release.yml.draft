@@ -1,0 +1,111 @@
+# RASCUNHO (nao roda: extensao .draft). Para ativar: renomear para release.yml depois que o repositorio for publico
+# e o projeto for aprovado no SignPath Foundation. Sem os segredos/variaveis do SignPath, o fluxo gera os binarios SEM assinatura.
+#
+# Configurar no GitHub (Settings > Secrets and variables > Actions):
+#   secret  SIGNPATH_API_TOKEN
+#   vars    SIGNPATH_ORGANIZATION_ID, SIGNPATH_PROJECT_SLUG (ex.: eavely), SIGNPATH_POLICY_SLUG (ex.: release-signing)
+name: release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      SIGN: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versao (de app/Cargo.toml)
+        id: ver
+        shell: bash
+        run: echo "v=$(grep -m1 '^version' app/Cargo.toml | cut -d'"' -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Testes
+        working-directory: app
+        run: cargo test --release
+
+      - name: Compilar
+        run: powershell -File scripts/build-release.ps1  # remapeia caminhos (cargo, repo) para nao vazarem no exe
+
+      - name: Reunir exe sem assinatura
+        shell: bash
+        run: |
+          mkdir -p dist/unsigned
+          cp app/target/release/eavely.exe dist/unsigned/Eavely.exe
+
+      # ---- 1) assinar o exe (SignPath) ----
+      - name: Enviar exe para assinar
+        if: env.SIGN == 'true'
+        id: up-exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: eavely-exe-unsigned
+          path: dist/unsigned/Eavely.exe
+      - name: Assinar exe (SignPath)
+        if: env.SIGN == 'true'
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.up-exe.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: dist/signed-exe
+      - name: Escolher exe final
+        shell: bash
+        run: |
+          mkdir -p dist/out
+          if [ -f dist/signed-exe/Eavely.exe ]; then cp dist/signed-exe/Eavely.exe dist/out/Eavely.exe; else cp dist/unsigned/Eavely.exe dist/out/Eavely.exe; fi
+
+      # ---- 2) instalador com o exe final ----
+      - name: Instalar NSIS
+        run: choco install nsis -y --no-progress
+      - name: Gerar instalador
+        shell: bash
+        run: |
+          "/c/Program Files (x86)/NSIS/makensis.exe" -V2 -DVERSION=${{ steps.ver.outputs.v }} \
+            "-DEXE=$(cygpath -w "$PWD/dist/out/Eavely.exe")" "-DOUT=$(cygpath -w "$PWD/dist/unsigned/Eavely-Setup.exe")" installer/eavely.nsi
+
+      # ---- 3) assinar o instalador (SignPath) ----
+      - name: Enviar instalador para assinar
+        if: env.SIGN == 'true'
+        id: up-setup
+        uses: actions/upload-artifact@v4
+        with:
+          name: eavely-setup-unsigned
+          path: dist/unsigned/Eavely-Setup.exe
+      - name: Assinar instalador (SignPath)
+        if: env.SIGN == 'true'
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.up-setup.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: dist/signed-setup
+      - name: Escolher instalador final
+        shell: bash
+        run: |
+          if [ -f dist/signed-setup/Eavely-Setup.exe ]; then cp dist/signed-setup/Eavely-Setup.exe dist/out/; else cp dist/unsigned/Eavely-Setup.exe dist/out/; fi
+
+      # ---- 4) SHA256 + artefato ----
+      - name: SHA256
+        shell: bash
+        working-directory: dist/out
+        run: sha256sum Eavely.exe Eavely-Setup.exe | tee SHA256SUMS.txt
+      - name: Verificar assinatura (informativo)
+        shell: pwsh
+        run: Get-ChildItem dist/out/*.exe | ForEach-Object { Get-AuthenticodeSignature $_ | Select-Object Path, Status }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eavely-${{ steps.ver.outputs.v }}
+          path: dist/out/*
