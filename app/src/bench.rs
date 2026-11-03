@@ -15,7 +15,7 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
     let now = Instant::now();
     let setp = |a: &mut App, p: usize| { a.page = p; a.prev_page = p; a.page_t = crate::island::Spring::new(1.0); };
     let open = |a: &mut App, p: usize, split: bool, dock: bool| {
-        a.force = Some(St::Open); a.evaluate_pub(); setp(a, p); a.split = split; // evaluate primeiro: ao abrir, o split volta a fechado (comportamento real) a.dock = dock; a.dock_t = crate::island::Tw::new(if dock { 1.0 } else { 0.0 }); a.drag_over = false; a.p.edit = None; a.p.select = false; a.p.vol_t = None;
+        a.force = Some(St::Open); a.evaluate_pub(); setp(a, p); a.split = split; a.split_t = crate::island::Tw::new(if split { 1.0 } else { 0.0 }); // evaluate primeiro: ao abrir, o split volta a fechado (comportamento real) a.dock = dock; a.dock_t = crate::island::Tw::new(if dock { 1.0 } else { 0.0 }); a.drag_over = false; a.p.edit = None; a.p.select = false; a.p.vol_t = None;
         a.retarget(Instant::now(), 0.0);
     };
     Some(match i {

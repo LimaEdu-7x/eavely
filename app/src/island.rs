@@ -43,7 +43,7 @@ pub const MINI_W: f32 = 56.0;
 pub const MINI_H: f32 = 5.0;
 pub const MINI_R: f32 = 2.5;
 pub const MINI_FLARE: f32 = 4.0;
-pub static GRACE_MS: AtomicU32 = AtomicU32::new(100);
+pub static GRACE_MS: AtomicU32 = AtomicU32::new(1000);
 const WM_NET: u32 = WM_APP + 6;
 static PTR_ARMED: AtomicBool = AtomicBool::new(false);
 static LOC_HOOK: AtomicIsize = AtomicIsize::new(0);
@@ -311,6 +311,11 @@ pub struct App {
 thread_local! { static APP: RefCell<Option<App>> = const { RefCell::new(None) }; }
 
 impl App {
+    /// cursor em coordenadas locais da ilha (x: 0..420 com a ilha centrada em 210; y: 0 = topo da tela); serve ao brilho do Shelf
+    pub fn cursor_local(&self) -> (f32, f32) {
+        let m = self.mon(); let mut p = POINT::default(); unsafe { let _ = GetCursorPos(&mut p); }
+        (210.0 + (p.x - (m.x + m.w / 2)) as f32 / m.s, (p.y - m.y) as f32 / m.s)
+    }
     fn mon(&self) -> Mon { self.mons[self.active.min(self.mons.len() - 1)] }
     pub fn now() -> Instant { Instant::now() }
 
@@ -334,8 +339,8 @@ impl App {
         if on == self.drag_over { return; }
         if on && crate::droptarget::OVER.load(Relaxed) { crate::state_log("Shelf aberto automaticamente (causa: OLE DragEnter na janela)"); }
         self.drag_over = on;
-        if on { crate::droptarget::DROPPED.store(false, Relaxed); if self.page != crate::pages::P_SHELF { self.drag_prev_page = Some(self.page); self.go_page(crate::pages::P_SHELF); } }
-        else if let Some(p) = self.drag_prev_page.take() { if !crate::droptarget::DROPPED.swap(false, Relaxed) { self.go_page(p); } }
+        if on { crate::droptarget::DROPPED.store(false, Relaxed); if self.page != crate::pages::P_SHELF { self.drag_prev_page = Some(self.page); self.go_page_inner(crate::pages::P_SHELF, 1.0, false); } }
+        else if let Some(p) = self.drag_prev_page.take() { if !crate::droptarget::DROPPED.swap(false, Relaxed) { let d = if p > self.page { 1.0 } else { -1.0 }; self.go_page_inner(p, d, false); } }
     }
     /// Olhos (aparencia recolhida): proxima piscada em 3-7 s enquanto o peek esta visivel (um timer, sem quadros continuos)
     pub fn eye_blink(&mut self) {
@@ -374,9 +379,9 @@ impl App {
         // atraso (grace) antes de recolher: ao tirar o mouse a ilha espera GRACE_MS (a menos que va para tela cheia/desligada)
         let new = if self.state == St::Open && new != St::Open && new != St::Hidden && !self.pin.is_some() {
             let g = GRACE_MS.load(Relaxed);
-            match self.leave_at {
+            match if g == 0 { Some(now) } else { self.leave_at } { // 0 = imediato
                 None => { self.leave_at = Some(now + Duration::from_millis(g as u64)); unsafe { SetTimer(Some(self.hwnd), T_LEAVE, g.max(10), None); } St::Open }
-                Some(t) if now < t => St::Open,
+                Some(t) if now < t => { unsafe { SetTimer(Some(self.hwnd), T_LEAVE, ((t - now).as_millis() as u32 + 5).max(10), None); } St::Open } // re-arma pelo tempo que falta (o timer pode disparar um pouco antes)
                 Some(_) => { self.leave_at = None; new }
             }
         } else { if new == St::Open || self.state != St::Open { self.leave_at = None; } new };
@@ -400,7 +405,7 @@ impl App {
         self.state = new;
         if breath { self.breathe = Some((prev.0 + BREATH_GROW.0, prev.1 + BREATH_GROW.1, prev.2)); unsafe { SetTimer(Some(self.hwnd), T_BREATH, BREATH_MS as u32, None); } } else if new != St::Open || old != St::Open { self.breathe = None; }
         if new == St::Over && old != St::Over { self.ty = Spring::new(-26.0); self.ty.to = 0.0; self.ty.p = SPRING_OPEN; } // entra deslizando do topo com overshoot
-        if new == St::Open && old != St::Open { self.split = false; self.dock = false; HOOK_OPEN.store(true, Relaxed); crate::pages::on_open(self); }
+        if new == St::Open && old != St::Open { self.split = false; self.split_t = Tw::new(0.0); self.dock = false; HOOK_OPEN.store(true, Relaxed); crate::pages::on_open(self); }
         if new != St::Open { HOOK_OPEN.store(false, Relaxed); }
         let dur = match (old, new) { (_, St::Open) => 240.0, (St::Open, _) => 220.0, _ => 200.0 };
         match new {
@@ -461,18 +466,20 @@ impl App {
     }
     pub fn go_page(&mut self, p: usize) { let d = if p > self.page { 1.0 } else { -1.0 }; self.go_page_dir(p, d); }
     /// troca de aba LATERAL: `dir` = sentido do deslize (pela ordem das abas; setas/roda dao a volta com o sentido do clique)
-    pub fn go_page_dir(&mut self, p: usize, dir: f32) {
+    pub fn go_page_dir(&mut self, p: usize, dir: f32) { self.go_page_inner(p, dir, true); }
+    /// `save`: false quando a troca vem do arrasto de arquivos (nao e escolha do usuario: nao vira a pagina inicial)
+    fn go_page_inner(&mut self, p: usize, dir: f32, save: bool) {
         if p == self.page { return; }
         let now = Instant::now();
         self.dir = dir;
         self.prev_page = self.page; self.page = p; self.page_t = Spring::new(0.0); self.page_t.go_p(1.0, SPRING_PAGE); if self.tw.settled() && self.th.settled() && self.tr.settled() { self.last_step = Instant::now(); } self.p.dots_at = Some((now, self.prev_page));
         let (w, _, _) = self.target(); self.tw.go(now, w, 300.0);
-        crate::pages::save_page(p); self.dirty = true;
+        if save { crate::pages::save_page(p); } self.dirty = true;
     }
     /// ha algo animando? (precisa de quadros no ritmo do monitor)
     /// animacao de forma/pagina/dock (ou pedido de redesenho): um quadro por vblank
     fn animating_full(&self, now: Instant) -> bool {
-        self.dirty || (self.page == crate::pages::P_SHELF && self.p.shelf_busy()) || !self.ty.settled() || self.p.blink_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.tw.busy(now) || self.th.busy(now) || self.tr.busy(now) || self.page_t.busy(now) || self.dock_t.busy(now) || self.p.lyr_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.p.scroll.is_some_and(|s| s.busy(now)) || self.p.pc_chg.is_some_and(|t| self.state == St::Peek && t.elapsed().as_millis() < 340) || self.p.spin.as_ref().is_some_and(|s| s.t.elapsed().as_millis() < 640)
+        self.dirty || (self.page == crate::pages::P_SHELF && (self.p.shelf_busy() || (self.drag_over && crate::settings::flag(crate::settings::F_SHELF_GLOW)))) || !self.ty.settled() || self.p.blink_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.tw.busy(now) || self.th.busy(now) || self.tr.busy(now) || self.page_t.busy(now) || self.dock_t.busy(now) || self.split_t.busy(now) || self.p.lyr_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.p.scroll.is_some_and(|s| s.busy(now)) || self.p.pc_chg.is_some_and(|t| self.state == St::Peek && t.elapsed().as_millis() < 340) || self.p.spin.as_ref().is_some_and(|s| s.t.elapsed().as_millis() < 640)
     }
     fn animating(&self, now: Instant) -> bool {
         self.animating_full(now) || (self.state == St::Open && self.page == crate::pages::P_SHELF && self.drag_over) || (self.state == St::Live && crate::pages::eq_anim()) || (self.state == St::Open && crate::pages::open_anim(self, now))
@@ -780,7 +787,7 @@ pub fn start() {
         #[cfg(feature = "devtools")]
         if let Ok(p) = std::env::var("EAVELY_PAGE") { app.page = p.parse().unwrap_or(0); }
         #[cfg(feature = "devtools")]
-        if std::env::var_os("EAVELY_SPLIT").is_some() { app.split = true; }
+        if std::env::var_os("EAVELY_SPLIT").is_some() { app.split = true; app.split_t = Tw::new(1.0); }
         #[cfg(feature = "devtools")]
         if std::env::var_os("EAVELY_LIVE_EXPANDED").is_some() { crate::pages::set_live_expanded(true); }
         #[cfg(feature = "devtools")]

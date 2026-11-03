@@ -129,7 +129,13 @@ pub fn live_size() -> (f32, f32, f32) { if live_expanded() { (300.0, 52.0, 22.0)
 pub fn live_width() -> f32 { if is_playing() && timer_running() { 190.0 } else { 168.0 } }
 pub fn eq_anim() -> bool { is_playing() && !crate::island::reduced_motion() }
 pub fn open_anim(a: &App, _now: Instant) -> bool { eq_anim() && a.state == St::Open }
-pub fn on_open(a: &mut App) { a.p.batt_t = None; }
+pub fn on_open(a: &mut App) {
+    a.p.batt_t = None;
+    // pagina inicial: arrastando arquivo = Shelf (ja tratado pelo arrasto); tocando musica = player; senao a ultima pagina escolhida pelo usuario
+    if a.drag_over { return; }
+    let want = if is_playing() && crate::settings::get().show_live { 0 } else { load_page() };
+    if a.page != want { a.prev_page = a.page; a.page = want; a.page_t = crate::island::Spring::new(1.0); a.p.dots_at = None; } // troca seca: a ilha ainda esta abrindo
+}
 
 /// Chamado em `wake()`: faixa mudou -> capa/tint e busca de letra.
 pub fn on_wake(a: &mut App) {
@@ -373,7 +379,8 @@ fn draw_peek_live(a: &mut App, w: f32, t: f32) {
 
 fn draw_open(a: &mut App, now: Instant, w: f32, h: f32, t: f32, hits: &mut Vec<(R, Act)>) {
     let dx = (w - 420.0) / 2.0; // layout normal fica centrado enquanto a largura anima
-    let split_f = ((w - 420.0) / 100.0).clamp(0.0, 1.0);
+    // split segue o ESTADO (nao a largura: a mola da largura passa de 420 ao abrir e mostrava a letra por baixo do player)
+    a.split_t.go(now, if a.split && a.page == 0 { 1.0 } else { 0.0 }, 240.0); let split_f = a.split_t.val(now).clamp(0.0, 1.0);
     let pv = a.page_t.pos; let busy = a.page_t.busy(now); let slide = crate::island::PAGE_SLIDE_PX * a.dir;
     let (pa, pb) = (if busy { 1.0 - pv.clamp(0.0, 1.0) } else { 0.0 }, if busy { pv.clamp(0.0, 1.0) } else { 1.0 });
     let prev = a.prev_page;
@@ -600,12 +607,11 @@ fn chrome(a: &mut App, now: Instant, w: f32, _h: f32, dx: f32, split_f: f32, _t:
             hits.push((r(x + dx, 66.0, 18.0, 18.0), act));
         }
         if dock_f < 0.99 && !(a.page == 3 && a.p.task_cal) { a.gfx.layer(1.0 - dock_f);
-            // pontos: 4 px, ativo = pilula 15x4, espacamento 8,5 px. Na troca a pilula se divide: a antiga encolhe, a nova cresce e uma gota viaja entre elas (~0,23 s)
+            // pontos: 4 px, ativo = pilula 15x4, espacamento 8,5 px. Na troca a pilula antiga encolhe e a nova cresce (~0,23 s), sem gota
             let tt = a.p.dots_at.map_or(1.0, |(t0, _)| ((now - t0).as_secs_f32() / 0.23).min(1.0)); let from = a.p.dots_at.map_or(a.page, |d| d.1); let e = crate::island::ease(tt);
             let wd: Vec<f32> = (0..4).map(|i| { let wgt = if tt >= 1.0 { (i == a.page) as u8 as f32 } else if i == a.page { e } else if i == from { 1.0 - e } else { 0.0 }; 4.0 + 11.0 * wgt }).collect();
-            let gap = 8.5; let total: f32 = wd.iter().sum::<f32>() + 3.0 * gap; let mut x = 210.0 - total / 2.0; let mut cx = [0.0f32; 4];
-            for i in 0..4 { let act_on = i == a.page; cx[i] = x + wd[i] / 2.0; a.gfx.rrect(x, 127.0, wd[i], 4.0, 2.0, if act_on { (1.0, 1.0, 1.0, 1.0) } else { (1.0, 1.0, 1.0, 0.55) }); x += wd[i] + gap; }
-            if tt < 1.0 && from != a.page { let k = (std::f32::consts::PI * tt).sin(); let gx = cx[from] + (cx[a.page] - cx[from]) * e; a.gfx.circle(gx, 129.0 - 2.5 * k, 2.0 + 0.5 * k, (1.0, 1.0, 1.0, 0.9 * k)); }
+            let gap = 8.5; let total: f32 = wd.iter().sum::<f32>() + 3.0 * gap; let mut x = 210.0 - total / 2.0; 
+            for i in 0..4 { let act_on = i == a.page; a.gfx.rrect(x, 131.0, wd[i], 4.0, 2.0, if act_on { (1.0, 1.0, 1.0, 1.0) } else { (1.0, 1.0, 1.0, 0.55) }); x += wd[i] + gap; }
             a.gfx.unlayer(); }
         a.gfx.unlayer();
     }

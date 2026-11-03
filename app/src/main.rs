@@ -88,7 +88,7 @@ fn main() {
     unsafe {
         use windows::{core::w, Win32::{Foundation::{GetLastError, ERROR_ALREADY_EXISTS}, System::Threading::CreateMutexW}};
         match CreateMutexW(None, true, w!("Local\\EavelyNotchSingleInstance")) {
-            Ok(m) => { if GetLastError() == ERROR_ALREADY_EXISTS { return; } std::mem::forget(m); } // GetLastError logo apos a chamada
+            Ok(m) => { if GetLastError() == ERROR_ALREADY_EXISTS && !(cfg!(feature = "devtools") && std::env::var_os("EAVELY_MULTI").is_some()) { return; } std::mem::forget(m); } // GetLastError logo apos a chamada
             Err(_) => {} // sem mutex (raro): segue sem a trava de instancia unica
         }
     }
