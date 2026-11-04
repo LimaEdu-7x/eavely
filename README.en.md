@@ -78,7 +78,7 @@ cd eavely\app
 cargo build --release
 ```
 
-(`app/` lives on the development branch until the native app is merged into `main`.)
+For the release exe (no local paths inside the binary): `powershell -File scripts/build-release.ps1`. Want to test in-development builds or contribute? See the [`dev` branch](https://github.com/LimaEdu-7x/eavely/tree/dev).
 
 ## Code signing policy
 

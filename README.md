@@ -2,151 +2,135 @@
 
 <img src="docs/img/banner.png" alt="Eavely" width="640">
 
-# Eavely · branch `dev`
+# Eavely
 
-**Guia para quem desenvolve e testa o Eavely.** Aqui o app muda toda semana e pode quebrar.
+**Um notch para o seu Windows: música com letras, pomodoro, shelf de arquivos e tarefas, num app minúsculo e 100% nativo.**
 
-![Branch](https://img.shields.io/badge/branch-dev-orange)
-![Builds](https://img.shields.io/badge/builds%20de%20teste-N%C3%83O%20assinados-red)
+[![Baixar para Windows](https://img.shields.io/badge/%E2%AC%87%20Baixar-Eavely%20para%20Windows-4FA3F7?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/LimaEdu-7x/eavely/releases/latest)
+
+![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-green)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white)
+![Tamanho](https://img.shields.io/badge/tamanho-~0%2C96%20MB-blue)
+![Sem WebView](https://img.shields.io/badge/100%25%20nativo-Rust%20%2B%20Direct2D-orange)
 
-[Branch dev](#-o-que-é-a-branch-dev) · [Compilar](#-compilar) · [Variáveis](#-variáveis-de-ambiente) · [Logs](#-logs-e-crashes) · [Reportar bug](#-reportar-um-bug) · [Roteiro](#-roteiro-de-teste)
+[English](README.en.md) · [Recursos](#-recursos) · [Instalação](#-instalação) · [Atalhos](#atalhos) · [Privacidade](#-privacidade) · [Contato](#-contato-e-suporte) · [Compilar](#compilar-do-código)
 
-📖 Procurando o app para usar no dia a dia? Veja o **[README principal](README.md)** ([English](README.en.md)).
+<br>
+
+<img src="docs/img/musica.png" alt="Eavely tocando música" width="440">
 
 </div>
 
 ---
 
-## 🌿 O que é a branch `dev`
+## ✨ Recursos
 
-É onde entram as mudanças novas antes de irem para a `main`. Serve para **testar** funções em andamento e **achar bugs** cedo. O que você baixa daqui:
+| | |
+|---|---|
+| 🎵 **Música + letras sincronizadas** | Mostra a faixa do player que estiver tocando, com capa, barra de progresso, volume (passe o mouse no ícone para o slider) e letras linha a linha (tela dividida ou barra compacta; dá para desligar as letras no notch recolhido). |
+| 🍅 **Pomodoro** | Foco, pausa curta e tempo personalizado, com anel de progresso e aviso ao terminar. |
+| 📥 **Shelf de arquivos** | Arraste arquivos para a ilha e solte onde precisar. Seleção, exclusão e "limpar tudo"; nomes longos em até 2 linhas, com o nome inteiro ao passar o mouse. |
+| ✅ **Tarefas** | Lista simples com horário, calendário e edição. |
+| 🔔 **Avisos do sistema** | Volume, brilho (só em notebook), bateria, Wi-Fi, fones e Caps Lock aparecem (desligados por padrão; ligue em *Configurações → Avisos do sistema*) como pequenos overlays na ilha. |
+| 🖥️ **Compacto de PC** | Hora e, rotativamente, CPU, RAM, GPU e rede, sem abrir nada. Em PC sem bateria mostra o ícone de rede (Wi-Fi com barras de sinal ou cabeada). |
+| 🔘 **Mini notch** | Com uma janela maximizada, a ilha vira uma linha fina que só reage quando o cursor encosta nela. |
+| 👀 **Olhos / pet** | A ilha ociosa pisca e dorme. Detalhe pequeno, mas dá vida. |
+| 💤 **~0% de CPU parado** | Em repouso o app não desenha nada: 0,000 s de CPU em 30 s de teste. |
+| ⚡ **Desempenho ajustável** | Presets Máxima fluidez, Equilibrado e Economia, taxa de quadros, animações e efeitos. |
+| 🎮 **Esconde em tela cheia** | Jogo ou vídeo em tela cheia: a ilha some sozinha. |
+| 🧱 **100% nativo, sem WebView** | Rust + Direct2D/DirectComposition/DirectWrite. Sem Electron, sem navegador embutido. |
+| 🔒 **Dados locais** | Tarefas, Shelf e configurações ficam no seu PC. Sem conta, sem telemetria. |
 
-- pode ter bugs, telas incompletas e números de desempenho que ainda vão mudar;
-- não tem garantia de compatibilidade entre versões (se algo quebrar, apagar `%APPDATA%\Eavely` zera os dados);
-- pode ser compilado com ferramentas internas de teste (`--features devtools`) que **não** entram no exe de release.
+## 🖼️ Capturas
 
-### ⚠️ Builds de teste NÃO são assinados
+<table>
+<tr>
+<td align="center"><img src="docs/img/letras.png" alt="Letras sincronizadas"><br><sub>Letras sincronizadas</sub></td>
+<td align="center"><img src="docs/img/pomodoro.png" alt="Pomodoro"><br><sub>Pomodoro</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/img/shelf.png" alt="Shelf de arquivos"><br><sub>Shelf de arquivos</sub></td>
+<td align="center"><img src="docs/img/tarefas.png" alt="Tarefas"><br><sub>Tarefas</sub></td>
+</tr>
+</table>
 
-Nenhum build do Eavely tem assinatura de código ainda. O Windows pode avisar ou bloquear:
+<p align="center">
+<img src="docs/img/avisos-e-compacto.png" alt="Overlays do sistema, olhos e compacto de PC" width="640"><br>
+<sub>Overlays (volume, brilho, bateria, fones, Caps Lock, Wi-Fi), olhos e compacto de PC</sub>
+</p>
 
-- **SmartScreen:** *Mais informações → Executar assim mesmo*.
-- **Smart App Control** (Windows 11, quando ativo): pode bloquear **sem opção de executar**. A saída segura é **compilar você mesmo** (abaixo). Desativar o Smart App Control é definitivo (só volta reinstalando o Windows), então só faça se entender o risco.
-- Baixe builds de teste **só deste repositório**. Na dúvida, compile do código.
+<table>
+<tr>
+<td align="center"><img src="docs/img/config-desempenho.png" alt="Configurações: Desempenho"><br><sub>Desempenho</sub></td>
+<td align="center"><img src="docs/img/config-musica-letras.png" alt="Configurações: Música e letras"><br><sub>Música e letras</sub></td>
+</tr>
+<tr>
+<td align="center" colspan="2"><img src="docs/img/config-ilha-aparencia.png" alt="Configurações: Ilha e aparência" width="440"><br><sub>Ilha e aparência</sub></td>
+</tr>
+</table>
 
-## 🔨 Compilar
+## 📦 Instalação
 
-Precisa do [Rust](https://rustup.rs) (toolchain **MSVC**) no Windows 10/11.
+1. Baixe o arquivo mais recente em **[Releases](https://github.com/LimaEdu-7x/eavely/releases/latest)**.
+2. Escolha um formato: **`Eavely-Setup.exe`** (instalador NSIS, instala só para o seu usuário) ou **`Eavely.exe`** (portátil, basta dar dois cliques). `Eavely.exe` tem ~0,96 MB (980.480 bytes) e `Eavely-Setup.exe` ~631 KB (646.240 bytes) na v0.1.11. O instalador mostra um resumo de privacidade antes de instalar.
+3. O ícone aparece na bandeja. Pelo menu dele você abre as Configurações e sai do app.
+
+### ⚠️ Aviso do Windows (SmartScreen / Smart App Control)
+
+O Eavely **ainda não tem assinatura de código** (o pedido de assinatura gratuita da SignPath Foundation está em andamento). Por isso o Windows desconfia de qualquer `.exe` novo e pouco baixado:
+
+- **SmartScreen** ("O Windows protegeu seu PC"): clique em **Mais informações → Executar assim mesmo**.
+- **Smart App Control** (Windows 11, quando está ativo): pode **bloquear sem opção de executar**. Nesse caso, ou você compila o app você mesmo, ou desativa o Smart App Control em *Segurança do Windows → Controle de aplicativos e do navegador*. **Atenção:** desativar é definitivo (só volta a ligar reinstalando o Windows) e reduz a proteção do sistema. A decisão é sua.
+- Quer conferir o que está rodando? O código é aberto e dá para compilar do zero (veja abaixo).
+
+## Atalhos
+
+| Atalho | Ação |
+|---|---|
+| `Ctrl` + `Alt` + `E` | Mostrar / esconder a ilha |
+| `Ctrl` + `Alt` + `T` | Iniciar / pausar o timer |
+| `Ctrl` + `Alt` + `F` | Abrir a Shelf |
+
+Dá para mudar os três em *Configurações → Atalhos*. É exigido Ctrl, Alt ou Win junto da tecla (nunca uma tecla solta). Os atalhos são registrados pelo Windows; o app não monitora o teclado em segundo plano.
+
+## ⚙️ Configurações
+
+Janela com barra lateral e cartões agrupados: **Geral**, **Ilha e aparência** (tamanho, abrir por hover ou clique, tempo para recolher, comportamento do mini notch, velocidade da animação, compacto de PC), **Música e letras**, **Tarefas**, **Pomodoro**, **Shelf**, **Avisos do sistema**, **Atalhos**, **Desempenho** e **Sobre**.
+
+A página **Desempenho** tem presets (**Máxima fluidez**, **Equilibrado**, **Economia**; mexer em um controle vira "personalizado"), taxa de quadros **Auto/60/30**, nível das animações, rolagem das letras (**suave** ou **por linha**, que poupa CPU), efeitos da capa, equalizador e a opção de respeitar as animações do Windows.
+
+## 🔐 Privacidade
+
+- **Sem telemetria, sem conta, sem anúncios.**
+- A **única conexão de rede** é a busca de letras no [LRCLIB](https://lrclib.net): são enviados o **título, o artista e o álbum** da faixa tocando. Dá para desligar em *Configurações → Música e letras → Mostrar letras*; o cache local continua valendo.
+- Métricas de CPU, RAM, GPU e rede do compacto de PC são lidas **localmente** e nunca saem do computador.
+- Política completa: [docs/PRIVACY.md](docs/PRIVACY.md).
+- Seus dados ficam em `%APPDATA%\Eavely` (tarefas, Shelf, configurações e cache de letras). Apagar a pasta zera tudo.
+
+## 📊 Desempenho
+
+Os números de RAM do projeto são **memória privada** do processo (`PrivateMemorySize64`), não o *working set*. O working set oscila porque o Windows o corta e devolve páginas (o app libera o renderer ao recolher), então ele não mostra o que o processo reserva de fato. Por isso a memória privada é a medida honesta:
+
+| Estado | Memória privada |
+|---|---|
+| Parado (recolhido), memória privada | **5,6 MB** |
+| Pico de memória privada, ilha aberta e animando | ~50 MB |
+| Working set parado (não é a medida honesta) | ~36 MB |
+
+CPU parado: **0,000 s em 30 s** (~0%). Medido na v0.1.9 (exe de release; ainda não remedido na v0.1.11), em uma máquina só (Windows 11); em outras pode variar. Método e dados em [docs/perf/RESULTADOS.md](docs/perf/RESULTADOS.md).
+
+## Compilar do código
+
+Precisa do [Rust](https://rustup.rs) (toolchain MSVC) no Windows 10/11.
 
 ```powershell
 git clone https://github.com/LimaEdu-7x/eavely.git
-cd eavely
-git checkout dev          # a branch de desenvolvimento
-cd app
-cargo build --release     # exe normal, igual ao que vai para o usuário
+cd eavely\app
+cargo build --release
 # resultado: app\target\release\eavely.exe
 ```
 
-Para o exe que vai para a Release (sem caminhos da sua máquina dentro do binário), use `powershell -File scripts/build-release.ps1`.
-
-Com as ferramentas internas de teste (captura de telas, log de quadros, mídia falsa):
-
-```powershell
-cargo build --release --features devtools
-```
-
-> ⚠️ O build com `devtools` é **só para teste**. Não distribua: ele lê variáveis `EAVELY_*` extras e pode gerar arquivos de captura/log.
-
-## 🧪 Variáveis de ambiente
-
-Todas são opcionais. Defina no PowerShell antes de abrir o exe, por exemplo `$env:EAVELY_LOG = "1"; .\eavely.exe`.
-
-**Funcionam em qualquer build:**
-
-| Variável | O que faz |
-|---|---|
-| `EAVELY_LOG` | Liga o log de diagnóstico em `%TEMP%\eavely-spike.log` (gira em 512 KB para `.old`; sem título, artista ou nomes de arquivo do usuário). Também liga sozinho após um panic ou violação de acesso. |
-| `EAVELY_DATA_DIR` | Troca a pasta de dados (padrão `%APPDATA%\Eavely`). **Use em testes** para não sujar seus dados reais. |
-
-**Só com `--features devtools`** (testes e capturas automatizados):
-
-| Variável | O que faz |
-|---|---|
-| `EAVELY_FAKE_MEDIA` | Música falsa, para testar sem player real. |
-| `EAVELY_FORCE` | Força o estado: `open`, `peek`, `live`, `line` (qualquer outro valor = oculto). |
-| `EAVELY_PAGE` | Número da página inicial. |
-| `EAVELY_SPLIT`, `EAVELY_DOCK`, `EAVELY_LIVE_EXPANDED` | Forçam tela dividida de letras, dock e ao vivo expandido. |
-| `EAVELY_BENCH` / `EAVELY_SHOTS=pasta` / `EAVELY_BENCH_EXIT` | Roteiro automático que percorre os estados e salva capturas (da janela do Eavely) na pasta; `EXIT` fecha ao terminar. |
-| `EAVELY_FRAMELOG=arq.csv` | Uma linha por quadro desenhado (tempos, tamanho, estado), para provar a suavidade. |
-| `EAVELY_TEST_VOLUME`, `EAVELY_TEST_AUTOSTART`, `EAVELY_DRAG_ANY` | Testes internos (volume do sistema, iniciar com o Windows, arrasto). Não use no dia a dia. |
-
-### Autoteste de animação
-
-Vale no exe de **release** (não precisa de `devtools`):
-
-```powershell
-.\eavely.exe --selftest-anim              # grava %TEMP%\eavely-selftest.csv
-.\eavely.exe --selftest-anim=saida.csv    # ou escolha o arquivo
-```
-
-Abre e fecha a ilha por código, grava um log por quadro e confere as curvas (overshoot, passos por quadro, duração). Não usa cliques sintéticos nem mexe em outros apps.
-
-## 📜 Logs e crashes
-
-| Arquivo | Onde | O que tem |
-|---|---|---|
-| `state.log` | `%APPDATA%\Eavely\state.log` (e `state.log.1`, o anterior) | **Sempre ligado.** Versão e PID de cada início, **motivo de cada saída** (Sair pela bandeja, fechamento do instalador, fim de sessão do Windows, queda) e aviso quando o encerramento anterior ficou sem registro (processo morto de fora), estado da ilha (liga/desliga/esconde), configurações de animação do Windows e linhas `CRASH:`. Gira em 200 KB. Sem dados pessoais. |
-| `eavely-spike.log` | `%TEMP%\eavely-spike.log` | Diagnóstico detalhado (só com `EAVELY_LOG`, ou após panic/violação de acesso). |
-
-Se o app **travar de forma inesperada**, ele se reinicia sozinho (com `--restart`), no máximo 3 vezes em 2 minutos, e grava `CRASH:` no `state.log`. Abrir a pasta: `explorer "$env:APPDATA\Eavely"`.
-
-## 🐞 Reportar um bug
-
-Abra uma *issue* no GitHub com:
-
-1. **Versão** (Configurações → Sobre, ou a linha `inicio v…` do `state.log`) e **de onde veio** o exe (compilado por você ou baixado).
-2. **Windows:** versão (`winver`), notebook ou desktop, **monitores** (quantidade, resolução, Hz).
-3. **Passos** para reproduzir, numerados, e o que você esperava × o que aconteceu.
-4. **Frequência:** sempre, às vezes, uma vez só.
-5. **Anexos:**
-   - o **`state.log`** (e `state.log.1` se existir);
-   - uma captura **só da janela do Eavely** ou um vídeo curto.
-
-> 🔒 **Antes de anexar, abra o arquivo e confira.** O `state.log` não deve ter dados pessoais, mas se tiver nome de usuário em algum caminho, **apague essa parte**. **Não** anexe capturas de tela inteira, nem nada com outras janelas, terminal, nomes de arquivos ou músicas que você não queira mostrar. **Nunca** anexe o conteúdo de `%APPDATA%\Eavely` inteiro (tem suas tarefas e a Shelf).
-
-## ✅ Roteiro de teste
-
-Marque o que testou e conte o resultado (passou / falhou / não deu para testar). Use `EAVELY_DATA_DIR` se não quiser mexer nos seus dados.
-
-**🎵 Letras e quadros (60 Hz e 75 Hz)**
-- [ ] Monitor a **60 Hz**: toque uma música com letra; a linha atual muda no tempo certo e a animação não engasga.
-- [ ] Monitor a **75 Hz** (ou mais): mesma coisa; fica tão suave quanto a 60 Hz?
-- [ ] Letras em *Suave* e em *Por linha* (Desempenho → Letras).
-- [ ] Troca de música: giro da capa e letra nova sem sobrar a anterior.
-
-**⚡ Presets de Desempenho**
-- [ ] **Máxima fluidez**, **Equilibrado** e **Economia**: a ilha continua usável nos três?
-- [ ] Taxa de quadros **Auto / 60 / 30** e animações *Suave / Equilibrada / Leve*.
-- [ ] Mexer em um controle vira "personalizado" e o valor persiste ao reiniciar.
-- [ ] Opção de respeitar as animações do Windows (ligue/desligue "Efeitos de animação" no Windows e veja).
-- [ ] Parado, o uso de CPU no Gerenciador de Tarefas fica em ~0%.
-
-**📥 Shelf**
-- [ ] Arrastar 1 arquivo e vários; soltar fora da ilha.
-- [ ] Modo seleção, excluir um, limpar tudo.
-- [ ] Arquivo movido/apagado depois de entrar na Shelf: o app não quebra?
-- [ ] Reiniciar o app: os itens continuam (ou somem, se "Shelf começa vazia" estiver ligado).
-
-**🎮 Tela cheia**
-- [ ] Vídeo/jogo em tela cheia: a ilha **some** e volta ao sair.
-- [ ] Alt+Tab, janela sem borda e jogo em tela cheia exclusiva.
-
-**🖥️ Vários monitores**
-- [ ] A ilha aparece no monitor certo (opção "monitor" nas Configurações; padrão: onde está o cursor).
-- [ ] Monitores com escalas diferentes (100% e 150%): o tamanho e a nitidez estão corretos?
-- [ ] Desconectar e reconectar um monitor com o app aberto.
-
-**Extras rápidos:** atalhos `Ctrl+Alt+E/T/F`, overlays (volume, brilho, bateria, Wi-Fi, fones, Caps Lock), Pomodoro até o fim, Tarefas com dia, compacto de PC, iniciar com o Windows.
+Para o exe de release (sem caminhos da sua máquina dentro do binário): `powershell -File scripts/build-release.ps1`. Quer testar versões em desenvolvimento ou contribuir? Veja a [branch `dev`](https://github.com/LimaEdu-7x/eavely/tree/dev).
 
 ## 🔏 Assinatura de código e privacidade
 
@@ -155,7 +139,7 @@ Assinatura gratuita fornecida pela [SignPath.io](https://signpath.io), certifica
 - **O que é assinado:** só os binários oficiais da página de Releases (`Eavely.exe`, `Eavely-Setup.exe`), compilados pelo GitHub Actions a partir deste repositório.
 - **Papéis:** autor, revisor e aprovador: [@LimaEdu-7x](https://github.com/LimaEdu-7x). Cada assinatura é aprovada manualmente.
 - **Privacidade:** sem conta, telemetria ou atualização automática. A única rede é a busca opcional de letras no LRCLIB (título, artista, álbum e duração), que dá para desligar em Configurações. Veja [docs/PRIVACY.md](docs/PRIVACY.md) e a [política de assinatura](docs/CODE-SIGNING-POLICY.md).
-- **Problemas ou abuso:** [Issues](https://github.com/LimaEdu-7x/eavely/issues) ou o relato privado de vulnerabilidade do GitHub.
+- **Problemas ou abuso:** [Issues](https://github.com/LimaEdu-7x/eavely/issues), o relato privado de vulnerabilidade do GitHub ou [contact.eavely@gmail.com](mailto:contact.eavely@gmail.com).
 
 ## 💬 Contato e suporte
 
@@ -164,4 +148,10 @@ Assinatura gratuita fornecida pela [SignPath.io](https://signpath.io), certifica
 
 ## 📄 Licença e créditos
 
-MIT ([LICENSE](LICENSE)); logo e nome "Eavely" têm direitos reservados ao autor, veja [docs/BRAND.md](docs/BRAND.md). Ícones: [Lucide](https://lucide.dev) (ISC), veja [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md). Letras: [LRCLIB](https://lrclib.net). Projeto independente, **não afiliado a nenhum outro app de notch**.
+- Código sob licença **[MIT](LICENSE)**. A logo e o nome "Eavely" **não** estão cobertos pela MIT (direitos reservados ao autor; veja [docs/BRAND.md](docs/BRAND.md)).
+- Ícones: [Lucide](https://lucide.dev) (ISC). Detalhes em [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md).
+- Letras: [LRCLIB](https://lrclib.net), serviço aberto e gratuito. As letras pertencem aos seus autores.
+
+## ℹ️ Projeto independente
+
+O Eavely é um projeto **independente e feito por uma pessoa só**. **Não é afiliado, patrocinado ou endossado** por nenhum outro app de ilha/notch. Escrito do zero, inspirado no comportamento de apps de notch; arte e ícones são originais ou open source (Lucide, ISC). Nomes de marcas pertencem aos seus donos.
