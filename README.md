@@ -102,7 +102,7 @@ Se o app **travar de forma inesperada**, ele se reinicia sozinho (com `--restart
 
 ## 🐞 Reportar um bug
 
-Abra uma *issue* no GitHub com:
+Abra uma [*issue* no GitHub](https://github.com/LimaEdu-7x/eavely/issues) (ou escreva para [contact.eavely@gmail.com](mailto:contact.eavely@gmail.com)) com:
 
 1. **Versão** (Configurações → Sobre, ou a linha `inicio v…` do `state.log`) e **de onde veio** o exe (compilado por você ou baixado).
 2. **Windows:** versão (`winver`), notebook ou desktop, **monitores** (quantidade, resolução, Hz).
