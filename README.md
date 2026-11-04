@@ -157,6 +157,11 @@ Assinatura gratuita fornecida pela [SignPath.io](https://signpath.io), certifica
 - **Privacidade:** sem conta, telemetria ou atualização automática. A única rede é a busca opcional de letras no LRCLIB (título, artista, álbum e duração), que dá para desligar em Configurações. Veja [docs/PRIVACY.md](docs/PRIVACY.md) e a [política de assinatura](docs/CODE-SIGNING-POLICY.md).
 - **Problemas ou abuso:** [Issues](https://github.com/LimaEdu-7x/eavely/issues) ou o relato privado de vulnerabilidade do GitHub.
 
+## 💬 Contato e suporte
+
+- Bugs, ideias e dúvidas: [Issues do GitHub](https://github.com/LimaEdu-7x/eavely/issues).
+- E-mail do projeto: [contact.eavely@gmail.com](mailto:contact.eavely@gmail.com).
+
 ## 📄 Licença e créditos
 
-MIT ([LICENSE](LICENSE)). Ícones: [Lucide](https://lucide.dev) (ISC), veja [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md). Letras: [LRCLIB](https://lrclib.net). Projeto independente, **não afiliado a nenhum outro app de notch**.
+MIT ([LICENSE](LICENSE)); logo e nome "Eavely" têm direitos reservados ao autor, veja [docs/BRAND.md](docs/BRAND.md). Ícones: [Lucide](https://lucide.dev) (ISC), veja [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md). Letras: [LRCLIB](https://lrclib.net). Projeto independente, **não afiliado a nenhum outro app de notch**.

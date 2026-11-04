@@ -29,4 +29,4 @@ See [PRIVACY.md](PRIVACY.md).
 Compare the file hash with `SHA256SUMS.txt` in the release and check the digital signature in the file properties.
 
 ## Revocation and incidents
-If a signed binary is found to be harmful or a key/account is compromised, we will stop signing, report it to SignPath Foundation and publish a notice in the repository. Please report problems through [GitHub Issues](https://github.com/LimaEdu-7x/eavely/issues) or GitHub's private vulnerability reporting.
+If a signed binary is found to be harmful or a key/account is compromised, we will stop signing, report it to SignPath Foundation and publish a notice in the repository. Please report problems through [GitHub Issues](https://github.com/LimaEdu-7x/eavely/issues), GitHub's private vulnerability reporting, or by e-mail to contact.eavely@gmail.com.
