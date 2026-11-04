@@ -78,7 +78,7 @@ cd eavely\app
 cargo build --release
 ```
 
-For the release exe (no local paths inside the binary): `powershell -File scripts/build-release.ps1`. Want to test in-development builds or contribute? See the [`dev` branch](https://github.com/LimaEdu-7x/eavely/tree/dev).
+For the release exe (no local paths inside the binary): `powershell -File scripts/build-release.ps1`. **Do not export `RUSTFLAGS` manually:** an environment `RUSTFLAGS` overrides `+crt-static` from `app/.cargo/config.toml` (the exe would again need the VC++ Redistributable); use the script. Want to test in-development builds or contribute? See the [`dev` branch](https://github.com/LimaEdu-7x/eavely/tree/dev).
 
 ## Code signing policy
 

@@ -47,7 +47,7 @@ cargo build --release     # exe normal, igual ao que vai para o usuário
 # resultado: app\target\release\eavely.exe
 ```
 
-Para o exe que vai para a Release (sem caminhos da sua máquina dentro do binário), use `powershell -File scripts/build-release.ps1`.
+Para o exe que vai para a Release (sem caminhos da sua máquina dentro do binário), use `powershell -File scripts/build-release.ps1`. **Não exporte `RUSTFLAGS` manualmente:** uma variável de ambiente `RUSTFLAGS` anula o `+crt-static` de `app/.cargo/config.toml` (o exe voltaria a exigir o VC++ Redistributable); use o script.
 
 Com as ferramentas internas de teste (captura de telas, log de quadros, mídia falsa):
 
