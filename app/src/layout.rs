@@ -17,11 +17,38 @@ m! {
     open_r = 28.0;
     mini_w = 56.0; mini_h = 5.0; mini_r = 2.5; mini_flare = 4.0; // MINI NOTCH (janela maximizada)
 }
+/// tamanho de fonte (px logicos) no preset atual: escala com k, mas nunca abaixo do piso legivel (9 px). Preset pequeno ganha tipografia propria sobre este piso.
+#[inline] pub fn font(base: f32) -> f32 { (base * k()).max(FONT_FLOOR.min(base)) }
+pub const FONT_FLOOR: f32 = 9.0;
 #[cfg(test)]
 mod tests {
     use super::*;
+    static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(()); // k e global: os testes que o mudam rodam um de cada vez
+    fn lock() -> std::sync::MutexGuard<'static, ()> { SERIAL.lock().unwrap_or_else(|e| e.into_inner()) }
+    /// presets de tamanho previstos: a geometria precisa continuar coerente em todos (ordem das formas, janela comporta a maior forma + flares + folga do overshoot)
+    #[test] fn invariantes_da_geometria_em_todos_os_presets() {
+        let _g = lock();
+        for k10 in [6, 7, 8, 9, 10, 11, 12, 13, 15] {
+            set_k(k10 as f32 / 10.0);
+            assert!(mini_h() < compact_h() && compact_h() < over_h() && over_h() < open_h(), "ordem das alturas em k={}", k());
+            assert!(mini_w() < over_w() && over_w() < open_w() && open_w() < split_w(), "ordem das larguras em k={}", k());
+            assert!(compact_flare() <= open_flare() && mini_flare() <= compact_flare(), "flares em k={}", k());
+            assert!(win_w() - 4.0 - 2.0 * open_flare() >= split_w(), "janela comporta as letras ao lado em k={}", k());
+            assert!(win_h() >= open_h() + dock_extra() + 2.0, "janela comporta o dock em k={}", k());
+            assert!(mini_r() <= mini_h() && compact_r() <= compact_h(), "raios nao passam da altura em k={}", k());
+        }
+        set_k(1.0);
+    }
+    #[test] fn fonte_respeita_o_piso_e_no_padrao_e_identidade() {
+        let _g = lock(); set_k(1.0);
+        assert_eq!([10.0, 11.0, 12.0, 14.0, 16.0].map(font), [10.0, 11.0, 12.0, 14.0, 16.0]);
+        set_k(0.6); assert_eq!(font(10.0), 9.0); assert_eq!(font(16.0), 9.6); assert_eq!(font(8.0), 8.0); // base ja abaixo do piso nao sobe
+        set_k(1.5); assert_eq!(font(10.0), 15.0); set_k(1.0);
+    }
     #[test] fn padrao_mantem_os_valores_de_sempre_e_o_fator_escala_tudo() {
+        let _g = lock(); set_k(1.0);
         assert_eq!((win_w(), win_h(), open_w(), open_h(), open_flare(), mini_w(), mini_h()), (600.0, 176.0, 420.0, 140.0, 18.0, 56.0, 5.0));
+        assert_eq!((split_w(), dock_extra(), compact_h(), compact_r(), compact_flare(), over_w(), over_h(), over_r(), open_r(), mini_r(), mini_flare()), (520.0, 32.0, 30.0, 14.0, 6.0, 280.0, 48.0, 22.0, 28.0, 2.5, 4.0));
         set_k(0.8); assert!((win_w() - 480.0).abs() < 1e-3 && (mini_h() - 4.0).abs() < 1e-3); set_k(1.0); assert_eq!(open_h(), 140.0);
         set_k(9.0); assert_eq!(k(), 1.5); set_k(1.0);
     }
