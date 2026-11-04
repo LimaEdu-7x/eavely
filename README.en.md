@@ -80,6 +80,15 @@ cargo build --release
 
 (`app/` lives on the development branch until the native app is merged into `main`.)
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org) (application in progress: **binaries are currently published unsigned**, and each Release's notes say so).
+
+- **What is signed:** only the official `Eavely.exe` and `Eavely-Setup.exe` published in GitHub Releases, built by the GitHub Actions workflow in this repository from the public source code.
+- **Roles:** author, reviewer and approver: [@LimaEdu-7x](https://github.com/LimaEdu-7x). Every signing request is approved manually.
+- **Privacy:** no account, telemetry or auto-update. The only network access is the optional lyrics lookup at LRCLIB (title, artist, album, duration), which you can turn off in Settings. See the [Privacy policy](docs/PRIVACY.md) and the [code signing policy](docs/CODE-SIGNING-POLICY.md).
+- **Reporting abuse or a problem:** [Issues](https://github.com/LimaEdu-7x/eavely/issues) or GitHub's private vulnerability reporting.
+
 ## License and credits
 
 MIT ([LICENSE](LICENSE)). Icons: [Lucide](https://lucide.dev) (ISC), see [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md). Lyrics: [LRCLIB](https://lrclib.net); lyrics belong to their authors.

@@ -30,9 +30,17 @@ BrandingText "Eavely ${VERSION}"
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_RUN "$INSTDIR\Eavely.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Iniciar o Eavely agora"
+!define MUI_FINISHPAGE_LINK "Politica de privacidade e de assinatura de codigo"
+!define MUI_FINISHPAGE_LINK_LOCATION "https://github.com/LimaEdu-7x/eavely/blob/main/docs/PRIVACY.md"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "..\LICENSE"
+!define MUI_PAGE_HEADER_TEXT "Privacidade"
+!define MUI_PAGE_HEADER_SUBTEXT "Como o Eavely trata seus dados"
+!define MUI_LICENSEPAGE_TEXT_TOP "Leia o resumo abaixo (use a barra de rolagem)."
+!define MUI_LICENSEPAGE_TEXT_BOTTOM "A busca de letras e opcional e pode ser desligada nas Configuracoes depois da instalacao."
+!define MUI_LICENSEPAGE_BUTTON "&Continuar"
+!insertmacro MUI_PAGE_LICENSE "privacy.pt-BR.txt"
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES

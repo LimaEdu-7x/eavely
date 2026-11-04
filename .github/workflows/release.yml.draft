@@ -33,6 +33,15 @@ jobs:
       - name: Compilar
         run: powershell -File scripts/build-release.ps1  # remapeia caminhos (cargo, repo) para nao vazarem no exe
 
+      # SignPath exige: runner hospedado pelo GitHub (windows-latest) e nome/versao do produto fixos em todo build
+      - name: Conferir metadados do exe (ProductName e versao = Cargo.toml)
+        shell: pwsh
+        run: |
+          $vi = (Get-Item app/target/release/eavely.exe).VersionInfo
+          $want = "${{ steps.ver.outputs.v }}"
+          if ($vi.ProductName -ne 'Eavely') { throw "ProductName inesperado: $($vi.ProductName)" }
+          if ($vi.ProductVersion -ne $want) { throw "Versao do exe ($($vi.ProductVersion)) difere do Cargo.toml ($want)" }
+
       - name: Reunir exe sem assinatura
         shell: bash
         run: |

@@ -31,7 +31,7 @@ pub struct Settings {
     pub minimal_island: bool,      // ilha minima: sem a pilula ao vivo (musica/timer)
     pub open_mode: String,         // "hover" | "click"
     pub anim_speed: String,        // "normal" | "fast" (duracoes x1 / x0,6)
-    pub cover_spin: bool, pub cover_gradient: bool, pub lyric_bar: bool,
+    pub cover_spin: bool, pub cover_gradient: bool, pub lyric_bar: bool, // 'Mostrar letras no notch recolhido': barra de letras e linha do ao vivo (a ilha aberta nao muda)
     pub shelf_start_empty: bool, pub shelf_thumbs: bool, pub hide_fullscreen: bool,
     pub tasks_done_last: bool, pub tasks_overdue_red: bool,
     /// compacto de PC (so com o compacto visivel): estado do momento, CPU/memoria/GPU/rede (rotacionam em `pc_slots` espacos a cada `pc_rotate` s)
