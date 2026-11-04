@@ -95,7 +95,7 @@ Abre e fecha a ilha por código, grava um log por quadro e confere as curvas (ov
 
 | Arquivo | Onde | O que tem |
 |---|---|---|
-| `state.log` | `%APPDATA%\Eavely\state.log` (e `state.log.1`, o anterior) | **Sempre ligado.** Versão e PID de cada início, estado da ilha (liga/desliga/esconde), configurações de animação do Windows e linhas `CRASH:`. Gira em 200 KB. Sem dados pessoais. |
+| `state.log` | `%APPDATA%\Eavely\state.log` (e `state.log.1`, o anterior) | **Sempre ligado.** Versão e PID de cada início, **motivo de cada saída** (Sair pela bandeja, fechamento do instalador, fim de sessão do Windows, queda) e aviso quando o encerramento anterior ficou sem registro (processo morto de fora), estado da ilha (liga/desliga/esconde), configurações de animação do Windows e linhas `CRASH:`. Gira em 200 KB. Sem dados pessoais. |
 | `eavely-spike.log` | `%TEMP%\eavely-spike.log` | Diagnóstico detalhado (só com `EAVELY_LOG`, ou após panic/violação de acesso). |
 
 Se o app **travar de forma inesperada**, ele se reinicia sozinho (com `--restart`), no máximo 3 vezes em 2 minutos, e grava `CRASH:` no `state.log`. Abrir a pasta: `explorer "$env:APPDATA\Eavely"`.

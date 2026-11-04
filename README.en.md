@@ -40,7 +40,7 @@
 
 ## Install
 
-1. Download from **[Releases](https://github.com/LimaEdu-7x/eavely/releases/latest)**: **`Eavely-Setup.exe`** (NSIS installer, per-user) or portable **`Eavely.exe`**. `Eavely.exe` is ~0.8 MB (821,760 bytes), `Eavely-Setup.exe` ~417 KB (427,041 bytes).
+1. Download from **[Releases](https://github.com/LimaEdu-7x/eavely/releases/latest)**: **`Eavely-Setup.exe`** (NSIS installer, per-user) or portable **`Eavely.exe`**. `Eavely.exe` is ~0.8 MB (827,904 bytes), `Eavely-Setup.exe` ~419 KB (429,407 bytes).
 2. Run it. A tray icon gives you Settings and Quit.
 
 **Unsigned binary warning.** Eavely has no code signing yet, so Windows may warn you:
