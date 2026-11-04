@@ -35,7 +35,7 @@
 | 🖥️ **Compacto de PC** | Hora e, rotativamente, CPU, RAM, GPU e rede, sem abrir nada. Em PC sem bateria mostra o ícone de rede (Wi-Fi com barras de sinal ou cabeada). |
 | 🔘 **Mini notch** | Com uma janela maximizada, a ilha vira uma linha fina que só reage quando o cursor encosta nela. |
 | 👀 **Olhos / pet** | A ilha ociosa pisca e dorme. Detalhe pequeno, mas dá vida. |
-| 💤 **~0% de CPU parado** | Em repouso o app não desenha nada: 0,000 s de CPU em 30 s de teste. |
+| 💤 **~0% de CPU parado** | Em repouso o app não desenha nada: 0,000 s de CPU em 30 s de teste (medido na v0.1.9). |
 | ⚡ **Desempenho ajustável** | Presets Máxima fluidez, Equilibrado e Economia, taxa de quadros, animações e efeitos. |
 | 🎮 **Esconde em tela cheia** | Jogo ou vídeo em tela cheia: a ilha some sozinha. |
 | 🧱 **100% nativo, sem WebView** | Rust + Direct2D/DirectComposition/DirectWrite. Sem Electron, sem navegador embutido. |
