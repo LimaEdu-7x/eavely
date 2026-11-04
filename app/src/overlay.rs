@@ -87,6 +87,7 @@ pub fn has_internal_panel() -> bool {
 const G_BRIGHT: windows::core::GUID = windows::core::GUID::from_u128(0xaded5e82_b909_4619_9949_f5d71dac0bcb); // GUID_DEVICE_POWER_POLICY_VIDEO_BRIGHTNESS
 const G_ACDC: windows::core::GUID = windows::core::GUID::from_u128(0x5d3e9a59_e9d5_4b00_a6bd_ff34ff516548); // GUID_ACDC_POWER_SOURCE
 /// Pede ao Windows os eventos de energia (fonte AC/DC e brilho) na janela da ilha: evento puro, nada de polling.
+/// As alcas (HPOWERNOTIFY) nao sao guardadas de proposito: o app sai por TerminateProcess (fast_exit) e o Windows libera o registro com o processo.
 pub fn register_power(h: HWND) { unsafe {
     use windows::Win32::UI::WindowsAndMessaging::DEVICE_NOTIFY_WINDOW_HANDLE;
     for (g, n) in [(G_ACDC, "fonte AC/DC"), (G_BRIGHT, "brilho")] {

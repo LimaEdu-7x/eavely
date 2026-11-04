@@ -24,7 +24,8 @@ fn wifi_quality() -> Option<u32> { unsafe {
             if info.isState != wlan_interface_state_connected { continue; }
             let (mut sz, mut data) = (0u32, std::ptr::null_mut::<core::ffi::c_void>());
             if WlanQueryInterface(h, &info.InterfaceGuid, wlan_intf_opcode_current_connection, None, &mut sz, &mut data, None) == 0 && !data.is_null() {
-                best = Some((*(data as *const WLAN_CONNECTION_ATTRIBUTES)).wlanAssociationAttributes.wlanSignalQuality);
+                let q = (*(data as *const WLAN_CONNECTION_ATTRIBUTES)).wlanAssociationAttributes.wlanSignalQuality;
+                best = Some(best.map_or(q, |b: u32| b.max(q))); // varios adaptadores conectados: vale o de MELHOR sinal
                 WlanFreeMemory(data);
             }
         }
