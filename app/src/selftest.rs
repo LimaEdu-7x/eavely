@@ -18,21 +18,27 @@ pub fn rec(t: f32, dt: f32, w: f32, h: f32, page_p: f32) { let s = SEG.lock().un
 
 #[derive(Clone, Copy, PartialEq, Debug)] pub enum Kind { Open, Close, Grow, Tab }
 #[derive(Debug, Default, Clone)]
-pub struct Metrics { pub n: usize, pub dur_ms: f32, pub w0: f32, pub w1: f32, pub peak_w: f32, pub min_w: f32, pub h0: f32, pub h1: f32, pub peak_h: f32, pub min_h: f32, pub max_step_w: f32, pub max_dt: f32 }
+pub struct Metrics { pub n: usize, pub dur_ms: f32, pub w0: f32, pub w1: f32, pub peak_w: f32, pub min_w: f32, pub h0: f32, pub h1: f32, pub peak_h: f32, pub min_h: f32, pub max_step_w: f32, pub max_dt: f32, pub med_dt: f32 }
 pub fn metrics(f: &[(f32, f32, f32, f32)]) -> Metrics { // (t, dt, w, h)
     let mut m = Metrics { n: f.len(), ..Default::default() }; if f.is_empty() { return m; }
     m.dur_ms = f[f.len() - 1].0 - f[0].0; m.w0 = f[0].2; m.w1 = f[f.len() - 1].2; m.h0 = f[0].3; m.h1 = f[f.len() - 1].3;
     m.peak_w = f.iter().map(|x| x.2).fold(f32::MIN, f32::max); m.min_w = f.iter().map(|x| x.2).fold(f32::MAX, f32::min);
     m.peak_h = f.iter().map(|x| x.3).fold(f32::MIN, f32::max); m.min_h = f.iter().map(|x| x.3).fold(f32::MAX, f32::min);
     m.max_step_w = f.windows(2).map(|p| (p[1].2 - p[0].2).abs()).fold(0.0, f32::max); m.max_dt = f.iter().skip(1).map(|x| x.1).fold(0.0, f32::max);
+    let mut d: Vec<f32> = f.iter().skip(1).map(|x| x.1).collect(); d.sort_by(|a, b| a.total_cmp(b)); m.med_dt = d.get(d.len() / 2).copied().unwrap_or(0.0);
     m
 }
+/// minimo de quadros: depende do ritmo MEDIDO do monitor (mediana do dt), nao de um numero fixo: a 31 fps (VM) uma animacao de 188 ms tem ~6 quadros e esta certa
+/// (o segmento inclui o tempo parado, entao conta-se pela duracao NOMINAL ativa da animacao: aba ~190 ms, demais >= 400 ms)
+pub fn min_frames(k: Kind, m: &Metrics) -> usize { if m.med_dt > 1.0 { 4.max((0.5 * if k == Kind::Tab { 188.0 } else { 400.0 } / m.med_dt) as usize) } else { 8 } }
+/// fracao maxima do curso por quadro: 30% a 60 Hz; sobe com o intervalo medido (a 31 fps cada quadro anda mais), nunca passa de 60%
+pub fn max_step_frac(m: &Metrics) -> f32 { (0.30 * (m.med_dt / 16.0).max(1.0)).min(0.60) }
 /// regras de regressao (abrir passa do alvo, fechar passa abaixo do alvo, nunca em um quadro so)
 pub fn verdict(k: Kind, m: &Metrics) -> Result<(), String> {
     let travel = (m.w1 - m.w0).abs().max(1.0);
-    if m.n < 8 { return Err(format!("so {} quadros (animacao instantanea?)", m.n)); }
+    if m.n < min_frames(k, m) { return Err(format!("so {} quadros (minimo {} no ritmo medido de {:.0} ms/quadro; animacao instantanea?)", m.n, min_frames(k, m), m.med_dt)); }
     if m.dur_ms < if k == Kind::Tab { 120.0 } else { 200.0 } { return Err(format!("duracao {:.0} ms < 200 ms", m.dur_ms)); }
-    if m.max_step_w > 0.30 * travel { return Err(format!("salto de {:.0} px em um quadro (curso {:.0})", m.max_step_w, travel)); }
+    if m.max_step_w > max_step_frac(m) * travel { return Err(format!("salto de {:.0} px em um quadro (curso {:.0})", m.max_step_w, travel)); }
     match k {
         Kind::Open => if m.peak_w < m.w1 + 0.03 * travel { return Err(format!("sem overshoot de largura (pico {:.1}, alvo {:.1})", m.peak_w, m.w1)); },
         Kind::Close => if m.min_w > m.w1 - 0.03 * travel { return Err(format!("sem undershoot de largura (min {:.1}, alvo {:.1})", m.min_w, m.w1)); },
@@ -94,6 +100,14 @@ mod tests {
     #[test] fn molas_reais_passam_na_regressao() {
         let o = metrics(&run(150.0, 420.0, SPRING_OPEN)); assert!(verdict(Kind::Open, &o).is_ok(), "{o:?}");
         let c = metrics(&run(420.0, 150.0, SPRING_CLOSE)); assert!(verdict(Kind::Close, &c).is_ok(), "{c:?}");
+    }
+    #[test] fn aba_a_31_fps_com_7_quadros_passa_e_instantanea_reprova() {
+        let w = [2.3f32, 28.0, 55.0, 80.0, 96.0, 101.0, 100.0];
+        let tab: Vec<_> = w.iter().enumerate().map(|(i, v)| (i as f32 * 32.0, 32.0, *v, 0.0)).collect();
+        assert_eq!(verdict(Kind::Tab, &metrics(&tab)), Ok(()), "7 quadros a 31 fps e uma troca de aba valida");
+        let inst = [(0.0, 32.0, 2.3f32, 0.0), (32.0, 32.0, 100.0, 0.0), (64.0, 32.0, 100.0, 0.0), (96.0, 32.0, 100.0, 0.0), (128.0, 32.0, 100.0, 0.0), (160.0, 32.0, 100.0, 0.0), (192.0, 32.0, 100.0, 0.0)];
+        assert!(verdict(Kind::Tab, &metrics(&inst)).is_err(), "salto de um quadro continua reprovando");
+        let poucos = [(0.0, 16.0, 2.3f32, 0.0), (190.0, 190.0, 100.0, 0.0)]; assert!(verdict(Kind::Tab, &metrics(&poucos)).is_err());
     }
     #[test] fn animacao_instantanea_ou_linear_reprova() {
         let inst = metrics(&[(0.0, 13.0, 150.0, 30.0), (13.0, 13.0, 420.0, 140.0)]); assert!(verdict(Kind::Open, &inst).is_err());

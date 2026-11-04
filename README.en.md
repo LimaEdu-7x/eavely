@@ -10,7 +10,7 @@
 
 ![MIT license](https://img.shields.io/badge/license-MIT-green)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white)
-![Size](https://img.shields.io/badge/size-~0.96%20MB-blue)
+![Size](https://img.shields.io/badge/size-~1.1%20MB-blue)
 
 [Português](README.md)
 
@@ -40,7 +40,7 @@
 
 ## Install
 
-1. Download from **[Releases](https://github.com/LimaEdu-7x/eavely/releases/latest)**: **`Eavely-Setup.exe`** (NSIS installer, per-user) or portable **`Eavely.exe`**. `Eavely.exe` is ~0.96 MB (980,480 bytes), `Eavely-Setup.exe` ~631 KB (646,240 bytes).
+1. Download from **[Releases](https://github.com/LimaEdu-7x/eavely/releases/latest)**: **`Eavely-Setup.exe`** (NSIS installer, per-user) or portable **`Eavely.exe`**. `Eavely.exe` is ~1.1 MB (1,098,752 bytes), `Eavely-Setup.exe` ~680 KB (696,580 bytes).
 2. Run it. A tray icon gives you Settings and Quit.
 
 **Unsigned binary warning.** Eavely has no code signing yet, so Windows may warn you:

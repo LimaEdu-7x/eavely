@@ -10,7 +10,7 @@
 
 ![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-green)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white)
-![Tamanho](https://img.shields.io/badge/tamanho-~0%2C96%20MB-blue)
+![Tamanho](https://img.shields.io/badge/tamanho-~1%2C1%20MB-blue)
 ![Sem WebView](https://img.shields.io/badge/100%25%20nativo-Rust%20%2B%20Direct2D-orange)
 
 [English](README.en.md) · [Recursos](#-recursos) · [Instalação](#-instalação) · [Atalhos](#atalhos) · [Privacidade](#-privacidade) · [Contato](#-contato-e-suporte) · [Compilar](#compilar-do-código)
@@ -72,7 +72,7 @@
 ## 📦 Instalação
 
 1. Baixe o arquivo mais recente em **[Releases](https://github.com/LimaEdu-7x/eavely/releases/latest)**.
-2. Escolha um formato: **`Eavely-Setup.exe`** (instalador NSIS, instala só para o seu usuário) ou **`Eavely.exe`** (portátil, basta dar dois cliques). `Eavely.exe` tem ~0,96 MB (980.480 bytes) e `Eavely-Setup.exe` ~631 KB (646.240 bytes) na v0.1.11. O instalador mostra um resumo de privacidade antes de instalar.
+2. Escolha um formato: **`Eavely-Setup.exe`** (instalador NSIS, instala só para o seu usuário) ou **`Eavely.exe`** (portátil, basta dar dois cliques). `Eavely.exe` tem ~1,1 MB (1.098.752 bytes) e `Eavely-Setup.exe` ~680 KB (696.580 bytes) na v0.1.12. O instalador mostra um resumo de privacidade antes de instalar.
 3. O ícone aparece na bandeja. Pelo menu dele você abre as Configurações e sai do app.
 
 ### ⚠️ Aviso do Windows (SmartScreen / Smart App Control)
