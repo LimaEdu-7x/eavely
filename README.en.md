@@ -80,14 +80,12 @@ cargo build --release
 
 For the release exe (no local paths inside the binary): `powershell -File scripts/build-release.ps1`. **Do not export `RUSTFLAGS` manually:** an environment `RUSTFLAGS` overrides `+crt-static` from `app/.cargo/config.toml` (the exe would again need the VC++ Redistributable); use the script. Want to test in-development builds or contribute? See the [`dev` branch](https://github.com/LimaEdu-7x/eavely/tree/dev).
 
-## Code signing policy
+## Code signing and privacy
 
-Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org) (application in progress: **binaries are currently published unsigned**, and each Release's notes say so).
+**The binaries are not code-signed yet** (unsigned builds; code signing is under evaluation), so Windows may warn or block them. To verify what you downloaded, compare the **SHA256** hash with the `SHA256SUMS.txt` of each Release, or build from source (see above). Details in [docs/CODE-SIGNING-POLICY.md](docs/CODE-SIGNING-POLICY.md).
 
-- **What is signed:** only the official `Eavely.exe` and `Eavely-Setup.exe` published in GitHub Releases, built by the GitHub Actions workflow in this repository from the public source code.
-- **Roles:** author, reviewer and approver: [@LimaEdu-7x](https://github.com/LimaEdu-7x). Every signing request is approved manually.
-- **Privacy:** no account, telemetry or auto-update. The only network access is the optional lyrics lookup at LRCLIB (title, artist, album, duration), which you can turn off in Settings. See the [Privacy policy](docs/PRIVACY.md) and the [code signing policy](docs/CODE-SIGNING-POLICY.md).
-- **Reporting abuse or a problem:** [Issues](https://github.com/LimaEdu-7x/eavely/issues) or GitHub's private vulnerability reporting.
+- **Privacy:** no account, telemetry or auto-update. The only network access is the optional lyrics lookup at LRCLIB (title, artist, album, duration), which you can turn off in Settings. See [docs/PRIVACY.md](docs/PRIVACY.md).
+- **Reporting abuse or a problem:** [Issues](https://github.com/LimaEdu-7x/eavely/issues), GitHub's private vulnerability reporting, or [contact.eavely@gmail.com](mailto:contact.eavely@gmail.com).
 
 ## Contact and support
 

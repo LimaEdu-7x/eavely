@@ -1,5 +1,5 @@
 # RASCUNHO (nao roda: extensao .draft). Para ativar: renomear para release.yml depois que o repositorio for publico
-# e o projeto for aprovado no SignPath Foundation. Sem os segredos/variaveis do SignPath, o fluxo gera os binarios SEM assinatura.
+# e houver um servico de assinatura aprovado (ex.: SignPath Foundation, que recusou o pedido por ora; pode-se reaplicar). Sem os segredos/variaveis do servico, o fluxo gera os binarios SEM assinatura.
 #
 # Configurar no GitHub (Settings > Secrets and variables > Actions):
 #   secret  SIGNPATH_API_TOKEN
