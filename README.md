@@ -130,7 +130,7 @@ cargo build --release
 # resultado: app\target\release\eavely.exe
 ```
 
-Para o exe de release (sem caminhos da sua máquina dentro do binário): `powershell -File scripts/build-release.ps1`. Quer testar versões em desenvolvimento ou contribuir? Veja a [branch `dev`](https://github.com/LimaEdu-7x/eavely/tree/dev).
+Para o exe de release (sem caminhos da sua máquina dentro do binário): `powershell -File scripts/build-release.ps1`. **Não exporte `RUSTFLAGS` manualmente:** uma variável de ambiente `RUSTFLAGS` anula o `+crt-static` de `app/.cargo/config.toml` (o exe voltaria a exigir o VC++ Redistributable); use o script. Quer testar versões em desenvolvimento ou contribuir? Veja a [branch `dev`](https://github.com/LimaEdu-7x/eavely/tree/dev).
 
 ## 🔏 Assinatura de código e privacidade
 
