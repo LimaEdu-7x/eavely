@@ -106,6 +106,9 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
         73 => { crate::settings_ui::debug_page(8); "73-config-desempenho" }
         74 => { crate::media::fake_again(); crate::pages::debug_fake_lines(); let _ = crate::media::media_seek(40000); open(a, 0, true, false); "74-letras-rolagem-inicio" }
         75 => { let _ = crate::media::media_seek(52000); "75-letras-rolagem" }
+        76 => { crate::media::fake_again(); crate::shelf::clear_native(); let d = std::env::temp_dir().join("eavely-shots"); let v: Vec<_> = ["relatorio-final.pdf", "foto-praia.png", "notas.txt", "contrato-assinado-2026.pdf"].iter().map(|n| d.join(n)).collect(); crate::shelf::add_native(v); a.p.shelf = crate::shelf::list_native(); open(a, 0, false, false); a.p.slots_demo = true; "76-slots-shelf-e-player" }
+        77 => { crate::shelf::clear_native(); a.p.shelf = Vec::new(); crate::media::fake_none(); "77-slots-vazios" }
+        78 => { a.p.slots_demo = false; crate::media::fake_again(); "skip" }
         70 => { crate::settings::update(|s| { s.pc_cpu = true; s.pc_ram = true; s.pc_gpu = true; s.pc_state = true; }); "skip" }
         _ => return None,
     })

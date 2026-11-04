@@ -53,6 +53,7 @@ pub struct PageState {
     pub spin: Option<Spin>, pub shown_title: String, pub shown_sub: String, pub lyr_user: Option<(Instant, f32)>, pub lyr_key_bar: String, pub lyr_prev_soft: bool, pub lyr_cur_soft: bool, pub lyr_key: String, pub lyr_idx: i64, pub lyr_prev: String, pub lyr_t: Option<Instant>, pub scroll: Option<Tw>,
     pub eq_t0: Option<Instant>, pub batt: (u8, bool), pub batt_t: Option<Instant>, pub last_wheel: Option<Instant>,
     pub tasks: Vec<crate::tasks::Task>, pub task_gen: u64, pub task_input: Option<String>, pub task_edit_id: Option<u64>, pub eye_move: Option<Instant>, pub blink_t: Option<Instant>, pub eye_x: Option<Tw>, pub eye_y: Option<Tw>, pub vol_muted: bool, pub pc_t0: Option<Instant>, pub pc_g: usize, pub pc_prev: usize, pub pc_chg: Option<Instant>, pub shelf_del: Vec<(String, Instant, bool)>, pub dots_at: Option<(Instant, usize)>, pub empty_at: Option<Instant>, pub shelf_n: usize, pub items_at: Option<Instant>, pub drag_end: Option<Instant>, pub shelf_new: Vec<(String, Instant)>, pub shelf_ids: Vec<String>, pub shelf_sx: f32, pub shelf_hover: Option<u32>, pub drag_t: Option<Instant>, pub task_edit_mode: bool, pub task_focus: Option<u64>, pub task_cal: bool, pub task_date: Option<(i32, u32, u32)>, pub task_month: (i32, u32), pub task_scroll: usize,
+    pub slots_demo: bool, // devtools: pagina Musica mostra o mascote (placeholder) + 2 slots (Shelf e Player em modo mini)
     pub ov_cur: &'static str, pub ov_prev: &'static str, pub ov_v: Option<Tw>, pub ov_ic: Option<Tw>, // overlay: icone atual/anterior (crossfade) e valor animado
     pub vol: f32, pub vol_t: Option<Instant>, pub vol_drag: bool, pub select: bool, pub sel: Vec<usize>, pub edit: Option<String>, pub shelf: Vec<crate::shelf::ShelfItem>, pub shelf_gen: u64, pub lyr_cur: String, pub drag_from: Option<(u32, f32, f32)>,
 }
@@ -403,10 +404,51 @@ fn draw_open(a: &mut App, now: Instant, w: f32, h: f32, t: f32, hits: &mut Vec<(
     chrome(a, now, w, h, dx, split_f, t, hits);
 }
 
+// ---- slots (v0.2.0): Shelf e Player reutilizaveis em retangulos pequenos ----
+/// Retangulo (unidades de projeto, dentro da ilha) onde um widget e desenhado. Os hits saem JA deslocados por `off` (como nas paginas cheias).
+#[derive(Clone, Copy)] pub struct Slot { pub r: R }
+/// O que ocupa um slot. O estado (lista do Shelf, midia, seek, hover) e o MESMO das paginas cheias: nada e duplicado.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)] pub enum Widget { #[default] Empty, Shelf, Player }
+pub fn draw_slot(a: &mut App, w: Widget, s: Slot, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
+    match w { Widget::Shelf => crate::pages2::shelf_mini(a, s, hits, off, now), Widget::Player => player_mini(a, s, hits, off, now), Widget::Empty => {} }
+}
+/// Player sem letras nem volume: capa, titulo/artista, anterior/tocar/proximo e barra de progresso fina (mesmos Act/estado da pagina Musica).
+pub fn player_mini(a: &mut App, s: Slot, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
+    let (x0, y0, w, h) = (s.r.x, s.r.y, s.r.w, s.r.h);
+    a.gfx.rrect(x0, y0, w, h, 12.0, SURFACE);
+    let v = media::view(); let empty = v.title.is_empty() && v.status == "stopped";
+    let cs = (h - 16.0).min(40.0); draw_cover(a, now, x0 + 8.0, y0 + 8.0, cs, 8.0, false);
+    let tx = x0 + 16.0 + cs; let tw = w - (tx - x0) - 8.0;
+    if empty { a.gfx.text("Nada tocando", Fmt::BodyStrong, tx, y0 + 10.0, tw, 18.0, TEXT2, false); return; }
+    a.gfx.text(&v.title, Fmt::BodyStrong, tx, y0 + 6.0, tw, 18.0, TEXT, false);
+    a.gfx.text(&v.artist, Fmt::Small, tx, y0 + 22.0, tw, 14.0, TEXT2, false);
+    // controles pequenos (22 px): anterior, tocar/pausar (pilula branca), proximo
+    let by = y0 + h - 30.0;
+    let (p0, pp, n0) = (r(tx, by, 22.0, 22.0), r(tx + 26.0, by, 30.0, 22.0), r(tx + 60.0, by, 22.0, 22.0));
+    button_bg(a, hits, p0, Act::Prev, off, 11.0); a.gfx.icon("skip-back", p0.x + 5.0, p0.y + 5.0, 12.0, TEXT, true);
+    let pc = if a.pressed == Some(Act::Play) { rgba(0xCFCFCF, 1.0) } else if hov(a, Act::Play) { rgba(0xE6E6E6, 1.0) } else { rgba(0xFFFFFF, 1.0) };
+    a.gfx.rrect(pp.x, pp.y, pp.w, pp.h, 11.0, pc); a.gfx.icon(if v.status == "playing" { "pause" } else { "play" }, pp.x + 9.0, pp.y + 4.0, 14.0, (0.0, 0.0, 0.0, 1.0), true);
+    hits.push((R { x: pp.x + off, ..pp }, Act::Play));
+    button_bg(a, hits, n0, Act::Next, off, 11.0); a.gfx.icon("skip-forward", n0.x + 5.0, n0.y + 5.0, 12.0, TEXT, true);
+    // progresso (seek otimista, igual a Musica)
+    let pos = ui_pos(a, &v, now); let frac = (pos as f32 / v.dur_ms.max(1) as f32).clamp(0.0, 1.0);
+    let big = hov(a, Act::Seek(R2(720, 2760))) || a.seek_drag; let bh = if big { 5.0 } else { 3.0 };
+    let (sx, sw, sy) = (x0 + 8.0, w - 16.0, y0 + h - 5.0);
+    a.gfx.rrect(sx, sy - bh / 2.0, sw, bh, 1.5, SURFACE_H); a.gfx.rrect(sx, sy - bh / 2.0, (sw * frac).max(0.0), bh, 1.5, TEXT);
+    hits.push((r(sx + off, sy - 7.0, sw, 14.0), Act::Seek(R2(720, 2760))));
+}
+/// DEMO de slots (devtools): mascote (placeholder) a esquerda; Shelf em cima e Player embaixo, a direita.
+fn slots_demo(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
+    a.gfx.rrect(30.0, 12.0, 136.0, 116.0, 16.0, SURFACE); a.gfx.text("Mascote", Fmt::Body, 30.0, 62.0, 136.0, 16.0, TEXT3, false);
+    draw_slot(a, Widget::Shelf, Slot { r: r(176.0, 12.0, 220.0, 46.0) }, hits, off, now);
+    draw_slot(a, Widget::Player, Slot { r: r(176.0, 62.0, 220.0, 66.0) }, hits, off, now);
+}
+
 fn page_layer(a: &mut App, now: Instant, page: usize, dx: f32, alpha: f32, off: f32, split_f: f32, t: f32, w: f32, hits: &mut Vec<(R, Act)>) {
     if alpha < 0.01 { return; }
     a.gfx.layer(alpha);
     match page {
+        0 if a.p.slots_demo => { a.gfx.set_t(origin(a, w) + (dx + off) * crate::layout::k(), 0.0, crate::layout::k()); slots_demo(a, hits, dx + off, now); }
         0 => {
             if split_f < 0.99 { a.gfx.layer(1.0 - split_f); a.gfx.set_t(origin(a, w) + (dx + off) * crate::layout::k(), 0.0, crate::layout::k()); music_normal(a, now, t, hits, dx + off); a.gfx.unlayer(); }
             if split_f > 0.01 { a.gfx.layer(split_f); a.gfx.set_t(origin(a, w), 0.0, crate::layout::k()); music_split(a, now, hits); a.gfx.unlayer(); }

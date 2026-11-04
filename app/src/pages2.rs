@@ -127,6 +127,29 @@ pub fn shelf_bg(a: &mut App, now: Instant) {
     }
 }
 
+/// Shelf em slot pequeno: fila de cards (so a arte do arquivo, a MESMA do Shelf cheio via card_art); nome inteiro na legenda ao passar o mouse.
+pub fn shelf_mini(a: &mut App, s: crate::pages::Slot, hits: &mut Vec<(R, Act)>, off: f32, _now: Instant) {
+    let (x0, y0, w, h) = (s.r.x, s.r.y, s.r.w, s.r.h);
+    a.gfx.rrect(x0, y0, w, h, 12.0, SURFACE);
+    let g = shelf::GEN.load(std::sync::atomic::Ordering::Relaxed);
+    if a.p.shelf_gen != g { a.p.shelf = shelf::list_native(); a.p.shelf_gen = g; a.p.shelf_ids = a.p.shelf.iter().map(|i| i.id.clone()).collect(); }
+    let items = a.p.shelf.clone();
+    if items.is_empty() { a.gfx.icon("inbox", x0 + 14.0, y0 + h / 2.0 - 11.0, 22.0, TEXT2, false); a.gfx.text("Solte arquivos aqui", Fmt::Body, x0 + 44.0, y0 + h / 2.0 - 8.0, w - 52.0, 16.0, TEXT2, false); return; }
+    let (cw, step, ch) = (40.0f32, 46.0f32, h - 12.0); let max = (((w - 16.0) / step) as usize).max(1);
+    let mut tip: Option<String> = None;
+    for (i, it) in items.iter().take(max).enumerate() {
+        let x = x0 + 8.0 + i as f32 * step; let y = y0 + 6.0; let act = Act::ShelfOpen(i as u32); let hov = a.hover == Some(act);
+        a.gfx.rrect(x, y, cw, ch, 8.0, if hov { SURFACE_H } else { SURFACE });
+        card_art(a, it, x + cw / 2.0, y + ch / 2.0 + 6.0, 0.85);
+        hits.push((R { x: x + off, y, w: cw, h: ch }, act)); if hov { tip = Some(it.name.clone()); }
+    }
+    // sobra de largura a direita das cards: legenda (nome inteiro do card sob o mouse, ou a contagem)
+    let used = 8.0 + items.len().min(max) as f32 * step; let room = w - used - 6.0;
+    if room > 36.0 {
+        let cap = tip.unwrap_or_else(|| if items.len() > max { format!("+{}", items.len() - max) } else { format!("{}", items.len()) });
+        let c = ellip(a, &cap, Fmt::Small, room); a.gfx.text(&c, Fmt::Small, x0 + used + 2.0, y0 + h / 2.0 - 7.0, room, 14.0, TEXT3, false);
+    }
+}
 pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
     // exclusoes concluidas: remove so a REFERENCIA do Shelf (shelf.json); nunca toca nos arquivos em disco
     let slide_end = |s: &Instant| *s + std::time::Duration::from_millis((SHRINK_MS * 0.5 + SLIDE_MS) as u64);
