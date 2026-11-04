@@ -15,7 +15,8 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
     let now = Instant::now();
     let setp = |a: &mut App, p: usize| { a.page = p; a.prev_page = p; a.page_t = crate::island::Spring::new(1.0); };
     let open = |a: &mut App, p: usize, split: bool, dock: bool| {
-        a.force = Some(St::Open); a.evaluate_pub(); setp(a, p); a.split = split; a.split_t = crate::island::Tw::new(if split { 1.0 } else { 0.0 }); // evaluate primeiro: ao abrir, o split volta a fechado (comportamento real) a.dock = dock; a.dock_t = crate::island::Tw::new(if dock { 1.0 } else { 0.0 }); a.drag_over = false; a.p.edit = None; a.p.select = false; a.p.vol_t = None;
+        a.force = Some(St::Open); a.evaluate_pub(); setp(a, p); a.split = split; a.split_t = crate::island::Tw::new(if split { 1.0 } else { 0.0 }); // evaluate primeiro: ao abrir, o split volta a fechado (comportamento real)
+        a.dock = dock; a.dock_t = crate::island::Tw::new(if dock { 1.0 } else { 0.0 }); a.drag_over = false; a.p.edit = None; a.p.select = false; a.p.vol_t = None;
         a.retarget(Instant::now(), 0.0);
     };
     Some(match i {
@@ -116,6 +117,15 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
         83 => { crate::settings::update(|s| { s.slot_top = "tasks".into(); s.slot_bottom = "timer".into(); }); "83-slots-tarefas-e-timer" }
         84 => { crate::settings::update(|s| { s.slot_top = "none".into(); s.slot_bottom = "player".into(); }); "84-slot-unico-player-alto" }
         86 => { crate::settings_ui::debug_page(9); "87-config-mascote-e-inicio" }
+        87 => { crate::island::DOCK_FORCE.store(true, Relaxed); open(a, 0, false, true); "88-dock-5-abas-mascote" }
+        88 => { open(a, 1, false, true); "89-dock-5-abas-musica" }
+        89 => { crate::island::DOCK_FORCE.store(false, Relaxed); crate::settings::update(|s| s.size_preset = "small".into()); open(a, 0, false, false); "90-tamanho-pequeno-mascote" }
+        90 => { open(a, 1, false, false); "91-tamanho-pequeno-musica" }
+        91 => { open(a, 2, false, false); "92-tamanho-pequeno-arquivos" }
+        92 => { crate::settings::update(|s| s.mascot_size = "small".into()); open(a, 0, false, false); "93-pequeno-mascote-pequeno" }
+        93 => { crate::settings::update(|s| { s.size_preset = "large".into(); s.mascot_size = "auto".into(); }); open(a, 0, false, false); "94-tamanho-grande-mascote" }
+        94 => { open(a, 1, false, false); "95-tamanho-grande-musica" }
+        95 => { crate::settings::update(|s| { s.size_preset = "standard".into(); s.mascot_size = "auto".into(); }); open(a, 0, false, false); "skip" }
         85 => { crate::settings::update(|s| { s.slot_top = "shelf".into(); s.slot_bottom = "player".into(); }); "skip" }
         70 => { crate::settings::update(|s| { s.pc_cpu = true; s.pc_ram = true; s.pc_gpu = true; s.pc_state = true; }); "skip" }
         _ => return None,
@@ -125,13 +135,13 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
 pub fn step(a: &mut App) {
     let i = STEP.fetch_add(1, Relaxed);
     let dir = std::env::var("EAVELY_SHOTS").ok();
-    if i < 190 {
-        if i % 2 == 0 { let k = i / 2; match scenario(a, k) { Some(n) => { crate::log(&format!("BENCH cenario {n}")); flog_mark(n); NAME.with(|c| *c.borrow_mut() = n); } None => { STEP.store(190, Relaxed); } } a.evaluate_pub(); }
+    if i < 220 {
+        if i % 2 == 0 { let k = i / 2; match scenario(a, k) { Some(n) => { crate::log(&format!("BENCH cenario {n}")); flog_mark(n); NAME.with(|c| *c.borrow_mut() = n); } None => { STEP.store(220, Relaxed); } } a.evaluate_pub(); }
         else if let Some(d) = dir { let n = NAME.with(|c| *c.borrow()); if n == "skip" { } else if a.fs.iter().any(|f| *f) { crate::log("screenshot ignorado: ha janela em tela cheia (nao capturo outros apps)"); } else { unsafe { shot(a, &format!("{d}/{n}.bmp")); } } }
         return;
     }
     // fase de benchmark: abre/fecha repetidamente (animacao de forma + conteudo)
-    let k = i - 190;
+    let k = i - 220;
     if k == 0 { unsafe { SetTimer(Some(a.hwnd), 4, 450, None); } crate::timer::ui(|t, _| t.reset()); a.page = 1; a.prev_page = 1; a.split = false; a.dock = false; a.dock_t = crate::island::Tw::new(0.0); }
     if k < 40 {
         flog_mark(&format!("k={k} {}", ["abrir", "dock", "fechar", "ao-vivo"][(k % 4) as usize])); match k % 4 { 0 => a.force = Some(St::Open), 1 => { a.dock = true; a.dock_t.go(Instant::now(), 1.0, 200.0); a.retarget(Instant::now(), 200.0); } 2 => { a.dock = false; a.dock_t.go(Instant::now(), 0.0, 200.0); a.force = Some(St::Peek); } _ => a.force = Some(St::Live) }

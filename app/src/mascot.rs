@@ -65,7 +65,15 @@ pub struct Ctx<'a> { pub playing: bool, pub dragging: bool, pub mouse: Option<(f
 pub struct Mascot { pub target: String, from: Pose, to: Pose, t0: Instant, dur: f32, clicks: Vec<Instant>, hold_until: Instant, blink0: Option<Instant>, pub next_blink: Option<Instant>, gaze: (f32, f32), last: Instant, born: Instant }
 impl Default for Mascot { fn default() -> Self { let n = Instant::now(); let p = pose_of("neutro"); Mascot { target: "neutro".into(), from: p.clone(), to: p, t0: n, dur: 0.0, clicks: Vec::new(), hold_until: n, blink0: None, next_blink: None, gaze: (0.0, 0.0), last: n, born: n } } }
 
-fn rnd(now: Instant, salt: u32) -> f32 { let n = now.elapsed().subsec_nanos() ^ (salt.wrapping_mul(2654435761)); ((n >> 4) & 0xFFFF) as f32 / 65535.0 }
+/// aleatorio 0..1 (splitmix64 semeado pelo relogio do sistema; cada chamada avanca o estado)
+fn rnd(_now: Instant, salt: u32) -> f32 {
+    use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
+    static S: AtomicU64 = AtomicU64::new(0);
+    let mut z = S.load(Relaxed); if z == 0 { z = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0x9E37, |d| d.as_nanos() as u64) | 1; }
+    z = z.wrapping_add(0x9E3779B97F4A7C15).wrapping_add(salt as u64); S.store(z, Relaxed);
+    let mut x = z; x = (x ^ (x >> 30)).wrapping_mul(0xBF58476D1CE4E5B9); x = (x ^ (x >> 27)).wrapping_mul(0x94D049BB133111EB); x ^= x >> 31;
+    ((x >> 40) & 0xFFFF) as f32 / 65535.0
+}
 const BLINK_MS: f32 = 110.0;
 
 impl Mascot {
@@ -88,6 +96,7 @@ impl Mascot {
     }
     /// avanca o estado e devolve a pose desenhada (morph + piscar); `gaze_out` = deslocamento do olhar em unidades do rosto
     pub fn step(&mut self, c: &Ctx, now: Instant) -> (Pose, (f32, f32)) {
+        self.clicks.retain(|t| now.duration_since(*t) < Duration::from_secs(6)); // poda aqui tambem: sem cliques novos o timer de 400 ms para sozinho
         let want = self.decide(c, now);
         if want != self.target {
             let escalate = matches!(want, "irritado" | "raiva" | "furioso");

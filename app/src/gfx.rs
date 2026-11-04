@@ -23,7 +23,7 @@ pub struct Gfx {
     dcomp: IDCompositionDevice, _target: IDCompositionTarget, _visual: IDCompositionVisual,
     d2d: ID2D1Factory1, dw: IDWriteFactory, brush: ID2D1SolidColorBrush, fmts: HashMap<Fmt, IDWriteTextFormat>,
     svgs: HashMap<(&'static str, u32), ID2D1SvgDocument>, covers: HashMap<u64, ID2D1Bitmap1>, thumbs: HashMap<u64, ID2D1Bitmap1>,
-    pub size: (u32, u32), pub scale: f32, pub font: &'static str,
+    pub size: (u32, u32), pub scale: f32, pub font: &'static str, pub font_k: f32, // k do preset de tamanho: pisos de tipografia (so a ilha; a janela de Configuracoes fica em 1.0)
 }
 
 macro_rules! ic { ($n:literal) => { include_str!(concat!("../../assets/icons/", $n, ".svg")) }; }
@@ -43,6 +43,23 @@ fn icon_src(name: &str) -> &'static str {
     }
 }
 
+/// formatos de texto da ilha para o fator k: tamanho em unidades de projeto = max(base, piso/k) (tipografia propria nos presets pequenos)
+fn build_fmts(dw: &IDWriteFactory, font: &str, k: f32) -> Result<HashMap<Fmt, IDWriteTextFormat>> { unsafe {
+    use crate::layout::{design_px, FLOOR_SECOND, FLOOR_TITLE};
+    let mk = |size: f32, weight: DWRITE_FONT_WEIGHT| -> Result<IDWriteTextFormat> {
+        let f = dw.CreateTextFormat(&windows::core::HSTRING::from(font), None, weight, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, size, w!("pt-BR"))?;
+        f.SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP)?;
+        let sign = dw.CreateEllipsisTrimmingSign(&f)?;
+        f.SetTrimming(&DWRITE_TRIMMING { granularity: DWRITE_TRIMMING_GRANULARITY_CHARACTER, delimiter: 0, delimiterCount: 0 }, &sign)?;
+        Ok(f)
+    };
+    let mut fmts = HashMap::new();
+    for (f, sz, wt, floor) in [(Fmt::Title, 14.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE), (Fmt::Body, 12.0, DWRITE_FONT_WEIGHT_NORMAL, FLOOR_SECOND), (Fmt::BodyStrong, 12.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE),
+        (Fmt::Small, 11.0, DWRITE_FONT_WEIGHT_NORMAL, FLOOR_SECOND), (Fmt::Clock, 16.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE), (Fmt::ClockLive, 14.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE),
+        (Fmt::Big, 30.0, DWRITE_FONT_WEIGHT_BOLD, FLOOR_TITLE), (Fmt::Head, 18.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE), (Fmt::Row, 13.0, DWRITE_FONT_WEIGHT_NORMAL, FLOOR_SECOND), (Fmt::RowStrong, 13.0, DWRITE_FONT_WEIGHT_MEDIUM, FLOOR_SECOND),
+        (Fmt::Tiny, 11.5, DWRITE_FONT_WEIGHT_MEDIUM, FLOOR_SECOND)] { fmts.insert(f, mk(design_px(sz, floor, k), wt)?); }
+    Ok(fmts)
+} }
 impl Drop for Gfx { fn drop(&mut self) { unsafe { if !self.wait.is_invalid() { let _ = windows::Win32::Foundation::CloseHandle(self.wait); } } } } // HANDLE do swap chain (1 por ciclo da ilha)
 
 impl Gfx {
@@ -79,15 +96,14 @@ impl Gfx {
             f.SetTrimming(&DWRITE_TRIMMING { granularity: DWRITE_TRIMMING_GRANULARITY_CHARACTER, delimiter: 0, delimiterCount: 0 }, &sign)?;
             Ok(f)
         };
-        let mut fmts = HashMap::new();
-        for (k, sz, wt) in [(Fmt::Title, 14.0, DWRITE_FONT_WEIGHT_SEMI_BOLD), (Fmt::Body, 12.0, DWRITE_FONT_WEIGHT_NORMAL), (Fmt::BodyStrong, 12.0, DWRITE_FONT_WEIGHT_SEMI_BOLD),
-            (Fmt::Small, 11.0, DWRITE_FONT_WEIGHT_NORMAL), (Fmt::Clock, 16.0, DWRITE_FONT_WEIGHT_SEMI_BOLD), (Fmt::ClockLive, 14.0, DWRITE_FONT_WEIGHT_SEMI_BOLD),
-            (Fmt::Big, 30.0, DWRITE_FONT_WEIGHT_BOLD), (Fmt::Head, 18.0, DWRITE_FONT_WEIGHT_SEMI_BOLD), (Fmt::Row, 13.0, DWRITE_FONT_WEIGHT_NORMAL), (Fmt::RowStrong, 13.0, DWRITE_FONT_WEIGHT_MEDIUM), (Fmt::Tiny, 11.5, DWRITE_FONT_WEIGHT_MEDIUM)] { fmts.insert(k, mk(sz, wt)?); }
+        let fmts = build_fmts(&dw, font, 1.0)?;
         let dc5 = dc.cast::<ID2D1DeviceContext5>().ok();
         crate::log(&format!("gfx: fonte={font} svg={}", dc5.is_some()));
-        Ok(Gfx { dc, dc5, swap, wait, dcomp, _target: target, _visual: visual, d2d, dw: dw.clone(), brush, fmts, svgs: HashMap::new(), covers: HashMap::new(), thumbs: HashMap::new(), size: (w, h), scale, font })
+        Ok(Gfx { dc, dc5, swap, wait, dcomp, _target: target, _visual: visual, d2d, dw: dw.clone(), brush, fmts, svgs: HashMap::new(), covers: HashMap::new(), thumbs: HashMap::new(), size: (w, h), scale, font, font_k: 1.0 })
     } }
 
+    /// aplica o fator k do preset: refaz os formatos com os pisos (a ilha chama ao criar o renderer e ao trocar o tamanho)
+    pub fn set_font_k(&mut self, k: f32) { if (k - self.font_k).abs() < 1e-4 { return; } if let Ok(f) = build_fmts(&self.dw, self.font, k) { self.fmts = f; self.font_k = k; } }
     pub fn resize(&mut self, w: u32, h: u32, scale: f32) { unsafe {
         self.scale = scale;
         if (w, h) == self.size { return; }
@@ -319,6 +335,7 @@ impl Gfx {
     /// Icone SVG (Lucide) 24x24 desenhado em `size` px logicos. `solid` = tambem preenche (play/pause/skip).
     /// Usa a transformacao atual (translate + escala) como base.
     pub fn icon(&mut self, name: &'static str, x: f32, y: f32, size: f32, c: Rgba, solid: bool) { unsafe {
+        let (x, y, size) = if self.font_k < 1.0 { let n = crate::layout::design_px(size, crate::layout::FLOOR_ICON, self.font_k); (x - (n - size) / 2.0, y - (n - size) / 2.0, n) } else { (x, y, size) }; // piso de 12 px reais, mantendo o centro
         let key = (name, ((c.0 * 255.0) as u32) << 16 | ((c.1 * 255.0) as u32) << 8 | (c.2 * 255.0) as u32 | ((solid as u32) << 24));
         if !self.svgs.contains_key(&key) {
             let Some(dc5) = &self.dc5 else { return };

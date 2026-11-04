@@ -20,6 +20,10 @@ m! {
 /// tamanho de fonte (px logicos) no preset atual: escala com k, mas nunca abaixo do piso legivel (9 px). Preset pequeno ganha tipografia propria sobre este piso.
 #[inline] pub fn font(base: f32) -> f32 { (base * k()).max(FONT_FLOOR.min(base)) }
 pub const FONT_FLOOR: f32 = 9.0;
+/// tamanho de fonte/icone em unidades de PROJETO para que o tamanho REAL (px) nao fique abaixo do piso: real = base*k, piso em px reais -> projeto = max(base, piso/k).
+/// Pisos (rig-v2 'tamanhos'): titulo/valor 11, secundario 10, icone 12.
+#[inline] pub fn design_px(base: f32, floor_px: f32, k: f32) -> f32 { base.max(floor_px / k.max(0.1)) }
+pub const FLOOR_TITLE: f32 = 11.0; pub const FLOOR_SECOND: f32 = 10.0; pub const FLOOR_ICON: f32 = 12.0;
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -38,6 +42,13 @@ mod tests {
             assert!(mini_r() <= mini_h() && compact_r() <= compact_h(), "raios nao passam da altura em k={}", k());
         }
         set_k(1.0);
+    }
+    #[test] fn pisos_de_tipografia_do_rig() {
+        // 80 %: titulo 12 -> 9,6 ingenuo -> piso 11; secundario 10 -> 8 -> piso 10; icone 14 -> 11,2 -> piso 12
+        let real = |b: f32, f: f32, k: f32| design_px(b, f, k) * k;
+        assert!((real(12.0, FLOOR_TITLE, 0.8) - 11.0).abs() < 1e-3 && (real(10.0, FLOOR_SECOND, 0.8) - 10.0).abs() < 1e-3 && (real(14.0, FLOOR_ICON, 0.8) - 12.0).abs() < 1e-3);
+        // 100 % e 120 %: a base ja passa do piso, nada muda
+        for k in [1.0f32, 1.2] { assert_eq!(design_px(12.0, FLOOR_TITLE, k), 12.0); assert_eq!(design_px(10.0, FLOOR_SECOND, k), 10.0); assert_eq!(design_px(14.0, FLOOR_ICON, k), 14.0); }
     }
     #[test] fn fonte_respeita_o_piso_e_no_padrao_e_identidade() {
         let _g = lock(); set_k(1.0);

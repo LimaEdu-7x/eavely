@@ -40,7 +40,7 @@ const T_VOL: u8 = 10; const T_BRI: u8 = 11; const T_BAT: u8 = 12; const T_WIFI: 
 const T_PCSTATE: u8 = 26; const T_PCCPU: u8 = 27; const T_PCRAM: u8 = 28; const T_PCGPU: u8 = 29; const T_PCNET: u8 = 30;
 const T_MINIMAL: u8 = 16; const T_SPIN: u8 = 17; const T_GRAD: u8 = 18; const T_LYRBAR: u8 = 19; const T_SHELF_EMPTY: u8 = 20; const T_THUMBS: u8 = 21; const T_HIDEFS: u8 = 22; const T_DONELAST: u8 = 23; const T_OVERDUE: u8 = 24; const T_RESPECT: u8 = 25;
 const S_PCSLOTS: u8 = 6; const S_PCROT: u8 = 7; const S_PRESET: u8 = 8; const S_FPS: u8 = 9; const S_AQ: u8 = 10; const S_LYRS: u8 = 11; const S_FX: u8 = 12; const S_VIZ: u8 = 13;
-const S_LEAVE: u8 = 14; const S_MINI: u8 = 15; const S_PERS: u8 = 16; const S_INIT: u8 = 17; const T_SHELFGLOW: u8 = 31;
+const S_LEAVE: u8 = 14; const S_MINI: u8 = 15; const S_PERS: u8 = 16; const S_INIT: u8 = 17; const S_SIZE: u8 = 18; const S_MSIZE: u8 = 19; const T_GAZE: u8 = 32; const T_SHELFGLOW: u8 = 31;
 const S_LOOK: u8 = 0; const S_LIVEMODE: u8 = 1; const S_ZONE: u8 = 2; const S_SCALE: u8 = 3; const S_OPEN: u8 = 4; const S_SPEED: u8 = 5;
 const ST_FOCUS: u8 = 0; const ST_SHORT: u8 = 1; const ST_LONG: u8 = 2; const ST_CYC: u8 = 3;
 
@@ -227,8 +227,12 @@ fn page_body(c: &mut Ctx, page: usize) {
             c.foot("Ociosa, a ilha não gasta CPU em nenhum modo.");
         }
         9 => { // Mascote e inicio
-            c.group("Mascote", Ctx::rh(true));
+            c.group("Tamanho", Ctx::rh(true) * 2.0);
+            c.row("Tamanho do notch", Some("80 · 100 · 120 %. Aplica na hora."), true, true, 250.0); c.segmented(S_SIZE, &["Pequeno", "Padrão", "Grande"], match s.size_preset.as_str() { "small" => 0, "large" => 2, _ => 1 }, 56.0); c.y += 56.0;
+            c.row("Tamanho do mascote", Some("Auto segue o notch."), false, true, 250.0); c.segmented(S_MSIZE, &["Auto", "Grande", "Pequeno"], match s.mascot_size.as_str() { "large" => 1, "small" => 2, _ => 0 }, 56.0); c.y += 56.0;
+            c.group("Mascote", Ctx::rh(true) + 44.0);
             c.row("Personalidade", Some("Como reage a cliques."), true, true, 250.0); c.segmented(S_PERS, &["Calmo", "Travesso", "Dramático"], match s.personality.as_str() { "travesso" => 1, "dramatico" => 2, _ => 0 }, 56.0); c.y += 56.0;
+            c.tog_row("Olhos seguem o mouse", None, T_GAZE, s.mascot_gaze, false, true);
             c.group("Início", Ctx::rh(true));
             c.row("Página inicial", Some("Música tocando abre o player."), true, true, 250.0); c.segmented(S_INIT, &["Última usada", "Mascote", "Música"], match s.initial_page.as_str() { "mascot" => 1, "music" => 2, _ => 0 }, 56.0); c.y += 56.0;
             c.group("Slots da página Mascote", 44.0 * 2.0 + 0.0);
@@ -305,7 +309,7 @@ fn apply(a: &mut SApp, act: SAct) {
         SAct::Min => unsafe { let _ = ShowWindow(a.hwnd, SW_MINIMIZE); },
         SAct::Reset => {}
         SAct::Tog(k) => settings::update(|s| match k {
-            T_ONLINE => s.online_lyrics ^= true, T_START => s.start_with_windows ^= true, T_TRACE => s.show_trace ^= true, T_LIVE => s.show_live ^= true, T_HIDE => s.hide_during_event ^= true,
+            T_GAZE => s.mascot_gaze ^= true, T_ONLINE => s.online_lyrics ^= true, T_START => s.start_with_windows ^= true, T_TRACE => s.show_trace ^= true, T_LIVE => s.show_live ^= true, T_HIDE => s.hide_during_event ^= true,
             T_LYRIC => s.show_lyric_line ^= true, T_AUTO => s.timer.auto_next ^= true, T_NOTIFY => s.timer.notify ^= true,
             T_VOL => s.overlays.volume ^= true, T_BRI => s.overlays.brightness ^= true, T_BAT => s.overlays.battery ^= true, T_WIFI => s.overlays.wifi ^= true, T_HP => s.overlays.headphones ^= true, T_CAPS => s.overlays.caps_lock ^= true,
             T_MINIMAL => s.minimal_island ^= true, T_SPIN => s.cover_spin ^= true, T_GRAD => s.cover_gradient ^= true, T_LYRBAR => s.lyric_bar ^= true, T_SHELF_EMPTY => s.shelf_start_empty ^= true, T_THUMBS => s.shelf_thumbs ^= true,
@@ -320,6 +324,8 @@ fn apply(a: &mut SApp, act: SAct) {
             S_FX => s.fx_level = ["on", "reduced", "off"][v as usize % 3].into(), S_VIZ => s.viz_level = if v == 0 { "on" } else { "reduced" }.into(),
             S_MINI => s.mini_near = v == 1,
             S_PERS => s.personality = ["calmo", "travesso", "dramatico"][v as usize % 3].into(),
+            S_SIZE => s.size_preset = ["small", "standard", "large"][v as usize % 3].into(),
+            S_MSIZE => s.mascot_size = ["auto", "large", "small"][v as usize % 3].into(),
             S_INIT => s.initial_page = ["last", "mascot", "music"][v as usize % 3].into(),
             S_LEAVE => s.leave_delay_ms = [0, 500, 1000, 2000, 3000][v as usize % 5],
             S_OPEN => s.open_mode = if v == 1 { "click" } else { "hover" }.into(), S_SPEED => s.anim_speed = if v == 1 { "fast" } else { "normal" }.into(), _ => {} }),

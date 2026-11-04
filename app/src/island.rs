@@ -17,6 +17,8 @@ const T_TICK: usize = 1;
 const T_SCAN: usize = 2;
 #[cfg(feature = "devtools")]
 const T_BENCH: usize = 4;
+#[cfg(feature = "devtools")]
+const T_PERFOPEN: usize = 21; // teste de CPU: abre a ilha na pagina EAVELY_PERF_OPEN depois de 3 s e a deixa parada
 const T_TRIM: usize = 5;
 const WM_REHK: u32 = WM_APP + 3;
 const T_PIN: usize = 7;
@@ -27,8 +29,13 @@ const WM_OVL: u32 = WM_APP + 4;
 const WM_CAPS: u32 = WM_APP + 5;
 const T_NET: usize = 11;
 pub const T_VOL: usize = 19;
+/// verdadeiro quando os quadros so existem por causa da respiracao do mascote: o laco limita a ~30 fps
+static LOW_FPS: AtomicBool = AtomicBool::new(false);
+/// teste (bench/devtools): forca o dock visivel (o dock real aparece com o mouse na borda de baixo)
+pub static DOCK_FORCE: AtomicBool = AtomicBool::new(false);
 pub const T_MASCOT: usize = 20; // pagina Mascote: proximo piscar / reavaliar humor (um timer so, rearmado pela pagina) // slider de volume por hover: redesenha quando o prazo vence
 const T_POWER: usize = 18; // reconfere a energia 1,2 s depois do evento (ACLineStatus pode atrasar)
+const WM_RELAYOUT: u32 = WM_APP + 8; // preset de tamanho mudou: refaz janela/forma/tipografia sem reiniciar
 const WM_STAT: u32 = WM_APP + 7; // rede/energia mudou: refaz o compacto
 const T_LEAVE: usize = 12;
 const T_CLK: usize = 13;
@@ -358,7 +365,7 @@ impl App {
     }
     fn evaluate(&mut self) {
         let now = Instant::now();
-        let zone = self.class & 3; let want_dock = self.class & 4 != 0 && !(self.page == crate::pages::P_TASKS && self.p.task_cal); let mi = (self.class >> 3) as usize;
+        let zone = self.class & 3; let want_dock = (self.class & 4 != 0 || DOCK_FORCE.load(Relaxed)) && !(self.page == crate::pages::P_TASKS && self.p.task_cal); let mi = (self.class >> 3) as usize;
         let n = self.mons.len();
         if let Some(f) = self.force { if f != self.state { self.set_state(f, now); } else { self.publish_hit(); } return; }
         // monitor preferido: seguir o cursor (padrao), o principal, ou um fixo
@@ -489,8 +496,17 @@ impl App {
     }
     /// ha algo animando? (precisa de quadros no ritmo do monitor)
     /// animacao de forma/pagina/dock (ou pedido de redesenho): um quadro por vblank
+    /// pagina Mascote: so a RESPIRACAO pede quadros (30 fps, nao o ritmo do monitor); morph/piscar/olhar/raiva (busy) seguem o ritmo normal. Parado e fechado = 0 quadros.
     fn animating_full(&self, now: Instant) -> bool {
-        self.dirty || (self.state == St::Open && self.page == crate::pages::P_MASCOT && (!overlay_simple() || self.p.mascot.busy(now, self.class & 3 == 2))) || (self.state == St::Over && (self.p.ov_v.as_ref().is_some_and(|t| t.busy(now)) || self.p.ov_ic.as_ref().is_some_and(|t| t.busy(now)))) || (self.page == crate::pages::P_SHELF && (self.p.shelf_busy() || (self.drag_over && crate::settings::flag(crate::settings::F_SHELF_GLOW)))) || !self.ty.settled() || self.p.blink_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.tw.busy(now) || self.th.busy(now) || self.tr.busy(now) || self.page_t.busy(now) || self.dock_t.busy(now) || self.split_t.busy(now) || self.p.lyr_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.p.scroll.is_some_and(|s| s.busy(now)) || self.p.pc_chg.is_some_and(|t| self.state == St::Peek && t.elapsed().as_millis() < 340) || self.p.spin.as_ref().is_some_and(|s| s.t.elapsed().as_millis() < 640)
+        let other = self.animating_base(now);
+        let mascot = self.state == St::Open && self.page == crate::pages::P_MASCOT;
+        let busy = mascot && self.p.mascot.busy(now, self.class & 3 == 2);
+        let breath = mascot && !overlay_simple();
+        LOW_FPS.store(breath && !busy && !other, Relaxed);
+        other || busy || breath
+    }
+    fn animating_base(&self, now: Instant) -> bool {
+        self.dirty || (self.state == St::Over && (self.p.ov_v.as_ref().is_some_and(|t| t.busy(now)) || self.p.ov_ic.as_ref().is_some_and(|t| t.busy(now)))) || (self.page == crate::pages::P_SHELF && (self.p.shelf_busy() || (self.drag_over && crate::settings::flag(crate::settings::F_SHELF_GLOW)))) || !self.ty.settled() || self.p.blink_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.tw.busy(now) || self.th.busy(now) || self.tr.busy(now) || self.page_t.busy(now) || self.dock_t.busy(now) || self.split_t.busy(now) || self.p.lyr_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.p.scroll.is_some_and(|s| s.busy(now)) || self.p.pc_chg.is_some_and(|t| self.state == St::Peek && t.elapsed().as_millis() < 340) || self.p.spin.as_ref().is_some_and(|s| s.t.elapsed().as_millis() < 640)
     }
     fn animating(&self, now: Instant) -> bool {
         self.animating_full(now) || (self.state == St::Open && self.page == crate::pages::P_SHELF && self.drag_over) || (self.state == St::Live && crate::pages::eq_anim()) || (self.state == St::Open && crate::pages::open_anim(self, now))
@@ -540,11 +556,24 @@ impl App {
         if !self.animating(Instant::now()) { self.stats.report(&format!("{:?}", self.state)); self.stats.last = None; self.update_region_settled(); self.settle_line(); }
     }
     fn update_region_settled(&mut self) { self.update_region(); } // regiao justa (corpo + flares) tambem em repouso
+    /// Troca de tamanho ao vivo: novo k, tipografia com pisos, janela/swapchain/regiao e molas nos novos alvos (sem reiniciar o app)
+    fn relayout(&mut self) {
+        let k = crate::settings::get().size_k(); if (k - crate::layout::k()).abs() < 1e-4 { return; }
+        crate::layout::set_k(k);
+        if let Some(g) = self.gfx.g.as_mut() { g.set_font_k(k); }
+        self.place();
+        let (w, h, r) = self.target(); self.tw = Spring::new(w); self.th = Spring::new(h); self.tr = Spring::new(r); self.breathe = None;
+        self.rest_shape = (crate::layout::mini_w(), crate::layout::mini_h(), crate::layout::mini_r());
+        self.rect1 = (0.0, 0.0, crate::layout::win_w(), crate::layout::win_h()); self.rect2 = self.rect1; self.region = (0, 0);
+        self.update_region(); self.publish_hit();
+        if self.gdi_rest(self.state) && !self.vis { self.show_rest(true); }
+        crate::log(&format!("tamanho: k={k}")); self.dirty = true;
+    }
     fn recover(&mut self) { crate::log("gfx: perda de dispositivo, recriando"); self.gfx.g = None; self.ensure_gfx(); }
     fn ensure_gfx(&mut self) -> bool {
         if self.gfx.g.is_none() {
             let (w, h) = self.gfx.size;
-            match Gfx::new(self.hwnd, w, h, self.gfx.scale) { Ok(g) => { self.gfx.g = Some(g); crate::log("gfx: criado"); } Err(e) => { crate::log(&format!("gfx falhou: {e}")); return false; } }
+            match Gfx::new(self.hwnd, w, h, self.gfx.scale) { Ok(mut g) => { g.set_font_k(crate::layout::k()); self.gfx.g = Some(g); crate::log("gfx: criado"); } Err(e) => { crate::log(&format!("gfx falhou: {e}")); return false; } }
         }
         true
     }
@@ -706,6 +735,8 @@ unsafe extern "system" fn wndproc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LR
                 T_TRIM => { let _ = KillTimer(Some(h), T_TRIM); with_app(|a| a.trim()); }
                 #[cfg(feature = "devtools")]
                 T_BENCH => { with_app(|a| crate::bench::step(a)); }
+                #[cfg(feature = "devtools")]
+                T_PERFOPEN => { let _ = KillTimer(Some(h), T_PERFOPEN); with_app(|a| { let p: usize = std::env::var("EAVELY_PERF_OPEN").ok().and_then(|v| v.parse().ok()).unwrap_or(0); a.force = Some(St::Open); a.evaluate_pub(); a.page = p; a.prev_page = p; a.page_t = Spring::new(1.0); a.retarget(Instant::now(), 0.0); a.dirty = true; }); }
                 _ => {}
             }
             return LRESULT(0)
@@ -721,6 +752,7 @@ unsafe extern "system" fn wndproc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LR
             match wp.0 { 0xA => { crate::overlay::power_event(); with_app(refresh_status); SetTimer(Some(h), T_POWER, 1200, None); }
                 0x8013 => { crate::overlay::power_setting(lp.0 as *const core::ffi::c_void); with_app(refresh_status); } _ => {} }
             return LRESULT(1) }
+        WM_RELAYOUT => { with_app(|a| a.relayout()); return LRESULT(0) }
         WM_STAT => { with_app(refresh_status); return LRESULT(0) }
         0x0020 => { // WM_SETCURSOR: o cursor e sempre seta (mao sobre botoes); sem isso ficava o 'carregando' ao entrar no notch
             if (lp.0 & 0xFFFF) == 1 { let hand = APP.with(|a| a.try_borrow().ok().and_then(|g| g.as_ref().map(|x| x.hover.is_some())).unwrap_or(false));
@@ -778,6 +810,7 @@ fn draw_net_glyph(px: &mut [u32], w: i32, h: i32, s: f32, gx: f32, gy: f32, net:
         }
     } }
 }
+pub fn relayout() { let h = HW.load(Relaxed); if h != 0 { unsafe { let _ = PostMessageW(Some(HWND(h as *mut _)), WM_RELAYOUT, WPARAM(0), LPARAM(0)); } } }
 pub fn status_changed() { let h = HW.load(Relaxed); if h != 0 { unsafe { let _ = PostMessageW(Some(HWND(h as *mut _)), WM_STAT, WPARAM(0), LPARAM(0)); } } }
 fn refresh_status(a: &mut App) { a.p.batt_t = None; a.dirty = true; if a.state == St::Peek && !a.vis && a.gdi_rest(St::Peek) { a.show_rest(true); } }
 /// overlay em modo simples (so fade + forma sem sobressalto): Economia ou animacoes do Windows desligadas
@@ -812,6 +845,7 @@ pub fn quit(a: &mut App) { crate::state_log("sair (menu da bandeja ou fechamento
 pub fn start() -> Option<std::thread::JoinHandle<()>> {
     std::thread::Builder::new().name("island".into()).spawn(move || unsafe {
         let _ = windows::Win32::System::Ole::OleInitialize(None);
+        crate::layout::set_k(crate::settings::get().size_k()); // preset de tamanho do notch
         let hi: HINSTANCE = GetModuleHandleW(None).unwrap().into();
         let wc = WNDCLASSW { lpfnWndProc: Some(wndproc), hInstance: hi, lpszClassName: w!("EavelyIsland"), hCursor: LoadCursorW(None, IDC_ARROW).unwrap_or_default(), ..Default::default() };
         RegisterClassW(&wc);
@@ -859,6 +893,8 @@ pub fn start() -> Option<std::thread::JoinHandle<()>> {
         APP.with(|a| *a.borrow_mut() = Some(app));
         if crate::selftest::on() { SetTimer(Some(hwnd), T_SELFTEST, 100, None); }
         #[cfg(feature = "devtools")]
+        if std::env::var_os("EAVELY_PERF_OPEN").is_some() { SetTimer(Some(hwnd), T_PERFOPEN, 3000, None); }
+        #[cfg(feature = "devtools")]
         if std::env::var_os("EAVELY_BENCH").is_some() || std::env::var_os("EAVELY_SHOTS").is_some() { SetTimer(Some(hwnd), T_BENCH, 1500, None); }
         { use windows::Win32::UI::Input::*; // Raw Input so de mouse (RIDEV_INPUTSINK): nao e hook global, nao injeta nada nos outros processos
             let rid = [RAWINPUTDEVICE { usUsagePage: 1, usUsage: 2, dwFlags: RIDEV_INPUTSINK, hwndTarget: hwnd }];
@@ -880,7 +916,7 @@ pub fn start() -> Option<std::thread::JoinHandle<()>> {
             while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() { if msg.message == WM_QUIT { break 'outer; } let _ = TranslateMessage(&msg); DispatchMessageW(&msg); }
             if full { let _ = DwmFlush(); let n = Instant::now();
                 // limite de quadros (60/30): um quadro so quando o proximo "prazo" chegou (nao depende de saber o Hz do monitor)
-                let cap = Duration::from_micros(crate::settings::CAP_US.load(Relaxed) as u64);
+                let cap = Duration::from_micros((crate::settings::CAP_US.load(Relaxed) as u64).max(if LOW_FPS.load(Relaxed) { 33_000 } else { 0 }));
                 if cap.is_zero() || n + Duration::from_millis(1) >= next_due {
                     next_due = if next_due + cap < n { n } else { next_due + cap }; last_frame = n;
                     with_app(|a| if a.vis && a.animating(Instant::now()) { a.frame() });

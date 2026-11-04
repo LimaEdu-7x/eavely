@@ -411,14 +411,16 @@ fn mascot_page(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
     let over = a.class & 3 == 2;
     let mouse = if over { let (cx, cy) = a.cursor_local(); Some((cx - 104.0, cy - 68.0)) } else { None };
     let calm = !crate::island::overlay_simple();
+    let mouse = if cfg.mascot_gaze { mouse } else { None };
     let ctx = crate::mascot::Ctx { playing: is_playing(), dragging: a.drag_over, mouse, personality: &cfg.personality, calm_fx: calm };
     let (pose, gaze) = a.p.mascot.step(&ctx, now);
     let t = (a.p.mascot.age_ms(now) as f32) / 1000.0;
     let breath = if calm { 1.0 + 0.0125 * (1.0 - (std::f32::consts::TAU * t / 3.2).cos()) } else { 1.0 }; // respiracao 3,2 s (some em Economia)
     let amp = crate::mascot::rig().personalities.get(cfg.personality.as_str()).map_or(0.5, |p| p.amplitude);
     let shake = if a.p.mascot.raging() && calm { amp * 2.0 * (std::f32::consts::TAU * 18.0 * t).sin() } else { 0.0 };
-    crate::mascot::draw(a, &pose, gaze, 29.0, 21.0, 150.0, breath, shake);
-    hits.push((r(29.0 + off, 21.0, 150.0, 92.0), Act::Mascot));
+    let fw = cfg.mascot_w().min(176.0); let (fx, fy) = (104.0 - fw / 2.0, 68.0 - fw * 0.3); // rosto centrado na metade esquerda (centro 104, 68)
+    crate::mascot::draw(a, &pose, gaze, fx, fy, fw, breath, shake);
+    hits.push((r(fx + off, fy, fw, fw * 0.62), Act::Mascot));
     if let Some(ms) = a.p.mascot.wake_ms(now) { unsafe { SetTimer(Some(a.hwnd), crate::island::T_MASCOT, ms.max(15), None); } } // piscar/reavaliar: um timer so
 }
 
