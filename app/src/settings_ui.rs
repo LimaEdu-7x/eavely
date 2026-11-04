@@ -228,13 +228,13 @@ fn page_body(c: &mut Ctx, page: usize) {
         }
         9 => { // Mascote e inicio
             c.group("Mascote", Ctx::rh(true));
-            c.row("Personalidade", Some("Calmo perdoa fácil; dramático reage forte."), true, true, 260.0); c.segmented(S_PERS, &["Calmo", "Travesso", "Dramático"], match s.personality.as_str() { "travesso" => 1, "dramatico" => 2, _ => 0 }, 56.0); c.y += 56.0;
+            c.row("Personalidade", Some("Como reage a cliques."), true, true, 250.0); c.segmented(S_PERS, &["Calmo", "Travesso", "Dramático"], match s.personality.as_str() { "travesso" => 1, "dramatico" => 2, _ => 0 }, 56.0); c.y += 56.0;
             c.group("Início", Ctx::rh(true));
-            c.row("Página inicial", Some("Com música tocando a ilha abre no player."), true, true, 260.0); c.segmented(S_INIT, &["Última usada", "Mascote", "Música"], match s.initial_page.as_str() { "mascot" => 1, "music" => 2, _ => 0 }, 56.0); c.y += 56.0;
+            c.row("Página inicial", Some("Música tocando abre o player."), true, true, 250.0); c.segmented(S_INIT, &["Última usada", "Mascote", "Música"], match s.initial_page.as_str() { "mascot" => 1, "music" => 2, _ => 0 }, 56.0); c.y += 56.0;
             c.group("Slots da página Mascote", 44.0 * 2.0 + 0.0);
             c.row("Slot de cima", None, true, true, 190.0); c.menu(crate::slots::Widget::parse(&s.slot_top).label(), SAct::SlotTop, 44.0); c.y += 44.0;
             c.row("Slot de baixo", None, false, true, 190.0); c.menu(crate::slots::Widget::parse(&s.slot_bottom).label(), SAct::SlotBottom, 44.0); c.y += 44.0;
-            c.foot("A mesma opção não fica nos dois slots; com um slot em Nenhum, o outro ocupa a altura toda.");
+            c.foot("Sem repetir opção; Nenhum dá a altura toda ao outro.");
         }
         _ => { // Sobre
             c.group("Eavely", 190.0);
