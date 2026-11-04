@@ -126,6 +126,17 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
         93 => { crate::settings::update(|s| { s.size_preset = "large".into(); s.mascot_size = "auto".into(); }); open(a, 0, false, false); "94-tamanho-grande-mascote" }
         94 => { open(a, 1, false, false); "95-tamanho-grande-musica" }
         95 => { crate::settings::update(|s| { s.size_preset = "standard".into(); s.mascot_size = "auto".into(); }); open(a, 0, false, false); "skip" }
+        96 => { open(a, 0, false, false); a.p.mascot.force = Some("sono".into()); "96-mascote-sono-zzz" }
+        97 => { a.p.mascot.force = Some("sonolento".into()); "97-mascote-sonolento" }
+        98 => { a.p.mascot.force = Some("preocupado".into()); "98-mascote-preocupado-suor" }
+        99 => { a.p.mascot.force = Some("triste".into()); "99-mascote-triste" }
+        100 => { a.p.mascot.force = Some("choro".into()); "100-mascote-choro-lagrimas" }
+        101 => { a.p.mascot.force = Some("entediado".into()); "101-mascote-entediado" }
+        102 => { a.p.mascot.force = Some("feliz".into()); crate::settings::update(|s| s.collapsed_look = "mascot".into()); a.force = Some(St::Peek); "102-peek-mascote-padrao" }
+        103 => { crate::settings::update(|s| s.size_preset = "small".into()); "103-peek-mascote-pequeno-so-olhos" }
+        104 => { a.p.mascot.force = Some("raiva".into()); "104-peek-pequeno-raiva" }
+        105 => { crate::settings::update(|s| { s.size_preset = "large".into(); }); a.p.mascot.force = Some("feliz".into()); "105-peek-mascote-grande" }
+        106 => { a.p.mascot.force = None; crate::settings::update(|s| { s.size_preset = "standard".into(); s.collapsed_look = "clock".into(); }); "skip" }
         85 => { crate::settings::update(|s| { s.slot_top = "shelf".into(); s.slot_bottom = "player".into(); }); "skip" }
         70 => { crate::settings::update(|s| { s.pc_cpu = true; s.pc_ram = true; s.pc_gpu = true; s.pc_state = true; }); "skip" }
         _ => return None,
@@ -135,13 +146,13 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
 pub fn step(a: &mut App) {
     let i = STEP.fetch_add(1, Relaxed);
     let dir = std::env::var("EAVELY_SHOTS").ok();
-    if i < 220 {
-        if i % 2 == 0 { let k = i / 2; match scenario(a, k) { Some(n) => { crate::log(&format!("BENCH cenario {n}")); flog_mark(n); NAME.with(|c| *c.borrow_mut() = n); } None => { STEP.store(220, Relaxed); } } a.evaluate_pub(); }
+    if i < 240 {
+        if i % 2 == 0 { let k = i / 2; match scenario(a, k) { Some(n) => { crate::log(&format!("BENCH cenario {n}")); flog_mark(n); NAME.with(|c| *c.borrow_mut() = n); } None => { STEP.store(240, Relaxed); } } a.evaluate_pub(); }
         else if let Some(d) = dir { let n = NAME.with(|c| *c.borrow()); if n == "skip" { } else if a.fs.iter().any(|f| *f) { crate::log("screenshot ignorado: ha janela em tela cheia (nao capturo outros apps)"); } else { unsafe { shot(a, &format!("{d}/{n}.bmp")); } } }
         return;
     }
     // fase de benchmark: abre/fecha repetidamente (animacao de forma + conteudo)
-    let k = i - 220;
+    let k = i - 240;
     if k == 0 { unsafe { SetTimer(Some(a.hwnd), 4, 450, None); } crate::timer::ui(|t, _| t.reset()); a.page = 1; a.prev_page = 1; a.split = false; a.dock = false; a.dock_t = crate::island::Tw::new(0.0); }
     if k < 40 {
         flog_mark(&format!("k={k} {}", ["abrir", "dock", "fechar", "ao-vivo"][(k % 4) as usize])); match k % 4 { 0 => a.force = Some(St::Open), 1 => { a.dock = true; a.dock_t.go(Instant::now(), 1.0, 200.0); a.retarget(Instant::now(), 200.0); } 2 => { a.dock = false; a.dock_t.go(Instant::now(), 0.0, 200.0); a.force = Some(St::Peek); } _ => a.force = Some(St::Live) }

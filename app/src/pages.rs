@@ -132,7 +132,7 @@ pub fn live_width() -> f32 { if is_playing() && timer_running() { 190.0 } else {
 pub fn eq_anim() -> bool { is_playing() && !crate::island::reduced_motion() }
 pub fn open_anim(a: &App, _now: Instant) -> bool { eq_anim() && a.state == St::Open }
 pub fn on_open(a: &mut App) {
-    a.p.batt_t = None;
+    a.p.batt_t = None; a.p.mascot.touched(Instant::now());
     // pagina inicial: arrastando arquivo = Shelf (ja tratado pelo arrasto); tocando musica = player; senao a ultima pagina escolhida pelo usuario
     if a.drag_over { return; }
     let want = if is_playing() && crate::settings::get().show_live { P_MUSIC } else { match crate::settings::get().initial_page.as_str() { "mascot" => P_MASCOT, "music" => P_MUSIC, _ => load_page() } };
@@ -376,8 +376,10 @@ fn pc_item(a: &mut App, m: crate::metrics::Metric, s: &crate::metrics::Snap, x: 
     }
 }
 
+fn h_peek() -> f32 { 30.0 }
 fn draw_peek_live(a: &mut App, w: f32, t: f32) {
     if a.state == St::Peek && crate::settings::get().collapsed_look == "eyes" { return draw_eyes(a, w, Instant::now()); }
+    if a.state == St::Peek && crate::settings::get().collapsed_look == "mascot" { return draw_peek_mascot(a, w, h_peek(), Instant::now()); }
     if a.state == St::Peek && pc_mode() { return draw_peek_pc(a, w, t, Instant::now()); }
     let (hm, _) = clock_str(); let (pc, ch) = battery(a);
     let bx = 14.0; let _ = (pc, ch);
@@ -404,6 +406,19 @@ fn draw_open(a: &mut App, now: Instant, w: f32, h: f32, t: f32, hits: &mut Vec<(
     chrome(a, now, w, h, dx, split_f, t, hits);
 }
 
+/// contexto do mascote: musica, arrasto, noite (23h-6h), bateria baixa (notebook fora da tomada e <= 20 %)
+fn mascot_ctx<'a>(a: &App, mouse: Option<(f32, f32)>, personality: &'a str, calm: bool) -> crate::mascot::Ctx<'a> {
+    let h = unsafe { GetLocalTime() }.wHour; let low = has_battery() && { let (pc, ch) = rest_battery(); !ch && pc <= 20 };
+    crate::mascot::Ctx { playing: is_playing(), dragging: a.drag_over, mouse, personality, calm_fx: calm, night: h >= 23 || h < 6, low_batt: low }
+}
+/// Compacto (peek) com mascote: rosto espiando (k >= 1) ou so olhos (< 150 px reais). Usa o MESMO estado/humor da pagina; so pede quadros ao piscar/morfar.
+fn draw_peek_mascot(a: &mut App, w: f32, h: f32, now: Instant) {
+    let cfg = crate::settings::get(); let calm = !crate::island::overlay_simple();
+    let ctx = mascot_ctx(a, None, &cfg.personality, calm);
+    let (pose, gaze) = a.p.mascot.step(&ctx, now);
+    crate::mascot::draw_peek(a, &pose, gaze, w, h, crate::layout::k() < 0.999);
+    if let Some(ms) = a.p.mascot.wake_ms(now) { unsafe { SetTimer(Some(a.hwnd), crate::island::T_MASCOT, ms.max(15), None); } }
+}
 /// Pagina Mascote (v0.2.0): rosto a esquerda (150 px, reage ao mouse e a cliques), 2 slots configuraveis a direita (padrao: Arquivos em cima, Player mini embaixo)
 fn mascot_page(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
     let cfg = crate::settings::get();
@@ -412,14 +427,14 @@ fn mascot_page(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
     let mouse = if over { let (cx, cy) = a.cursor_local(); Some((cx - 104.0, cy - 68.0)) } else { None };
     let calm = !crate::island::overlay_simple();
     let mouse = if cfg.mascot_gaze { mouse } else { None };
-    let ctx = crate::mascot::Ctx { playing: is_playing(), dragging: a.drag_over, mouse, personality: &cfg.personality, calm_fx: calm };
+    let ctx = mascot_ctx(a, mouse, &cfg.personality, calm);
     let (pose, gaze) = a.p.mascot.step(&ctx, now);
     let t = (a.p.mascot.age_ms(now) as f32) / 1000.0;
     let breath = if calm { 1.0 + 0.0125 * (1.0 - (std::f32::consts::TAU * t / 3.2).cos()) } else { 1.0 }; // respiracao 3,2 s (some em Economia)
     let amp = crate::mascot::rig().personalities.get(cfg.personality.as_str()).map_or(0.5, |p| p.amplitude);
     let shake = if a.p.mascot.raging() && calm { amp * 2.0 * (std::f32::consts::TAU * 18.0 * t).sin() } else { 0.0 };
     let fw = cfg.mascot_w().min(176.0); let (fx, fy) = (104.0 - fw / 2.0, 68.0 - fw * 0.3); // rosto centrado na metade esquerda (centro 104, 68)
-    crate::mascot::draw(a, &pose, gaze, fx, fy, fw, breath, shake);
+    crate::mascot::draw(a, &pose, gaze, fx, fy, fw, breath, shake, t);
     hits.push((r(fx + off, fy, fw, fw * 0.62), Act::Mascot));
     if let Some(ms) = a.p.mascot.wake_ms(now) { unsafe { SetTimer(Some(a.hwnd), crate::island::T_MASCOT, ms.max(15), None); } } // piscar/reavaliar: um timer so
 }

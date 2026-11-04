@@ -500,7 +500,8 @@ impl App {
     fn animating_full(&self, now: Instant) -> bool {
         let other = self.animating_base(now);
         let mascot = self.state == St::Open && self.page == crate::pages::P_MASCOT;
-        let busy = mascot && self.p.mascot.busy(now, self.class & 3 == 2);
+        let peek = self.state == St::Peek && crate::settings::get().collapsed_look == "mascot";
+        let busy = (mascot || peek) && self.p.mascot.busy(now, mascot && self.class & 3 == 2);
         let breath = mascot && !overlay_simple();
         LOW_FPS.store(breath && !busy && !other, Relaxed);
         other || busy || breath

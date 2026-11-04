@@ -159,7 +159,7 @@ fn page_body(c: &mut Ctx, page: usize) {
             c.row("Tamanho", Some("Reinicia para aplicar"), true, true, 250.0); c.segmented(S_SCALE, &["Auto", "100%", "115%", "130%", "150%"], ["auto", "100", "115", "130", "150"].iter().position(|x| *x == s.ui_scale).unwrap_or(0), 56.0); c.y += 56.0;
             c.tog_row("Ilha mínima", Some("Sem a pílula ao vivo de música e timer."), T_MINIMAL, s.minimal_island, false, true);
             c.row("Mostrar traço quando ocioso", None, false, true, 52.0); c.toggle(T_TRACE, s.show_trace, true, 44.0); c.y += 44.0;
-            c.row("Aparência recolhida", None, false, true, 190.0); c.segmented(S_LOOK, &["Bateria e hora", "Olhos"], (s.collapsed_look == "eyes") as usize, 44.0); c.y += 44.0;
+            c.row("Aparência recolhida", None, false, true, 290.0); c.segmented(S_LOOK, &["Bateria e hora", "Olhos", "Mascote"], match s.collapsed_look.as_str() { "eyes" => 1, "mascot" => 2, _ => 0 }, 44.0); c.y += 44.0;
             c.group("Comportamento", 44.0 * 5.0 + 56.0 * 2.0);
             c.row("Abrir a ilha", None, true, true, 190.0); c.segmented(S_OPEN, &["Passar o mouse", "Clique"], (s.open_mode == "click") as usize, 44.0); c.y += 44.0;
             c.row("Recolher após", Some("0 s = na hora"), false, true, 240.0); c.segmented(S_LEAVE, &["0 s", "0,5 s", "1 s", "2 s", "3 s"], match s.leave_delay_ms { 0 => 0, 500 => 1, 2000 => 3, 3000 => 4, _ => 2 }, 56.0); c.y += 56.0;
@@ -316,7 +316,7 @@ fn apply(a: &mut SApp, act: SAct) {
             T_PCSTATE => s.pc_state ^= true, T_PCCPU => s.pc_cpu ^= true, T_PCRAM => s.pc_ram ^= true, T_PCGPU => s.pc_gpu ^= true, T_PCNET => s.pc_net ^= true,
             T_HIDEFS => s.hide_fullscreen ^= true, T_DONELAST => s.tasks_done_last ^= true, T_OVERDUE => s.tasks_overdue_red ^= true, T_RESPECT => s.respect_system_animation ^= true, T_SHELFGLOW => s.shelf_glow ^= true, _ => {} }),
         SAct::Seg(k, v) => settings::update(|s| match k {
-            S_LOOK => s.collapsed_look = if v == 1 { "eyes" } else { "clock" }.into(), S_LIVEMODE => s.live_mode = if v == 1 { "expanded" } else { "compact" }.into(),
+            S_LOOK => s.collapsed_look = ["clock", "eyes", "mascot"][v as usize % 3].into(), S_LIVEMODE => s.live_mode = if v == 1 { "expanded" } else { "compact" }.into(),
             S_ZONE => s.trigger_zone_px = [24, 40, 64][v as usize % 3], S_SCALE => s.ui_scale = ["auto", "100", "115", "130", "150"][v as usize % 5].into(),
             S_PCSLOTS => s.pc_slots = v as u32 + 1, S_PCROT => s.pc_rotate = [3, 5, 8][v as usize % 3],
             S_PRESET => s.apply_preset(["max", "balanced", "eco"][v as usize % 3]), S_FPS => s.fps_cap = ["auto", "60", "30"][v as usize % 3].into(),

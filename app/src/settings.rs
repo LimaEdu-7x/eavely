@@ -22,7 +22,7 @@ pub struct Settings {
     pub online_lyrics: bool, // buscar letras no lrclib.net (envia titulo, artista e album)
     pub start_with_windows: bool, pub show_trace: bool, pub show_live: bool, pub hide_during_event: bool,
     pub monitor: String, // "cursor" | "primary" | "mN" (N = indice)
-    pub trigger_zone_px: u32, pub collapsed_look: String, // "clock" | "eyes"
+    pub trigger_zone_px: u32, pub collapsed_look: String, // "clock" | "eyes" | "mascot"
     pub show_lyric_line: bool, pub live_mode: String, // "compact" | "expanded"
     pub timer: TimerCfg, pub hotkeys: Hotkeys, pub overlays: Overlays,
     /// respeitar 'Efeitos de animacao' do Windows (desligado la = sem animacao aqui). Padrao: NAO respeitar (as molas sao parte do produto); ligue para acessibilidade.
@@ -84,7 +84,7 @@ impl Settings {
         self.trigger_zone_px = match self.trigger_zone_px { 0..=32 => 24, 33..=52 => 40, _ => 64 };
         self.timer.focus_min = self.timer.focus_min.clamp(1, 180); self.timer.short_min = self.timer.short_min.clamp(1, 60);
         self.timer.long_min = self.timer.long_min.clamp(1, 120); self.timer.cycles_to_long = self.timer.cycles_to_long.clamp(2, 8);
-        if self.collapsed_look != "eyes" { self.collapsed_look = "clock".into(); }
+        if !matches!(self.collapsed_look.as_str(), "eyes" | "mascot") { self.collapsed_look = "clock".into(); }
         if self.live_mode != "expanded" { self.live_mode = "compact".into(); }
         if !matches!(self.ui_scale.as_str(), "100" | "115" | "130" | "150") { self.ui_scale = "auto".into(); }
         if self.open_mode != "click" { self.open_mode = "hover".into(); }

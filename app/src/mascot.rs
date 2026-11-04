@@ -11,7 +11,7 @@ const RIG: &str = include_str!("../../assets/mascote/rig.json");
 #[derive(Clone, Copy, Debug, Default, PartialEq)] pub struct Stroke { pub p: [f32; 8], pub w: f32, pub a: f32 }
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Pose {
-    pub fill: [f32; 3], pub ink: [f32; 3],
+    pub fill: [f32; 3], pub ink: [f32; 3], pub color: [f32; 3], // color = cor da emocao (olhos soltos do peek pequeno)
     pub eye: [Stroke; 2], pub sp: [[f32; 2]; 2], // sp[olho] = [alfa do X, alfa do coracao]
     pub brow: [Stroke; 2],
     pub up: [f32; 8], pub low: [f32; 8], pub mw: f32, pub ma: f32, pub mfill: f32, pub mcol: [f32; 3],
@@ -27,7 +27,7 @@ fn parse_pose(e: &Value) -> Pose {
     let eye = |k: &str| -> (Stroke, [f32; 2]) { let o = &e[k]; let sa = o["special_alpha"].as_f64().unwrap_or(0.0) as f32; let sp = match o["special"].as_str() { Some("x") => [sa, 0.0], Some("heart") => [0.0, sa], _ => [0.0, 0.0] }; (stroke(&o["stroke"]), sp) };
     let (l, sl) = eye("eye_L"); let (r, sr) = eye("eye_R");
     let m = &e["mouth"]; let ink = hex(e["ink"].as_str().unwrap_or("#15151C"));
-    Pose { fill: hex(e["face_fill"].as_str().unwrap_or("#f6f9ff")), ink, eye: [l, r], sp: [sl, sr], brow: [stroke(&e["brow_L"]), stroke(&e["brow_R"])],
+    Pose { fill: hex(e["face_fill"].as_str().unwrap_or("#f6f9ff")), color: hex(e["color"].as_str().unwrap_or("#D4E4FF")), ink, eye: [l, r], sp: [sl, sr], brow: [stroke(&e["brow_L"]), stroke(&e["brow_R"])],
         up: arr8(&m["up"]), low: arr8(&m["low"]), mw: m["stroke_w"].as_f64().unwrap_or(5.5) as f32, ma: m["alpha"].as_f64().unwrap_or(1.0) as f32, mfill: m["fill_alpha"].as_f64().unwrap_or(0.0) as f32,
         mcol: if m["fill_color"].as_str() == Some("white") { [1.0, 1.0, 1.0] } else { ink }, extras: e["extras"].as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default() }
 }
@@ -45,13 +45,14 @@ pub fn rig() -> &'static Rig {
         Rig { poses, eye_c: [c("L"), c("R")], personalities, dur, default_ms: d["morph"]["default_ms"].as_f64().unwrap_or(180.0) as f32, min_hold }
     })
 }
+fn static_name(s: &str) -> &'static str { for n in ["neutro", "feliz", "curioso", "surpreso", "irritado", "raiva", "furioso", "choro", "triste", "preocupado", "sono", "sonolento", "entediado"] { if n == s { return n; } } "neutro" }
 fn lerp(a: f32, b: f32, t: f32) -> f32 { a + (b - a) * t }
 fn lerp3(a: [f32; 3], b: [f32; 3], t: f32) -> [f32; 3] { [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)] }
 fn lerp8(a: [f32; 8], b: [f32; 8], t: f32) -> [f32; 8] { let mut o = [0.0; 8]; for i in 0..8 { o[i] = lerp(a[i], b[i], t); } o }
 fn lerp_stroke(a: Stroke, b: Stroke, t: f32) -> Stroke { Stroke { p: lerp8(a.p, b.p, t), w: lerp(a.w, b.w, t), a: lerp(a.a, b.a, t) } }
 /// morph: lerp de TODOS os numeros (pontos, larguras, alfas, cor do rosto); extras = os da pose de destino
 pub fn lerp_pose(a: &Pose, b: &Pose, t: f32) -> Pose {
-    Pose { fill: lerp3(a.fill, b.fill, t), ink: lerp3(a.ink, b.ink, t), eye: [lerp_stroke(a.eye[0], b.eye[0], t), lerp_stroke(a.eye[1], b.eye[1], t)],
+    Pose { fill: lerp3(a.fill, b.fill, t), ink: lerp3(a.ink, b.ink, t), color: lerp3(a.color, b.color, t), eye: [lerp_stroke(a.eye[0], b.eye[0], t), lerp_stroke(a.eye[1], b.eye[1], t)],
         sp: [[lerp(a.sp[0][0], b.sp[0][0], t), lerp(a.sp[0][1], b.sp[0][1], t)], [lerp(a.sp[1][0], b.sp[1][0], t), lerp(a.sp[1][1], b.sp[1][1], t)]],
         brow: [lerp_stroke(a.brow[0], b.brow[0], t), lerp_stroke(a.brow[1], b.brow[1], t)], up: lerp8(a.up, b.up, t), low: lerp8(a.low, b.low, t), mw: lerp(a.mw, b.mw, t), ma: lerp(a.ma, b.ma, t), mfill: lerp(a.mfill, b.mfill, t), mcol: lerp3(a.mcol, b.mcol, t),
         extras: if t < 0.5 { a.extras.clone() } else { b.extras.clone() } }
@@ -60,10 +61,12 @@ fn ease_out(t: f32) -> f32 { 1.0 - (1.0 - t.clamp(0.0, 1.0)).powi(3) }
 fn pose_of(name: &str) -> Pose { let r = rig(); r.poses.get(name).or_else(|| r.poses.get("neutro")).cloned().unwrap_or_default() }
 
 /// Entradas de contexto (lidas pela pagina a cada quadro)
-pub struct Ctx<'a> { pub playing: bool, pub dragging: bool, pub mouse: Option<(f32, f32)>, pub personality: &'a str, pub calm_fx: bool }
+pub struct Ctx<'a> { pub playing: bool, pub dragging: bool, pub mouse: Option<(f32, f32)>, pub personality: &'a str, pub calm_fx: bool, pub night: bool, pub low_batt: bool }
+/// tedio/sono por inatividade (calmo): entediado 12 min, sono 30 min; a noite (23h-6h) fica sonolento e, parado 1 min, dorme
+pub const BORED_S: f32 = 12.0 * 60.0; pub const SLEEP_S: f32 = 30.0 * 60.0;
 
-pub struct Mascot { pub target: String, from: Pose, to: Pose, t0: Instant, dur: f32, clicks: Vec<Instant>, hold_until: Instant, blink0: Option<Instant>, pub next_blink: Option<Instant>, gaze: (f32, f32), last: Instant, born: Instant }
-impl Default for Mascot { fn default() -> Self { let n = Instant::now(); let p = pose_of("neutro"); Mascot { target: "neutro".into(), from: p.clone(), to: p, t0: n, dur: 0.0, clicks: Vec::new(), hold_until: n, blink0: None, next_blink: None, gaze: (0.0, 0.0), last: n, born: n } } }
+pub struct Mascot { pub force: Option<String>, pub touch: Instant, pub target: String, from: Pose, to: Pose, t0: Instant, dur: f32, clicks: Vec<Instant>, hold_until: Instant, blink0: Option<Instant>, pub next_blink: Option<Instant>, gaze: (f32, f32), last: Instant, born: Instant }
+impl Default for Mascot { fn default() -> Self { let n = Instant::now(); let p = pose_of("neutro"); Mascot { force: None, touch: n, target: "neutro".into(), from: p.clone(), to: p, t0: n, dur: 0.0, clicks: Vec::new(), hold_until: n, blink0: None, next_blink: None, gaze: (0.0, 0.0), last: n, born: n } } }
 
 /// aleatorio 0..1 (splitmix64 semeado pelo relogio do sistema; cada chamada avanca o estado)
 fn rnd(_now: Instant, salt: u32) -> f32 {
@@ -77,17 +80,27 @@ fn rnd(_now: Instant, salt: u32) -> f32 {
 const BLINK_MS: f32 = 110.0;
 
 impl Mascot {
-    pub fn on_click(&mut self, now: Instant) { self.clicks.push(now); self.clicks.retain(|t| now.duration_since(*t) < Duration::from_secs(6)); }
+    /// a ilha foi aberta/usada agora: zera o tedio
+    pub fn touched(&mut self, now: Instant) { self.touch = now; }
+    pub fn on_click(&mut self, now: Instant) { self.touch = now; self.clicks.push(now); self.clicks.retain(|t| now.duration_since(*t) < Duration::from_secs(6)); }
     fn count_in(&self, now: Instant, secs: f32) -> u32 { self.clicks.iter().filter(|t| now.duration_since(**t).as_secs_f32() <= secs).count() as u32 }
     /// qual expressao agora: raiva por cliques (limiares da personalidade) > curioso (arrastando arquivo) > surpreso (1o clique) > feliz (tocando) > neutro
     pub fn decide(&self, c: &Ctx, now: Instant) -> &'static str {
+        if let Some(f) = &self.force { return static_name(f); } // so testes (bench)
         let r = rig(); let p = r.personalities.get(c.personality).or_else(|| r.personalities.get("calmo")).cloned().unwrap_or_default();
+        if self.count_in(now, p.furioso.1) >= p.furioso.0 * 2 { return "choro"; } // maus-tratos fortes e repetidos (calmo: 24 cliques em 5 s)
         if self.count_in(now, p.furioso.1) >= p.furioso.0 { return "furioso"; }
         if self.count_in(now, p.raiva.1) >= p.raiva.0 { return "raiva"; }
         if self.count_in(now, p.irritado.1) >= p.irritado.0 { return "irritado"; }
         if c.dragging { return "curioso"; }
         if self.clicks.last().is_some_and(|t| now.duration_since(*t).as_millis() < 700) { return "surpreso"; }
-        if c.playing { "feliz" } else { "neutro" }
+        if c.low_batt { return "preocupado"; }
+        if c.playing { return "feliz"; }
+        let idle = now.duration_since(self.touch).as_secs_f32();
+        if idle >= SLEEP_S || (c.night && idle >= 60.0) { return "sono"; }
+        if c.night { return "sonolento"; }
+        if idle >= BORED_S { return "entediado"; }
+        "neutro"
     }
     fn duration(&self, from: &str, to: &str, c: &Ctx) -> f32 {
         let r = rig(); let set = if c.personality == "calmo" { "calmo" } else { "normal" };
@@ -97,6 +110,7 @@ impl Mascot {
     /// avanca o estado e devolve a pose desenhada (morph + piscar); `gaze_out` = deslocamento do olhar em unidades do rosto
     pub fn step(&mut self, c: &Ctx, now: Instant) -> (Pose, (f32, f32)) {
         self.clicks.retain(|t| now.duration_since(*t) < Duration::from_secs(6)); // poda aqui tambem: sem cliques novos o timer de 400 ms para sozinho
+        if c.mouse.is_some() { self.touch = now; }
         let want = self.decide(c, now);
         if want != self.target {
             let escalate = matches!(want, "irritado" | "raiva" | "furioso");
@@ -129,11 +143,11 @@ impl Mascot {
     }
     /// ha algo animando que exige quadros? (morph, piscada em curso, olhar ainda andando)
     pub fn busy(&self, now: Instant, mouse_over: bool) -> bool {
-        (self.dur > 0.0 && now.duration_since(self.t0).as_secs_f32() * 1000.0 < self.dur + 20.0) || self.blink0.is_some() || self.raging() || mouse_over || self.gaze.0.abs() > 0.03 || self.gaze.1.abs() > 0.03
+        (self.dur > 0.0 && now.duration_since(self.t0).as_secs_f32() * 1000.0 < self.dur + 20.0) || self.blink0.is_some() || self.raging() || self.to.extras.iter().any(|e| e.starts_with("tear")) || mouse_over || self.gaze.0.abs() > 0.03 || self.gaze.1.abs() > 0.03
     }
     /// proximo despertar: 400 ms enquanto ha cliques recentes ou raiva (reavaliar/esfriar), senao o proximo piscar; ocioso = um unico timer
     pub fn wake_ms(&self, now: Instant) -> Option<u32> {
-        if !self.clicks.is_empty() || !matches!(self.target.as_str(), "neutro" | "feliz" | "curioso") { return Some(400); }
+        if !self.clicks.is_empty() || matches!(self.target.as_str(), "irritado" | "raiva" | "furioso" | "choro" | "surpreso") { return Some(400); }
         self.next_blink.map(|t| t.saturating_duration_since(now).as_millis() as u32 + 5)
     }
     pub fn raging(&self) -> bool { matches!(self.target.as_str(), "raiva" | "furioso") }
@@ -141,10 +155,28 @@ impl Mascot {
 }
 
 fn rgba3(c: [f32; 3], a: f32) -> Rgba { (c[0], c[1], c[2], a) }
+/// Mascote no peek (150x30 projeto): rosto espiando por baixo (k >= 1) ou SO OLHOS (tracos na cor da emocao, sem rosto nem boca) quando o peek fica menor que 150 px reais
+pub fn draw_peek(a: &mut App, pose: &Pose, gaze: (f32, f32), w: f32, h: f32, eyes_only: bool) {
+    let base = a.gfx.get_matrix();
+    if eyes_only {
+        // 4 tracos (2 olhos + 2 sobrancelhas) escalados para ~44 px, centrados em (w/2, h/2); mesma geometria do rig; cor = emocao
+        let s = 0.5; let m = Matrix3x2::translation(-100.0, -52.0) * Matrix3x2::scale(s, s) * Matrix3x2::translation(w / 2.0, h / 2.0 + 1.0);
+        a.gfx.set_matrix(m * base); let c = pose.color; let g = &a.gfx;
+        for i in 0..2 { let e = pose.eye[i]; g.bezier(shift8(e.p, gaze.0, gaze.1), e.w * 1.3, rgba3(c, e.a)); let b = pose.brow[i]; g.bezier(shift8(b.p, gaze.0 * 0.4, gaze.1 * 0.4), b.w * 1.3, rgba3(c, b.a)); }
+    } else {
+        // rosto de 46 px de largura espiando: so a parte de cima aparece (a forma do peek recorta o resto)
+        let s = 46.0 / 200.0; let m = Matrix3x2::scale(s, s) * Matrix3x2::translation(w / 2.0 - 23.0, h - 17.0);
+        a.gfx.set_matrix(m * base); let g = &a.gfx;
+        g.rrect(0.0, 0.0, 200.0, 120.0, 56.0, rgba3(pose.fill, 1.0)); g.rrect_stroke(1.6, 1.6, 196.8, 116.8, 54.4, 3.2, rgba3(pose.ink, 1.0));
+        for i in 0..2 { let e = pose.eye[i]; g.bezier(shift8(e.p, gaze.0, gaze.1), e.w, rgba3(pose.ink, e.a)); let b = pose.brow[i]; g.bezier(shift8(b.p, gaze.0 * 0.4, gaze.1 * 0.4), b.w, rgba3(pose.ink, b.a)); }
+        g.mouth(pose.up, pose.low, pose.mw, rgba3(pose.ink, pose.ma), if pose.mfill > 0.003 { Some(rgba3(pose.mcol, pose.mfill)) } else { None });
+    }
+    a.gfx.set_matrix(base);
+}
 fn shift8(p: [f32; 8], dx: f32, dy: f32) -> [f32; 8] { let mut o = p; for i in 0..4 { o[2 * i] += dx; o[2 * i + 1] += dy; } o }
 
 /// Desenha o rosto com largura `w` px de projeto no canto (x, y). `breath` = escala vertical (1.0..1.025), `shake` = tremor em X (u). Usa a transformacao atual como base.
-pub fn draw(a: &mut App, pose: &Pose, gaze: (f32, f32), x: f32, y: f32, w: f32, breath: f32, shake: f32) {
+pub fn draw(a: &mut App, pose: &Pose, gaze: (f32, f32), x: f32, y: f32, w: f32, breath: f32, shake: f32, t: f32) {
     let base = a.gfx.get_matrix(); let s = w / 200.0;
     let anchor = Matrix3x2::translation(-100.0, -120.0) * Matrix3x2::scale(1.0, breath) * Matrix3x2::translation(100.0, 120.0);
     // translacao em px reais: o `base` ja traz escala k e DPI; as coordenadas (x, y) sao de projeto
@@ -163,7 +195,18 @@ pub fn draw(a: &mut App, pose: &Pose, gaze: (f32, f32), x: f32, y: f32, w: f32, 
     }
     g.mouth(shift8(pose.up, gx * f, gy * f), shift8(pose.low, gx * f, gy * f), pose.mw, rgba3(pose.ink, pose.ma), if pose.mfill > 0.003 { Some(rgba3(pose.mcol, pose.mfill)) } else { None });
     for ex in &pose.extras {
-        match ex.as_str() { "ques" => g.text("?", crate::gfx::Fmt::Big, 166.0, -2.0, 30.0, 38.0, rgba3(pose.ink, 0.9), false), "notes" => g.text("♪", crate::gfx::Fmt::Big, 164.0, -8.0, 30.0, 38.0, rgba3(pose.ink, 0.9), false), _ => {} }
+        match ex.as_str() {
+            "ques" => g.text("?", crate::gfx::Fmt::Big, 166.0, -2.0, 30.0, 38.0, rgba3(pose.ink, 0.9), false), "notes" => g.text("♪", crate::gfx::Fmt::Big, 164.0, -8.0, 30.0, 38.0, rgba3(pose.ink, 0.9), false),
+            // lagrimas: caem 46 u (tear1: 30 u) a cada 900 ms, a 2a nasce na metade da 1a; alfa 1 - fase^3
+            "tears" | "tear1" => { let (xs, travel): (&[f32], f32) = if ex == "tears" { (&[62.0, 138.0], 46.0) } else { (&[138.0], 30.0) };
+                for (k, tx) in xs.iter().enumerate() { for ph in [0.0f32, 0.5] { let f = ((t / 0.9 + ph + k as f32 * 0.17).fract()).clamp(0.0, 1.0); let yy = 74.0 + travel * f; let al = 1.0 - f.powi(3);
+                    g.circle(*tx, yy, 4.2, (0.30, 0.61, 1.0, al)); g.ring(*tx, yy, 4.2, 1.2, (0.17, 0.44, 0.84, al)); } } }
+            "sweat" => { g.ellipse(176.0, 22.0, 4.6, 6.4, (0.55, 0.78, 1.0, 1.0)); g.ring(176.0, 22.0, 5.0, 1.2, (0.17, 0.44, 0.84, 1.0)); }
+            // zzz: Z grande e z pequeno flutuam devagar (so quadros com a ilha aberta; a respiracao ja os pede)
+            "zzz" | "z1" => { let dy = -2.5 * (std::f32::consts::TAU * t / 2.4).sin(); let c = rgba3([pose.color[0] * 0.65, pose.color[1] * 0.65, pose.color[2] * 0.65], 0.95);
+                g.text("Z", crate::gfx::Fmt::Head, 164.0, 4.0 + dy, 24.0, 26.0, c, false); if ex == "zzz" { g.text("z", crate::gfx::Fmt::Title, 186.0, -14.0 - dy, 20.0, 20.0, c, false); } }
+            _ => {}
+        }
     }
     a.gfx.set_matrix(base);
 }
@@ -182,15 +225,33 @@ mod tests {
         let m = lerp_pose(&a, &b, 0.5); assert!((m.up[1] - (a.up[1] + b.up[1]) / 2.0).abs() < 1e-3); assert!((m.fill[0] - (a.fill[0] + b.fill[0]) / 2.0).abs() < 1e-3);
     }
     #[test] fn limiares_de_raiva_do_calmo() {
-        let c = Ctx { playing: false, dragging: false, mouse: None, personality: "calmo", calm_fx: true }; let n = Instant::now();
+        let c = Ctx { playing: false, dragging: false, mouse: None, personality: "calmo", calm_fx: true, night: false, low_batt: false }; let n = Instant::now();
         let mut m = Mascot::default(); assert_eq!(m.decide(&c, n), "neutro");
         for _ in 0..3 { m.on_click(n); } assert_ne!(m.decide(&c, n), "irritado", "3 cliques ainda nao irritam o calmo");
         m.on_click(n); assert_eq!(m.decide(&c, n), "irritado", "4 em 3 s");
         for _ in 0..4 { m.on_click(n); } assert_eq!(m.decide(&c, n), "raiva", "8 em 5 s");
         for _ in 0..4 { m.on_click(n); } assert_eq!(m.decide(&c, n), "furioso", "12 em 5 s");
     }
+    #[test] fn noite_bateria_e_tedio_definem_o_humor() {
+        let n = Instant::now(); let mut c = Ctx { playing: false, dragging: false, mouse: None, personality: "calmo", calm_fx: true, night: false, low_batt: false };
+        let m = Mascot::default(); assert_eq!(m.decide(&c, n), "neutro");
+        c.low_batt = true; assert_eq!(m.decide(&c, n), "preocupado"); c.playing = true; assert_eq!(m.decide(&c, n), "preocupado", "bateria baixa vence a musica"); c.low_batt = false; c.playing = false;
+        c.night = true; assert_eq!(m.decide(&c, n), "sonolento", "noite e sonolento");
+        if let Some(t) = n.checked_sub(Duration::from_secs(61)) { let mut m2 = Mascot::default(); m2.touch = t; assert_eq!(m2.decide(&c, n), "sono", "noite + 1 min parado dorme"); }
+        c.night = false;
+        if let Some(t) = n.checked_sub(Duration::from_secs(13 * 60)) { let mut m2 = Mascot::default(); m2.touch = t; assert_eq!(m2.decide(&c, n), "entediado", "12 min parado"); }
+        if let Some(t) = n.checked_sub(Duration::from_secs(31 * 60)) { let mut m2 = Mascot::default(); m2.touch = t; assert_eq!(m2.decide(&c, n), "sono", "30 min parado"); }
+    }
+    #[test] fn choro_so_com_maus_tratos_fortes() {
+        let c = Ctx { playing: false, dragging: false, mouse: None, personality: "calmo", calm_fx: true, night: false, low_batt: false }; let n = Instant::now(); let mut m = Mascot::default();
+        for _ in 0..12 { m.on_click(n); } assert_eq!(m.decide(&c, n), "furioso"); for _ in 0..12 { m.on_click(n); } assert_eq!(m.decide(&c, n), "choro", "24 cliques em 5 s");
+    }
+    #[test] fn extras_do_rig_para_choro_sono_e_preocupado() {
+        let r = rig(); assert!(r.poses["choro"].extras.iter().any(|e| e == "tears") && r.poses["sono"].extras.iter().any(|e| e == "zzz") && r.poses["preocupado"].extras.iter().any(|e| e == "sweat"));
+        assert!(r.poses["feliz"].color[0] > 0.9, "cor da emocao para os olhos soltos");
+    }
     #[test] fn contexto_define_a_expressao_sem_cliques() {
-        let n = Instant::now(); let m = Mascot::default(); let mut c = Ctx { playing: true, dragging: false, mouse: None, personality: "calmo", calm_fx: true };
+        let n = Instant::now(); let m = Mascot::default(); let mut c = Ctx { playing: true, dragging: false, mouse: None, personality: "calmo", calm_fx: true, night: false, low_batt: false };
         assert_eq!(m.decide(&c, n), "feliz"); c.dragging = true; assert_eq!(m.decide(&c, n), "curioso"); c.dragging = false; c.playing = false; assert_eq!(m.decide(&c, n), "neutro");
     }
 }
