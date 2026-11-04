@@ -110,6 +110,8 @@ fn main() {
     #[cfg(not(feature = "devtools"))]
     let fake = false;
     if fake { #[cfg(feature = "devtools")] media::fake(); } else { media::init(); }
+    #[cfg(feature = "devtools")]
+    if let Some(k) = std::env::var("EAVELY_UI_K").ok().and_then(|v| v.parse::<f32>().ok()) { layout::set_k(k); } // teste: preset de tamanho (0.6..1.5)
     let island_thread = island::start();
     #[cfg(feature = "devtools")]
     if std::env::var_os("EAVELY_TEST_VOLUME").is_some() { // teste interno: muda o volume do sistema em 2% e volta (dispara o callback real do overlay)

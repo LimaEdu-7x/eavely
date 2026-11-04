@@ -204,7 +204,10 @@ pub fn draw(a: &mut App, now: Instant, w: f32, h: f32, rad: f32, hits: &mut Vec<
     // flares: 6 px recolhido -> 18 px aberto (largura total 457 = 420 + 2x18, medido internamente)
     if h > 3.0 { a.gfx.flares(w, (crate::layout::compact_flare() + (crate::layout::open_flare() - crate::layout::compact_flare()) * ((h - crate::layout::compact_h()) / (crate::layout::open_h() - crate::layout::compact_h())).clamp(0.0, 1.0)).min(h * 0.75), (0.0, 0.0, 0.0, 1.0)); }
     if st == St::Line || h < 6.0 { return; } // mini notch: so a forma
-    let open_f = ((h - crate::layout::compact_h()) / (crate::layout::open_h() - crate::layout::compact_h())).clamp(0.0, 1.0);
+    // dai em diante o conteudo e desenhado em UNIDADES DE PROJETO (420 de largura aberta) sob a escala k do preset de tamanho; a forma acima e em px reais
+    let k = crate::layout::k(); let ix = (crate::layout::win_w() - w) / 2.0; a.gfx.set_t(ix, a.ty.pos.min(0.0), k);
+    let (w, h, rad) = (w / k, h / k, rad / k);
+    let open_f = ((h - 30.0) / (140.0 - 30.0)).clamp(0.0, 1.0);
     let ao = ((open_f - 0.4) / 0.6).clamp(0.0, 1.0); // conteudo do aberto: entra depois da forma abrir ~40%
     let ap = if st == St::Over { ((h - 8.0) / 30.0).clamp(0.0, 1.0) } else if st == St::Live && live_expanded() { ((h - 8.0) / 20.0).clamp(0.0, 1.0) } else if st == St::Live && lyric_bar() { ((h - 8.0) / 20.0).clamp(0.0, 1.0) } else { ((h - 8.0) / 20.0).clamp(0.0, 1.0) * (1.0 - (h - 30.0) / 30.0).clamp(0.0, 1.0) }; // peek/ao vivo
     let t_s = a.p.eq_t0.get_or_insert(now).elapsed().as_secs_f32();
@@ -405,18 +408,18 @@ fn page_layer(a: &mut App, now: Instant, page: usize, dx: f32, alpha: f32, off: 
     a.gfx.layer(alpha);
     match page {
         0 => {
-            if split_f < 0.99 { a.gfx.layer(1.0 - split_f); a.gfx.set_t(origin(a, w) + dx + off, 0.0, 1.0); music_normal(a, now, t, hits, dx + off); a.gfx.unlayer(); }
-            if split_f > 0.01 { a.gfx.layer(split_f); a.gfx.set_t(origin(a, w), 0.0, 1.0); music_split(a, now, hits); a.gfx.unlayer(); }
+            if split_f < 0.99 { a.gfx.layer(1.0 - split_f); a.gfx.set_t(origin(a, w) + (dx + off) * crate::layout::k(), 0.0, crate::layout::k()); music_normal(a, now, t, hits, dx + off); a.gfx.unlayer(); }
+            if split_f > 0.01 { a.gfx.layer(split_f); a.gfx.set_t(origin(a, w), 0.0, crate::layout::k()); music_split(a, now, hits); a.gfx.unlayer(); }
         }
-        1 => { a.gfx.set_t(origin(a, w) + dx + off, 0.0, 1.0); crate::pages2::shelf_bg(a, now); header(a, "Shelf", 1, t, now); shelf(a, hits, dx + off, now); }
-        2 => { a.gfx.set_t(origin(a, w) + dx + off, 0.0, 1.0); header(a, "Pomodoro", 2, t, now); pomodoro(a, hits, dx + off, now); }
-        _ => { a.gfx.set_t(origin(a, w) + dx + off, 0.0, 1.0); header(a, "Tarefas", 3, t, now); tarefas(a, hits, dx + off); }
+        1 => { a.gfx.set_t(origin(a, w) + (dx + off) * crate::layout::k(), 0.0, crate::layout::k()); crate::pages2::shelf_bg(a, now); header(a, "Shelf", 1, t, now); shelf(a, hits, dx + off, now); }
+        2 => { a.gfx.set_t(origin(a, w) + (dx + off) * crate::layout::k(), 0.0, crate::layout::k()); header(a, "Pomodoro", 2, t, now); pomodoro(a, hits, dx + off, now); }
+        _ => { a.gfx.set_t(origin(a, w) + (dx + off) * crate::layout::k(), 0.0, crate::layout::k()); header(a, "Tarefas", 3, t, now); tarefas(a, hits, dx + off); }
     }
-    a.gfx.set_t(origin(a, w), 0.0, 1.0);
+    a.gfx.set_t(origin(a, w), 0.0, crate::layout::k());
     a.gfx.unlayer();
 }
 /// origem x (px logicos da janela) da ilha atual
-fn origin(_a: &App, w: f32) -> f32 { (crate::layout::win_w() - w) / 2.0 }
+fn origin(_a: &App, w: f32) -> f32 { (crate::layout::win_w() - w * crate::layout::k()) / 2.0 } // `w` em unidades de projeto
 
 fn header(a: &mut App, title: &str, page: usize, t: f32, now: Instant) {
     // Shelf: o cabecalho sobe 4 px (excecao documentada, DESIGN-NATIVO 14.1) para caber a caixa de 96
@@ -425,7 +428,7 @@ fn header(a: &mut App, title: &str, page: usize, t: f32, now: Instant) {
     // Shelf com itens: os botoes ocupam o lugar de data/hora/bateria; some/volta em fade (0,3 s)
     let ha = if page == P_SHELF { crate::pages2::shelf_header_alpha(a, now) } else { 1.0 };
     if ha > 0.01 {
-        a.gfx.layer(ha); a.gfx.set_t((crate::layout::win_w() - 420.0) / 2.0, up, 1.0);
+        a.gfx.layer(ha); let k = crate::layout::k(); a.gfx.set_t((crate::layout::win_w() - 420.0 * k) / 2.0, up * k, k);
         let (hm, date) = clock_str(); let (pc, ch) = battery(a);
         // grupo bateria · data · hora alinhado a direita, 8 px entre itens; termina em x=372 (o indicador ao vivo fica em 382..404; com timer+musica cede 18 px)
         let edge = 372.0 - if is_playing() && timer_running() { 18.0 } else { 0.0 };
@@ -433,7 +436,7 @@ fn header(a: &mut App, title: &str, page: usize, t: f32, now: Instant) {
         a.gfx.text(&hm, Fmt::BodyStrong, edge - wh - 2.0, 14.0, wh + 4.0, 16.0, TEXT, true);
         a.gfx.text(&date, Fmt::Body, edge - wh - 8.0 - wd - 2.0, 14.0, wd + 4.0, 16.0, TEXT2, true);
         let _ = (pc, ch); status_icon(a, edge - wh - 8.0 - wd - 8.0 - 16.0, 14.0, 16.0);
-        a.gfx.set_t((crate::layout::win_w() - 420.0) / 2.0, 0.0, 1.0); a.gfx.unlayer();
+        a.gfx.set_t((crate::layout::win_w() - 420.0 * k) / 2.0, 0.0, k); a.gfx.unlayer();
     }
     live_indicator(a, t);
 }
@@ -606,7 +609,7 @@ fn tarefas(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32) { crate::tasks::draw
 
 /// setas, pontos, dock
 fn chrome(a: &mut App, now: Instant, w: f32, _h: f32, dx: f32, split_f: f32, _t: f32, hits: &mut Vec<(R, Act)>) {
-    a.gfx.set_t(origin(a, w) + dx, 0.0, 1.0);
+    a.gfx.set_t(origin(a, w) + dx * crate::layout::k(), 0.0, crate::layout::k());
     let dock_f = a.dock_t.val(now).clamp(0.0, 1.0);
     if split_f < 0.5 {
         let al = 1.0 - split_f * 2.0;
@@ -650,7 +653,7 @@ fn chrome(a: &mut App, now: Instant, w: f32, _h: f32, dx: f32, split_f: f32, _t:
 pub fn mouse(a: &mut App, m: u32, wp: WPARAM, lp: LPARAM) {
     if m == WM_LBUTTONDOWN && a.state != St::Open && crate::settings::flag(crate::settings::F_CLICK) { a.click_open = true; a.evaluate_pub(); return; } // modo 'Clique': o primeiro clique no notch abre
     let s = a.gfx.scale; let (cx, cy) = ((lp.0 & 0xFFFF) as i16 as f32 / s, ((lp.0 >> 16) & 0xFFFF) as i16 as f32 / s);
-    let w = a.tw.val(Instant::now()); let (x, y) = (cx - (crate::layout::win_w() - w) / 2.0, cy);
+    let w = a.tw.val(Instant::now()); let kk = crate::layout::k(); let (x, y) = ((cx - (crate::layout::win_w() - w) / 2.0) / kk, cy / kk); // coordenadas de projeto
     let hit = a.hits.iter().rev().find(|(rc, _)| rc.has(x, y)).map(|(rc, act)| (*rc, *act));
     match m {
         WM_MOUSEMOVE => {

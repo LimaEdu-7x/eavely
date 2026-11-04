@@ -319,7 +319,7 @@ impl App {
     /// cursor em coordenadas locais da ilha (x: 0..420 com a ilha centrada em 210; y: 0 = topo da tela); serve ao brilho do Shelf
     pub fn cursor_local(&self) -> (f32, f32) {
         let m = self.mon(); let mut p = POINT::default(); unsafe { let _ = GetCursorPos(&mut p); }
-        (210.0 + (p.x - (m.x + m.w / 2)) as f32 / m.s, (p.y - m.y) as f32 / m.s)
+        (210.0 + (p.x - (m.x + m.w / 2)) as f32 / m.s / crate::layout::k(), (p.y - m.y) as f32 / m.s / crate::layout::k())
     }
     fn mon(&self) -> Mon { self.mons[self.active.min(self.mons.len() - 1)] }
     pub fn now() -> Instant { Instant::now() }
@@ -408,7 +408,7 @@ impl App {
         let breath = new == St::Open && matches!(old, St::Peek | St::Live) && !reduced_motion() && !self.drag_over && self.pin.is_none();
         let prev = self.target();
         self.state = new;
-        if breath { self.breathe = Some((prev.0 + BREATH_GROW.0, prev.1 + BREATH_GROW.1, prev.2)); unsafe { SetTimer(Some(self.hwnd), T_BREATH, BREATH_MS as u32, None); } } else if new != St::Open || old != St::Open { self.breathe = None; }
+        if breath { self.breathe = Some((prev.0 + BREATH_GROW.0 * crate::layout::k(), prev.1 + BREATH_GROW.1 * crate::layout::k(), prev.2)); unsafe { SetTimer(Some(self.hwnd), T_BREATH, BREATH_MS as u32, None); } } else if new != St::Open || old != St::Open { self.breathe = None; }
         if new == St::Over && old != St::Over { self.ty = Spring::new(0.0); self.p.ov_cur = ""; } // overlay nasce da propria forma do notch (a mola da forma faz o crescimento); conteudo anima em overlay::draw
         if new == St::Open && old != St::Open { self.split = false; self.split_t = Tw::new(0.0); self.dock = false; HOOK_OPEN.store(true, Relaxed); crate::pages::on_open(self); }
         if new != St::Open { HOOK_OPEN.store(false, Relaxed); }
@@ -554,7 +554,7 @@ impl App {
             let compact = self.state == St::Peek;
             let (bw, bh, rad, fl) = if compact { (150.0 * crate::layout::k(), crate::layout::compact_h(), crate::layout::compact_r(), crate::layout::compact_flare()) } else { (crate::layout::mini_w(), crate::layout::mini_h(), crate::layout::mini_r(), crate::layout::mini_flare()) };
             self.rest_shape = (bw, bh, rad);
-            let m = self.mon(); let s = m.s;
+            let m = self.mon(); let s = m.s; let cs = s * crate::layout::k(); // cs: conteudo do compacto (bateria/hora) escala com o preset
             let (w, h) = (((bw + 2.0 * fl) * s).round() as i32, (bh * s).round().max(2.0) as i32);
             let (x0, r, f) = (fl * s, rad * s, fl * s);
             let screen = GetDC(None); let mem = CreateCompatibleDC(Some(screen));
@@ -577,18 +577,18 @@ impl App {
                 if compact { // bateria (formas) + hora (GDI)
                     let (pc, charging) = crate::pages::rest_battery();
                     let col = if charging { (123u32, 224u32, 164u32) } else if pc <= 10 { (255, 107, 107) } else if pc <= 20 { (255, 184, 107) } else { (190, 190, 190) };
-                    let (ox, oy, bw2, bh2) = ((x0 + 14.0 * s) as i32, ((h as f32 - 8.0 * s) / 2.0) as i32, (16.0 * s) as i32, (8.0 * s).max(6.0) as i32);
+                    let (ox, oy, bw2, bh2) = ((x0 + 14.0 * cs) as i32, ((h as f32 - 8.0 * cs) / 2.0) as i32, (16.0 * cs) as i32, (8.0 * cs).max(6.0) as i32);
                     let mut put = |x: i32, y: i32, c: (u32, u32, u32)| { if x >= 0 && y >= 0 && x < w && y < h { px[(y * w + x) as usize] = 0xFF00_0000 | c.0 << 16 | c.1 << 8 | c.2; } };
                     let has_b = crate::pages::has_battery(); // PC sem bateria: no lugar do icone de carga vai o de rede
                     for yy in 0..(if has_b { bh2 } else { 0 }) { for xx in 0..bw2 { let edge = xx == 0 || yy == 0 || xx == bw2 - 1 || yy == bh2 - 1; let fill = xx < (bw2 as f32 * pc as f32 / 100.0) as i32;
                         if edge || fill { put(ox + xx, oy + yy, col); } } }
-                    for yy in (bh2 / 4)..(if has_b { bh2 - bh2 / 4 } else { 0 }) { for xx in 0..(2.0 * s).max(2.0) as i32 { put(ox + bw2 + xx, oy + yy, col); } }
-                    if !has_b { draw_net_glyph(px, w, h, s, ox as f32, (h as f32 - 16.0 * s) / 2.0, crate::netstat::get()); }
+                    for yy in (bh2 / 4)..(if has_b { bh2 - bh2 / 4 } else { 0 }) { for xx in 0..(2.0 * cs).max(2.0) as i32 { put(ox + bw2 + xx, oy + yy, col); } }
+                    if !has_b { draw_net_glyph(px, w, h, cs, ox as f32, (h as f32 - 16.0 * cs) / 2.0, crate::netstat::get()); }
                     SetBkMode(mem, TRANSPARENT); SetTextColor(mem, COLORREF(0x00FF_FFFF));
-                    let font = CreateFontW(-(14.0 * s).round() as i32, 0, 0, 0, 600, 0, 0, 0, FONT_CHARSET(1), FONT_OUTPUT_PRECISION(0), FONT_CLIP_PRECISION(0), ANTIALIASED_QUALITY, 0, w!("Segoe UI"));
+                    let font = CreateFontW(-(14.0 * cs).round() as i32, 0, 0, 0, 600, 0, 0, 0, FONT_CHARSET(1), FONT_OUTPUT_PRECISION(0), FONT_CLIP_PRECISION(0), ANTIALIASED_QUALITY, 0, w!("Segoe UI"));
                     let of = SelectObject(mem, font.into());
                     let (hm, _) = crate::pages::rest_clock(); let mut v: Vec<u16> = hm.encode_utf16().collect();
-                    let mut rc = RECT { left: (x0 + 60.0 * s) as i32, top: ((h as f32 - 20.0 * s) / 2.0) as i32, right: (w as f32 - x0 - 14.0 * s) as i32, bottom: ((h as f32 + 20.0 * s) / 2.0) as i32 };
+                    let mut rc = RECT { left: (x0 + 60.0 * cs) as i32, top: ((h as f32 - 20.0 * cs) / 2.0) as i32, right: (w as f32 - x0 - 14.0 * cs) as i32, bottom: ((h as f32 + 20.0 * cs) / 2.0) as i32 };
                     DrawTextW(mem, &mut v, &mut rc, DT_RIGHT | DT_SINGLELINE | DT_NOPREFIX | DT_VCENTER);
                     SelectObject(mem, of); let _ = DeleteObject(font.into());
                 }

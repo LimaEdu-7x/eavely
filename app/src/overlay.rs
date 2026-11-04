@@ -253,9 +253,9 @@ pub fn draw(a: &mut crate::island::App, ov: &Ov, w: f32, ap: f32, now: Instant) 
     if let (Some(v), Some(t)) = (ov.value, a.p.ov_v.as_mut()) { t.go(now, v, if simple { 1.0 } else { 150.0 }); }
     let vv = a.p.ov_v.as_ref().map_or(ov.value.unwrap_or(0.0), |t| t.val(now));
     let ip = a.p.ov_ic.as_ref().map_or(1.0, |t| t.val(now)).clamp(0.0, 1.0);
-    let ix = (crate::layout::win_w() - w) / 2.0;
+    let k = crate::layout::k(); let ix = (crate::layout::win_w() - w * k) / 2.0; // `w` em unidades de projeto
     let (s, dy) = if simple { (1.0, 0.0) } else { (0.92 + 0.08 * ap, -6.0 * (1.0 - ap)) };
-    a.gfx.set_t(ix + (w - 280.0) / 2.0 + 140.0 * (1.0 - s), dy + 24.0 * (1.0 - s), s);
+    a.gfx.set_t(ix + ((w - 280.0) / 2.0 + 140.0 * (1.0 - s)) * k, (dy + 24.0 * (1.0 - s)) * k, s * k);
     let fill = ov.icon == "arrow-big-up"; // seta do Caps Lock cheia
     if ip < 1.0 && !a.p.ov_prev.is_empty() {
         a.gfx.icon(a.p.ov_prev, 16.0, 14.0, 20.0, (ov.color.0, ov.color.1, ov.color.2, ov.color.3 * (1.0 - ip)), a.p.ov_prev == "arrow-big-up");
@@ -269,7 +269,7 @@ pub fn draw(a: &mut crate::island::App, ov: &Ov, w: f32, ap: f32, now: Instant) 
         None if ov.sub.is_empty() => a.gfx.text(&ov.title, Fmt::BodyStrong, 48.0, 15.0, 216.0, 18.0, rgba(0xFFFFFF, 1.0), false),
         None => { a.gfx.text(&ov.title, Fmt::BodyStrong, 48.0, 9.0, 216.0, 16.0, rgba(0xFFFFFF, 1.0), false); a.gfx.text(&ov.sub, Fmt::Small, 48.0, 27.0, 216.0, 14.0, rgba(0xFFFFFF, 0.64), false); }
     }
-    a.gfx.set_t(ix, 0.0, 1.0);
+    a.gfx.set_t(ix, 0.0, k);
 }
 
 #[cfg(test)]
