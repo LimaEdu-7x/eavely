@@ -253,7 +253,7 @@ pub fn draw(a: &mut crate::island::App, ov: &Ov, w: f32, ap: f32, now: Instant) 
     if let (Some(v), Some(t)) = (ov.value, a.p.ov_v.as_mut()) { t.go(now, v, if simple { 1.0 } else { 150.0 }); }
     let vv = a.p.ov_v.as_ref().map_or(ov.value.unwrap_or(0.0), |t| t.val(now));
     let ip = a.p.ov_ic.as_ref().map_or(1.0, |t| t.val(now)).clamp(0.0, 1.0);
-    let ix = (crate::island::WIN_W - w) / 2.0;
+    let ix = (crate::layout::win_w() - w) / 2.0;
     let (s, dy) = if simple { (1.0, 0.0) } else { (0.92 + 0.08 * ap, -6.0 * (1.0 - ap)) };
     a.gfx.set_t(ix + (w - 280.0) / 2.0 + 140.0 * (1.0 - s), dy + 24.0 * (1.0 - s), s);
     let fill = ov.icon == "arrow-big-up"; // seta do Caps Lock cheia

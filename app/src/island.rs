@@ -8,12 +8,7 @@ use windows::{
 };
 use crate::gfx::Gfx;
 
-pub const WIN_W: f32 = 600.0; // janela maxima (520 das letras + flares de 18 + folga para o overshoot)
 /// ILHA ABERTA: tamanho FIXO em todas as paginas (corpo 420x140; com os flares de 18 px = 457 de largura medido internamente). So as letras alargam (520).
-pub const OPEN_W: f32 = 420.0;
-pub const OPEN_H: f32 = 140.0;
-pub const OPEN_FLARE: f32 = 18.0;
-pub const WIN_H: f32 = 176.0; // 164 com dock + folga
 
 const WM_CLASS: u32 = WM_APP + 1;
 const WM_WAKE: u32 = WM_APP + 2;
@@ -42,10 +37,6 @@ const T_METRICS: usize = 17; // compacto de PC: amostra CPU/RAM/GPU/rede/mic a 1
 const T_LOOK: usize = 15; // olhos: reconfere o cursor a cada 33 ms enquanto o aspecto 'olhos' esta visivel
 /// atraso antes de recolher ao tirar o mouse (ms); sera ajustado ao valor medido
 /// MINI NOTCH (janela maximizada): tamanho em px logicos, facil de ajustar (pediu-se 56x5; tambem cogitado 48 ou 64 de largura). Raio do canto de baixo e dos flares limitados pela altura.
-pub const MINI_W: f32 = 56.0;
-pub const MINI_H: f32 = 5.0;
-pub const MINI_R: f32 = 2.5;
-pub const MINI_FLARE: f32 = 4.0;
 pub static GRACE_MS: AtomicU32 = AtomicU32::new(1000);
 /// folga (px logicos) em volta do mini notch para ele reagir: 1 = so encostar, 6 = pequena folga
 pub static MINI_PAD: AtomicU32 = AtomicU32::new(1);
@@ -336,12 +327,12 @@ impl App {
     /// forma alvo do estado atual (w, h, raio)
     pub fn target(&self) -> (f32, f32, f32) {
         match self.state {
-            St::Hidden | St::Line => (MINI_W, MINI_H, MINI_R), // mini notch (janela maximizada)
-            St::Peek => (crate::pages::peek_w(), 30.0, 14.0),
+            St::Hidden | St::Line => (crate::layout::mini_w(), crate::layout::mini_h(), crate::layout::mini_r()), // mini notch (janela maximizada)
+            St::Peek => (crate::pages::peek_w(), crate::layout::compact_h(), crate::layout::compact_r()),
             St::Live => crate::pages::live_size(),
-            St::Over => (280.0, 48.0, 22.0),
+            St::Over => (crate::layout::over_w(), crate::layout::over_h(), crate::layout::over_r()),
             St::Open if self.breathe.is_some() => self.breathe.unwrap(),
-            St::Open => (if self.split && self.page == 0 { 520.0 } else { OPEN_W }, OPEN_H + if self.dock || (self.page == 3 && self.p.task_cal) { 32.0 } else { 0.0 }, 28.0),
+            St::Open => (if self.split && self.page == 0 { crate::layout::split_w() } else { crate::layout::open_w() }, crate::layout::open_h() + if self.dock || (self.page == 3 && self.p.task_cal) { crate::layout::dock_extra() } else { 0.0 }, crate::layout::open_r()),
         }
     }
     fn is_live(&self) -> bool { crate::pages::is_live() }
@@ -457,18 +448,18 @@ impl App {
     fn update_region(&mut self) {
         let now = Instant::now(); let s = self.gfx.scale;
         // regiao JUSTA: so a forma desenhada (corpo + flares) captura cliques; o resto da janela deixa o mouse passar para a area de trabalho
-        let hh = self.th.pos.clamp(1.0, WIN_H - 2.0); let fl = (6.0 + (OPEN_FLARE - 6.0) * ((hh - 30.0) / (OPEN_H - 30.0)).clamp(0.0, 1.0)).min(hh * 0.75);
-        let w = (self.tw.pos.clamp(1.0, WIN_W - 4.0 - 2.0 * OPEN_FLARE) + 2.0 * fl + 2.0).min(WIN_W); let h = (hh + 2.0).min(WIN_H);
+        let hh = self.th.pos.clamp(1.0, crate::layout::win_h() - 2.0); let fl = (crate::layout::compact_flare() + (crate::layout::open_flare() - crate::layout::compact_flare()) * ((hh - crate::layout::compact_h()) / (crate::layout::open_h() - crate::layout::compact_h())).clamp(0.0, 1.0)).min(hh * 0.75);
+        let w = (self.tw.pos.clamp(1.0, crate::layout::win_w() - 4.0 - 2.0 * crate::layout::open_flare()) + 2.0 * fl + 2.0).min(crate::layout::win_w()); let h = (hh + 2.0).min(crate::layout::win_h());
         let (rw, rh) = ((w * s).ceil() as i32, (h * s).ceil() as i32);
         if self.region == (rw, rh) { return; }
         self.region = (rw, rh);
-        let ox = ((WIN_W * s - rw as f32) / 2.0) as i32;
+        let ox = ((crate::layout::win_w() * s - rw as f32) / 2.0) as i32;
         unsafe { let rg = CreateRectRgn(ox, 0, ox + rw, rh); SetWindowRgn(self.hwnd, Some(rg), false); }
     }
     fn publish_hit(&self) {
         let m = self.mon(); let s = m.s; let (w, h, _) = self.target();
         REST_LINE.store(self.state == St::Line, Relaxed);
-        let pad = MINI_PAD.load(Relaxed) as f32;
+        let pad = MINI_PAD.load(Relaxed) as f32 * crate::layout::k();
         let (cw, ch) = match self.state { St::Line => (w + 2.0 * pad, h + pad), St::Hidden => (w.max(80.0), 24.0), St::Peek | St::Live | St::Over => (w + 16.0, h + 8.0), St::Open => (w + 16.0, h + 8.0) };
         let cx = m.x + m.w / 2;
         HIT[0].store(cx - (cw * s / 2.0) as i32, Relaxed); HIT[1].store(m.y, Relaxed);
@@ -476,7 +467,7 @@ impl App {
     }
     fn place(&mut self) {
         let m = self.mon();
-        let (w, h) = ((WIN_W * m.s).round() as u32, (WIN_H * m.s).round() as u32);
+        let (w, h) = ((crate::layout::win_w() * m.s).round() as u32, (crate::layout::win_h() * m.s).round() as u32);
         self.gfx.resize(w, h, m.s);
         unsafe { let _ = SetWindowPos(self.hwnd, Some(HWND_TOPMOST), m.x + (m.w - w as i32) / 2, m.y, w as i32, h as i32, SWP_NOACTIVATE); }
         if self.gdi_rest(self.state) && !self.vis { self.show_rest(true); }
@@ -520,12 +511,12 @@ impl App {
         if matches!(self.state, St::Live | St::Peek) { let t = self.target(); if (t.0 - self.tw.to).abs() > 0.5 || (t.1 - self.th.to).abs() > 0.5 { self.retarget(now, 240.0); } } // barra de letras 300x34 entra/sai quando a letra chega
         self.tw.step(dt); self.th.step(dt); self.tr.step(dt); self.ty.step(dt); self.page_t.step(dt);
         // overshoot nunca passa da janela nem fica negativo
-        let (w, h, r) = (self.tw.pos.clamp(1.0, WIN_W - 4.0 - 2.0 * OPEN_FLARE), self.th.pos.clamp(1.0, WIN_H - 2.0), self.tr.pos.clamp(0.0, 60.0));
+        let (w, h, r) = (self.tw.pos.clamp(1.0, crate::layout::win_w() - 4.0 - 2.0 * crate::layout::open_flare()), self.th.pos.clamp(1.0, crate::layout::win_h() - 2.0), self.tr.pos.clamp(0.0, 60.0));
         if crate::selftest::on() { crate::selftest::rec(self.started.elapsed().as_secs_f32() * 1000.0, dt * 1000.0, w, h, self.page_t.pos); }
         #[cfg(feature = "devtools")] crate::bench::flog(self.started.elapsed().as_secs_f32() * 1000.0, dt * 1000.0, w, h, &format!("{:?}", self.state), self.page);
         self.update_region();
-        let ix = (WIN_W - w) / 2.0;
-        let cur = (ix - OPEN_FLARE - 2.0, 0.0, w + 2.0 * OPEN_FLARE + 4.0, h + 4.0); // inclui os flares laterais (ate 18 px)
+        let ix = (crate::layout::win_w() - w) / 2.0;
+        let cur = (ix - crate::layout::open_flare() - 2.0, 0.0, w + 2.0 * crate::layout::open_flare() + 4.0, h + 4.0); // inclui os flares laterais (ate 18 px)
         let u = |a: (f32, f32, f32, f32), b: (f32, f32, f32, f32)| { let (x0, y0) = (a.0.min(b.0), a.1.min(b.1)); let (x1, y1) = ((a.0 + a.2).max(b.0 + b.2), (a.1 + a.3).max(b.1 + b.3)); (x0, y0, x1 - x0, y1 - y0) };
         let clr = u(u(cur, self.rect1), self.rect2); self.rect2 = self.rect1; self.rect1 = cur;
         if let Err(e) = self.gfx.begin(clr) { crate::log(&format!("frame: begin falhou {e}")); self.recover(); return; }
@@ -561,7 +552,7 @@ impl App {
         unsafe {
             if !on { let _ = ShowWindow(self.trace, SW_HIDE); let _ = KillTimer(Some(self.hwnd), T_CLK); return; }
             let compact = self.state == St::Peek;
-            let (bw, bh, rad, fl) = if compact { (150.0f32, 30.0f32, 14.0f32, 6.0f32) } else { (MINI_W, MINI_H, MINI_R, MINI_FLARE) };
+            let (bw, bh, rad, fl) = if compact { (150.0 * crate::layout::k(), crate::layout::compact_h(), crate::layout::compact_r(), crate::layout::compact_flare()) } else { (crate::layout::mini_w(), crate::layout::mini_h(), crate::layout::mini_r(), crate::layout::mini_flare()) };
             self.rest_shape = (bw, bh, rad);
             let m = self.mon(); let s = m.s;
             let (w, h) = (((bw + 2.0 * fl) * s).round() as i32, (bh * s).round().max(2.0) as i32);
@@ -825,7 +816,7 @@ pub fn start() -> Option<std::thread::JoinHandle<()>> {
         let mut p = POINT::default(); let _ = GetCursorPos(&mut p);
         let active = mons.iter().position(|m| p.x >= m.x && p.x < m.x + m.w && p.y >= m.y && p.y < m.y + m.h).unwrap_or(0);
         let m = mons[active];
-        let (pw, ph) = ((WIN_W * m.s).round() as i32, (WIN_H * m.s).round() as i32);
+        let (pw, ph) = ((crate::layout::win_w() * m.s).round() as i32, (crate::layout::win_h() * m.s).round() as i32);
         let hwnd = CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, w!("EavelyIsland"), w!("Eavely"), WS_POPUP,
             m.x + (m.w - pw) / 2, m.y, pw, ph, None, None, Some(hi), None).unwrap();
         HW.store(hwnd.0 as isize, Relaxed); crate::overlay::register_power(hwnd);
@@ -839,8 +830,8 @@ pub fn start() -> Option<std::thread::JoinHandle<()>> {
         if DwmGetCompositionTimingInfo(hwnd, &mut ti).is_ok() && ti.rateRefresh.uiDenominator != 0 { hz = ti.rateRefresh.uiNumerator as f32 / ti.rateRefresh.uiDenominator as f32; }
         let mut app = App { hwnd, trace, vis: false, gfx, mons: mons.clone(), active, fs: vec![false; mons.len()], mx: vec![false; mons.len()], enabled: true, state: St::Hidden,
             breathe: None, kb_prev: None, click_open: false, look_eyes: crate::settings::get().collapsed_look == "eyes", eye_last: (0, 0), page: crate::pages::load_page(), prev_page: 0, page_t: Spring::new(1.0), dir: 1.0, split: crate::pages::load_split(), dock: false, drag_over: false,
-            ty: Spring::new(0.0), tw: Spring::new(MINI_W), th: Spring::new(MINI_H), tr: Spring::new(MINI_R), last_step: Instant::now(), dock_t: Tw::new(0.0), split_t: Tw::new(0.0), class: 0, hover: None, pressed: None, hits: Vec::new(),
-            seek_drag: false, seek_opt: None, rest_shape: (MINI_W, MINI_H, MINI_R), pin: None, leave_at: None, drag_prev_page: None, rect1: (0.0, 0.0, WIN_W, WIN_H), rect2: (0.0, 0.0, WIN_W, WIN_H), stats: Stats { iv: Vec::new(), cpu: Vec::new(), last: None, streaks: 0, hz }, dirty: true, started: Instant::now(), force: None, region: (0, 0),
+            ty: Spring::new(0.0), tw: Spring::new(crate::layout::mini_w()), th: Spring::new(crate::layout::mini_h()), tr: Spring::new(crate::layout::mini_r()), last_step: Instant::now(), dock_t: Tw::new(0.0), split_t: Tw::new(0.0), class: 0, hover: None, pressed: None, hits: Vec::new(),
+            seek_drag: false, seek_opt: None, rest_shape: (crate::layout::mini_w(), crate::layout::mini_h(), crate::layout::mini_r()), pin: None, leave_at: None, drag_prev_page: None, rect1: (0.0, 0.0, crate::layout::win_w(), crate::layout::win_h()), rect2: (0.0, 0.0, crate::layout::win_w(), crate::layout::win_h()), stats: Stats { iv: Vec::new(), cpu: Vec::new(), last: None, streaks: 0, hz }, dirty: true, started: Instant::now(), force: None, region: (0, 0),
             p: crate::pages::PageState::default() };
         app.refresh_monitors();
         crate::log(&format!("ilha: monitor {}x{} @{:.2}x, {hz:.0} Hz, {} monitores", m.w, m.h, m.s, mons.len()));
