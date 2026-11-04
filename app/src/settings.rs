@@ -38,6 +38,12 @@ pub struct Settings {
     pub pc_state: bool, pub pc_cpu: bool, pub pc_ram: bool, pub pc_gpu: bool, pub pc_net: bool, pub pc_slots: u32, pub pc_rotate: u32,
     /// Desempenho. preset: "max" | "balanced" | "eco" | "custom"; fps_cap: "auto" (taxa do monitor) | "60" | "30"; anim_quality: "smooth" | "balanced" | "light";
     /// lyrics_scroll: "smooth" (a cada quadro) | "line" (por linha); fx_level / viz_level: "on" | "reduced" (| "off" so em fx)
+    /// ms que a ilha fica aberta depois que o mouse sai (0, 500, 1000, 2000, 3000)
+    pub leave_delay_ms: u32,
+    /// brilho atras do arquivo arrastado no Shelf (Economia desliga)
+    pub shelf_glow: bool,
+    /// mini notch (janela maximizada): false = so ao encostar na forma (folga 1 px); true = pequena folga (6 px)
+    pub mini_near: bool,
     pub perf_preset: String, pub fps_cap: String, pub anim_quality: String, pub lyrics_scroll: String, pub fx_level: String, pub viz_level: String,
 }
 impl Default for Settings {
@@ -46,21 +52,22 @@ impl Default for Settings {
         ui_scale: "auto".into(), minimal_island: false, open_mode: "hover".into(), anim_speed: "normal".into(), cover_spin: true, cover_gradient: true, lyric_bar: true,
         shelf_start_empty: false, shelf_thumbs: true, hide_fullscreen: true, tasks_done_last: true, tasks_overdue_red: true,
         pc_state: true, pc_cpu: true, pc_ram: true, pc_gpu: true, pc_net: true, pc_slots: 1, pc_rotate: 5,
-        perf_preset: "balanced".into(), fps_cap: "auto".into(), anim_quality: "smooth".into(), lyrics_scroll: "smooth".into(), fx_level: "on".into(), viz_level: "reduced".into() } }
+        leave_delay_ms: 1000, shelf_glow: true, mini_near: false, perf_preset: "balanced".into(), fps_cap: "auto".into(), anim_quality: "smooth".into(), lyrics_scroll: "smooth".into(), fx_level: "on".into(), viz_level: "reduced".into() } }
 }
 impl Settings {
     /// Presets de desempenho: sobrescrevem so os controles da secao (e o intervalo do compacto de PC)
     pub fn apply_preset(&mut self, p: &str) {
         let (fps, q, lyr, fx, viz, rot) = match p { "max" => ("auto", "smooth", "smooth", "on", "on", 3), "eco" => ("30", "light", "line", "reduced", "reduced", 8), _ => ("auto", "smooth", "smooth", "on", "reduced", 5) };
         self.perf_preset = if matches!(p, "max" | "eco") { p } else { "balanced" }.into();
-        self.fps_cap = fps.into(); self.anim_quality = q.into(); self.lyrics_scroll = lyr.into(); self.fx_level = fx.into(); self.viz_level = viz.into(); self.pc_rotate = rot;
+        self.shelf_glow = p != "eco"; self.fps_cap = fps.into(); self.anim_quality = q.into(); self.lyrics_scroll = lyr.into(); self.fx_level = fx.into(); self.viz_level = viz.into(); self.pc_rotate = rot;
     }
     /// o preset continua marcado so se os controles ainda batem com ele; senao vira "custom"
-    fn preset_matches(&self) -> bool { let mut t = self.clone(); t.apply_preset(&self.perf_preset); t.fps_cap == self.fps_cap && t.anim_quality == self.anim_quality && t.lyrics_scroll == self.lyrics_scroll && t.fx_level == self.fx_level && t.viz_level == self.viz_level && t.pc_rotate == self.pc_rotate }
+    fn preset_matches(&self) -> bool { let mut t = self.clone(); t.apply_preset(&self.perf_preset); t.shelf_glow == self.shelf_glow && t.fps_cap == self.fps_cap && t.anim_quality == self.anim_quality && t.lyrics_scroll == self.lyrics_scroll && t.fx_level == self.fx_level && t.viz_level == self.viz_level && t.pc_rotate == self.pc_rotate }
 }
 impl Settings {
     /// Valores fora do intervalo sao corrigidos ao ler.
     pub fn clamp(&mut self) {
+        self.leave_delay_ms = [0u32, 500, 1000, 2000, 3000].into_iter().min_by_key(|v| v.abs_diff(self.leave_delay_ms)).unwrap_or(1000);
         self.trigger_zone_px = match self.trigger_zone_px { 0..=32 => 24, 33..=52 => 40, _ => 64 };
         self.timer.focus_min = self.timer.focus_min.clamp(1, 180); self.timer.short_min = self.timer.short_min.clamp(1, 60);
         self.timer.long_min = self.timer.long_min.clamp(1, 120); self.timer.cycles_to_long = self.timer.cycles_to_long.clamp(2, 8);
@@ -119,12 +126,13 @@ pub static PC_SLOTS: AtomicU32 = AtomicU32::new(1); pub static PC_ROT: AtomicU32
 pub const F_PC_STATE: usize = 8; pub const F_PC_CPU: usize = 9; pub const F_PC_RAM: usize = 10; pub const F_PC_GPU: usize = 11; pub const F_PC_NET: usize = 12;
 pub const F_HIDE_FS: usize = 0; pub const F_FAST: usize = 1; pub const F_CLICK: usize = 2; pub const F_SPIN: usize = 3; pub const F_GRAD: usize = 4; pub const F_LYRBAR: usize = 5; pub const F_THUMBS: usize = 6; pub const F_MINIMAL: usize = 7;
 pub fn flag(i: usize) -> bool { FLAGS[i].load(Relaxed) }
-pub const F_LYR_LINE: usize = 13;
+pub const F_LYR_LINE: usize = 13; pub const F_SHELF_GLOW: usize = 14;
 /// desempenho (lido por quadro): limite de quadros em microssegundos (0 = taxa do monitor), multiplicador de tempo das animacoes x100, equalizador em quadros/s (0 = ritmo do monitor)
 pub static CAP_US: AtomicU32 = AtomicU32::new(0); pub static ANIM_X100: AtomicU32 = AtomicU32::new(100); pub static VIZ_FPS: AtomicU32 = AtomicU32::new(20);
 fn sync_flags(s: &Settings) {
     let fx = s.fx_level.as_str();
-    for (i, v) in [s.hide_fullscreen, s.anim_speed == "fast", s.open_mode == "click", s.cover_spin && fx == "on", s.cover_gradient && fx != "off", s.lyric_bar, s.shelf_thumbs, s.minimal_island, s.pc_state, s.pc_cpu, s.pc_ram, s.pc_gpu, s.pc_net, s.lyrics_scroll == "line"].into_iter().enumerate() { FLAGS[i].store(v, Relaxed); }
+    for (i, v) in [s.hide_fullscreen, s.anim_speed == "fast", s.open_mode == "click", s.cover_spin && fx == "on", s.cover_gradient && fx != "off", s.lyric_bar, s.shelf_thumbs, s.minimal_island, s.pc_state, s.pc_cpu, s.pc_ram, s.pc_gpu, s.pc_net, s.lyrics_scroll == "line", s.shelf_glow].into_iter().enumerate() { FLAGS[i].store(v, Relaxed); }
+    crate::island::GRACE_MS.store(s.leave_delay_ms, Relaxed); crate::island::MINI_PAD.store(if s.mini_near { 6 } else { 1 }, Relaxed);
     PC_SLOTS.store(s.pc_slots, Relaxed); PC_ROT.store(s.pc_rotate, Relaxed);
     let light = s.anim_quality == "light";
     CAP_US.store(match (s.fps_cap.as_str(), light) { ("30", _) | (_, true) => 33_333, ("60", _) => 16_667, _ => 0 }, Relaxed);
@@ -184,6 +192,12 @@ mod tests {
         let mut j: Settings = serde_json::from_str("{\"fpsCap\":\"zzz\",\"fxLevel\":\"x\"}").unwrap(); j.clamp(); assert_eq!((j.fps_cap.as_str(), j.fx_level.as_str()), ("auto", "on"));
     }
     use super::*;
+    #[test] fn atraso_de_recolher_e_brilho() {
+        let mut s = Settings::default(); s.clamp(); assert_eq!((s.leave_delay_ms, s.shelf_glow), (1000, true));
+        s.leave_delay_ms = 1400; s.clamp(); assert_eq!(s.leave_delay_ms, 1000); s.leave_delay_ms = 99999; s.clamp(); assert_eq!(s.leave_delay_ms, 3000);
+        s.apply_preset("eco"); assert!(!s.shelf_glow); s.clamp(); assert_eq!(s.perf_preset, "eco");
+        s.shelf_glow = true; s.clamp(); assert_eq!(s.perf_preset, "custom"); s.apply_preset("max"); assert!(s.shelf_glow);
+    }
     #[test] fn atalhos_ida_e_volta() {
         assert_eq!(parse_hotkey("Ctrl+Alt+E"), Some((MOD_CONTROL | MOD_ALT, b'E' as u32)));
         assert_eq!(parse_hotkey("ctrl + shift + f5"), Some((MOD_CONTROL | MOD_SHIFT, 0x74)));

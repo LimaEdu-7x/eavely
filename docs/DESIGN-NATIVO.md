@@ -106,7 +106,7 @@ Janela nativa: criar no tamanho máximo (**≈ 560 × 176** com folga: 520 da te
 Nenhum controle de página fica abaixo de y=120, então o dock nunca cobre nada clicável. Resumo da altura: **136 px aberta** e **164 px com dock** (antes: 138 → 150 com faixa embutida).
 
 ## 4. Páginas (aberto 420 × 136)
-Ordem fixa: **1 Música · 2 Pomodoro · 3 Shelf · 4 Tarefas** (a referência tem 5 com Água; **Água removida por decisão do autor**). Os textos abaixo são em **pt-BR** (a referência medida é em inglês); [AJUSTAR] se o Edu quiser inglês. Persistência no §9.
+Ordem fixa: **1 Música · 2 Pomodoro · 3 Shelf · 4 Tarefas** (a referência tem 5 com Água; **Água removida por decisão do autor**). Os textos abaixo são em **pt-BR** (a referência medida é em inglês); [AJUSTAR] se for preciso inglês. Persistência no §9.
 
 ### 4.1 Música (cor da página: violeta `#B69CFF`)
 - **Capa** (24, 12, 62, 62) raio 10, `cover`, contorno interno `line`. Sem capa: `surface` + `music` 24 `text-3`.

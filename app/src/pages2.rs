@@ -99,7 +99,11 @@ pub fn shelf_header_alpha(a: &App, now: Instant) -> f32 {
 /// fundo: degrade azul-marinho -> roxo ao segurar o arquivo (entra em 200 ms) e decai em 1 s depois (soltar ou sair)
 pub fn shelf_bg(a: &mut App, now: Instant) {
     let g = if a.drag_over { a.p.drag_t.map_or(1.0, |t| crate::island::ease(since(t, now, 200.0))) } else if let Some(e) = a.p.drag_end { 1.0 - crate::island::ease(since(e, now, GRAD_DECAY_MS)) } else { 0.0 };
-    if g > 0.01 { a.gfx.grad(-30.0, 0.0, 480.0, 180.0, false, &[(0.0, rgba(0x0B1024, 1.0)), (0.45, rgba(0x16254F, 1.0)), (1.0, rgba(0x3B2F7A, 1.0))], g); }
+    // brilho ATRAS DO ARQUIVO: halo radial que segue o cursor (nao ilumina o notch inteiro); desligavel (Economia)
+    if g > 0.01 && crate::settings::flag(crate::settings::F_SHELF_GLOW) {
+        let (lx, ly) = a.cursor_local(); let (x, y) = (lx.clamp(40.0, 380.0), ly.clamp(40.0, 112.0));
+        a.gfx.vignette(x, y, 96.0, (0.36, 0.42, 1.0, 0.55 * g)); a.gfx.vignette(x, y, 48.0, (0.62, 0.55, 1.0, 0.40 * g));
+    }
 }
 
 pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
@@ -187,6 +191,7 @@ pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
         let mat = if born < 1.0 { a.gfx.layer(born); Some(a.gfx.scale_about(cx, cy, sc)) } else { None };
         let act = Act::ShelfOpen(i as u32); let rm = Act::ShelfRemove(i as u32);
         let hov = a.hover == Some(act) || a.hover == Some(rm); let on = a.p.select && a.p.sel.contains(&i);
+        if hov && crate::settings::flag(crate::settings::F_SHELF_GLOW) { a.gfx.vignette(x + 29.0, y + 37.0, 52.0, (0.45, 0.52, 1.0, 0.30)); } // brilho atras do item sob o mouse
         a.gfx.rrect(x, y, 58.0, 74.0, 10.0, if hov || on { SURFACE_H } else { SURFACE });
         let th = if crate::settings::flag(crate::settings::F_THUMBS) { shelf::thumb(&it.id, &it.path) } else { None };
         if let Some(t) = th { let key = { use std::hash::{Hash, Hasher}; let mut h = std::collections::hash_map::DefaultHasher::new(); it.id.hash(&mut h); h.finish() };
