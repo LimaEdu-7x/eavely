@@ -1,6 +1,6 @@
 # Code signing status
 
-**The official binaries are currently NOT code-signed.** Code signing is under evaluation (distribution through the Microsoft Store/MSIX and other options are being considered). Releases say so in their notes.
+**The official binaries are currently NOT code-signed.** Code signing is under evaluation. Releases say so in their notes.
 
 ## How to verify a download
 - Compare the SHA256 of `Eavely.exe` / `Eavely-Setup.exe` with the `SHA256SUMS.txt` attached to the same GitHub Release.
