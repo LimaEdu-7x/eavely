@@ -77,7 +77,7 @@
 
 ### ⚠️ Aviso do Windows (SmartScreen / Smart App Control)
 
-O Eavely **ainda não tem assinatura de código** (o pedido de assinatura gratuita da SignPath Foundation está em andamento). Por isso o Windows desconfia de qualquer `.exe` novo e pouco baixado:
+O Eavely **ainda não tem assinatura de código** (a assinatura de código está em avaliação). Por isso o Windows desconfia de qualquer `.exe` novo e pouco baixado:
 
 - **SmartScreen** ("O Windows protegeu seu PC"): clique em **Mais informações → Executar assim mesmo**.
 - **Smart App Control** (Windows 11, quando está ativo): pode **bloquear sem opção de executar**. Nesse caso, ou você compila o app você mesmo, ou desativa o Smart App Control em *Segurança do Windows → Controle de aplicativos e do navegador*. **Atenção:** desativar é definitivo (só volta a ligar reinstalando o Windows) e reduz a proteção do sistema. A decisão é sua.
@@ -134,11 +134,9 @@ Para o exe de release (sem caminhos da sua máquina dentro do binário): `powers
 
 ## 🔏 Assinatura de código e privacidade
 
-Assinatura gratuita fornecida pela [SignPath.io](https://signpath.io), certificado da [SignPath Foundation](https://signpath.org) (pedido em andamento: **por enquanto os binários são publicados sem assinatura**, e as notas de cada Release avisam).
+**Os binários ainda não são assinados** (build sem assinatura digital; a assinatura de código está em avaliação). Por isso o Windows pode avisar ou bloquear. Para conferir o que você baixou, compare o hash **SHA256** com o `SHA256SUMS.txt` de cada Release, ou compile do código (veja abaixo). Detalhes em [docs/CODE-SIGNING-POLICY.md](docs/CODE-SIGNING-POLICY.md).
 
-- **O que é assinado:** só os binários oficiais da página de Releases (`Eavely.exe`, `Eavely-Setup.exe`), compilados pelo GitHub Actions a partir deste repositório.
-- **Papéis:** autor, revisor e aprovador: [@LimaEdu-7x](https://github.com/LimaEdu-7x). Cada assinatura é aprovada manualmente.
-- **Privacidade:** sem conta, telemetria ou atualização automática. A única rede é a busca opcional de letras no LRCLIB (título, artista, álbum e duração), que dá para desligar em Configurações. Veja [docs/PRIVACY.md](docs/PRIVACY.md) e a [política de assinatura](docs/CODE-SIGNING-POLICY.md).
+- **Privacidade:** sem conta, telemetria ou atualização automática. A única rede é a busca opcional de letras no LRCLIB (título, artista, álbum e duração), que dá para desligar em Configurações. Veja [docs/PRIVACY.md](docs/PRIVACY.md).
 - **Problemas ou abuso:** [Issues](https://github.com/LimaEdu-7x/eavely/issues), o relato privado de vulnerabilidade do GitHub ou [contact.eavely@gmail.com](mailto:contact.eavely@gmail.com).
 
 ## 💬 Contato e suporte

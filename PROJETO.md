@@ -13,7 +13,7 @@ Um notch para o Windows: uma ilha no topo da tela que mostra música, timer, arq
 ## Roteiro
 1. **Núcleo nativo** ✔
 2. **Polimento e desempenho** ✔
-3. **Distribuição e assinatura**: assinatura de código (SignPath Foundation), MSIX/Microsoft Store, atualizações.
+3. **Distribuição e assinatura**: assinatura de código em avaliação (MSIX/Microsoft Store e outros caminhos), atualizações.
 4. **Mascote interativo**
 5. **Clipboard, monitor do sistema e ações rápidas**
 6. **Internacionalização, Windows 10 e DPI misto**
