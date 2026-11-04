@@ -159,4 +159,4 @@ Assinatura gratuita fornecida pela [SignPath.io](https://signpath.io), certifica
 
 ## 📄 Licença e créditos
 
-MIT ([LICENSE](LICENSE)). Ícones: [Lucide](https://lucide.dev) (ISC), veja [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md). Letras: [LRCLIB](https://lrclib.net). Projeto independente, **não afiliado a nenhum outro app de notch**.
+MIT ([LICENSE](LICENSE)); logo e nome "Eavely" têm direitos reservados ao autor, veja [docs/BRAND.md](docs/BRAND.md). Ícones: [Lucide](https://lucide.dev) (ISC), veja [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md). Letras: [LRCLIB](https://lrclib.net). Projeto independente, **não afiliado a nenhum outro app de notch**.

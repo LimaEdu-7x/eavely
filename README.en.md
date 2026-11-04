@@ -91,7 +91,7 @@ Free code signing provided by [SignPath.io](https://signpath.io), certificate by
 
 ## License and credits
 
-MIT ([LICENSE](LICENSE)). Icons: [Lucide](https://lucide.dev) (ISC), see [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md). Lyrics: [LRCLIB](https://lrclib.net); lyrics belong to their authors.
+MIT ([LICENSE](LICENSE)); the "Eavely" logo and name are reserved by the author, see [docs/BRAND.md](docs/BRAND.md). Icons: [Lucide](https://lucide.dev) (ISC), see [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md). Lyrics: [LRCLIB](https://lrclib.net); lyrics belong to their authors.
 
 ## Independent project
 
