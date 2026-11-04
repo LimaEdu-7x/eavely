@@ -42,6 +42,8 @@ pub struct Settings {
     pub leave_delay_ms: u32,
     /// brilho atras do arquivo arrastado no Shelf (Economia desliga)
     pub shelf_glow: bool,
+    /// v0.2.0 'Mascote e inicio': personalidade (calmo|travesso|dramatico), pagina inicial (last|mascot|music), widgets dos 2 slots da pagina Mascote
+    pub personality: String, pub initial_page: String, pub slot_top: String, pub slot_bottom: String,
     /// mini notch (janela maximizada): false = so ao encostar na forma (folga 1 px); true = pequena folga (6 px)
     pub mini_near: bool,
     pub perf_preset: String, pub fps_cap: String, pub anim_quality: String, pub lyrics_scroll: String, pub fx_level: String, pub viz_level: String,
@@ -52,7 +54,7 @@ impl Default for Settings {
         ui_scale: "auto".into(), minimal_island: false, open_mode: "hover".into(), anim_speed: "normal".into(), cover_spin: true, cover_gradient: true, lyric_bar: true,
         shelf_start_empty: false, shelf_thumbs: true, hide_fullscreen: true, tasks_done_last: true, tasks_overdue_red: true,
         pc_state: true, pc_cpu: true, pc_ram: true, pc_gpu: true, pc_net: true, pc_slots: 1, pc_rotate: 5,
-        leave_delay_ms: 1000, shelf_glow: true, mini_near: false, perf_preset: "balanced".into(), fps_cap: "auto".into(), anim_quality: "smooth".into(), lyrics_scroll: "smooth".into(), fx_level: "on".into(), viz_level: "reduced".into() } }
+        leave_delay_ms: 1000, shelf_glow: true, personality: "calmo".into(), initial_page: "last".into(), slot_top: "shelf".into(), slot_bottom: "player".into(), mini_near: false, perf_preset: "balanced".into(), fps_cap: "auto".into(), anim_quality: "smooth".into(), lyrics_scroll: "smooth".into(), fx_level: "on".into(), viz_level: "reduced".into() } }
 }
 impl Settings {
     /// Presets de desempenho: sobrescrevem so os controles da secao (e o intervalo do compacto de PC)
@@ -67,6 +69,9 @@ impl Settings {
 impl Settings {
     /// Valores fora do intervalo sao corrigidos ao ler.
     pub fn clamp(&mut self) {
+        if !matches!(self.personality.as_str(), "calmo" | "travesso" | "dramatico") { self.personality = "calmo".into(); }
+        if !matches!(self.initial_page.as_str(), "last" | "mascot" | "music") { self.initial_page = "last".into(); }
+        for s in [&mut self.slot_top, &mut self.slot_bottom] { if !matches!(s.as_str(), "shelf" | "player" | "tasks" | "timer" | "clock" | "metrics" | "none") { *s = "none".into(); } }
         self.leave_delay_ms = [0u32, 500, 1000, 2000, 3000].into_iter().min_by_key(|v| v.abs_diff(self.leave_delay_ms)).unwrap_or(1000);
         self.trigger_zone_px = match self.trigger_zone_px { 0..=32 => 24, 33..=52 => 40, _ => 64 };
         self.timer.focus_min = self.timer.focus_min.clamp(1, 180); self.timer.short_min = self.timer.short_min.clamp(1, 60);

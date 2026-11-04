@@ -38,7 +38,7 @@ fn icon_src(name: &str) -> &'static str {
         "power" => ic!("power"), "log-out" => ic!("log-out"), "calendar" => ic!("calendar"), "circle-plus" => ic!("circle-plus"), "pencil" => ic!("pencil"),
         "plus" => ic!("plus"), "circle-check" => ic!("circle-check"), "check" => ic!("check"), "sun" => ic!("sun"), "battery-low" => ic!("battery-low"), "wifi" => ic!("wifi"), "wifi-off" => ic!("wifi-off"), "headphones" => ic!("headphones"), "arrow-big-up" => ic!("arrow-big-up"),
         "eye" => ic!("eye"), "bell" => ic!("bell"), "chevron-down" => ic!("chevron-down"), "info" => ic!("info"), "keyboard" => ic!("keyboard"), "minus" => ic!("minus"), "zap" => ic!("zap"),
-        "wifi-high" => ic!("wifi-high"), "wifi-low" => ic!("wifi-low"), "wifi-zero" => ic!("wifi-zero"), "ethernet-port" => ic!("ethernet-port"),
+        "smile" => ic!("smile"), "clock" => ic!("clock"), "cpu" => ic!("cpu"), "wifi-high" => ic!("wifi-high"), "wifi-low" => ic!("wifi-low"), "wifi-zero" => ic!("wifi-zero"), "ethernet-port" => ic!("ethernet-port"),
         _ => ic!("circle"),
     }
 }
@@ -140,6 +140,7 @@ impl Gfx {
         old
     } }
     pub fn set_matrix(&self, m: Matrix3x2) { unsafe { self.dc.SetTransform(&m); } }
+    pub fn get_matrix(&self) -> Matrix3x2 { let mut m = Matrix3x2::default(); unsafe { self.dc.GetTransform(&mut m); } m }
     fn br(&self, c: Rgba) -> &ID2D1SolidColorBrush { unsafe { self.brush.SetColor(&col(c)); &self.brush } }
 
     pub fn clip(&self, x: f32, y: f32, w: f32, h: f32) { unsafe { self.dc.PushAxisAlignedClip(&rc(x, y, w, h), D2D1_ANTIALIAS_MODE_ALIASED); } }
@@ -182,6 +183,45 @@ impl Gfx {
         let ss = D2D1_STROKE_STYLE_PROPERTIES1 { startCap: D2D1_CAP_STYLE_ROUND, endCap: D2D1_CAP_STYLE_ROUND, ..Default::default() };
         let st = self.d2d.CreateStrokeStyle(&ss, None).ok().and_then(|s| s.cast::<ID2D1StrokeStyle>().ok());
         self.dc.DrawGeometry(&g, self.br(c), sw, st.as_ref());
+    } }
+    /// Curva de Bezier cubica (p = x0,y0,x1,y1,x2,y2,x3,y3) com traco `w` de pontas redondas (rig do mascote).
+    pub fn bezier(&self, p: [f32; 8], w: f32, c: Rgba) { unsafe {
+        if c.3 <= 0.003 { return; }
+        let Ok(g) = self.d2d.CreatePathGeometry() else { return };
+        let Ok(sink) = g.Open() else { return };
+        sink.BeginFigure(Vector2 { X: p[0], Y: p[1] }, D2D1_FIGURE_BEGIN_HOLLOW);
+        sink.AddBezier(&D2D1_BEZIER_SEGMENT { point1: Vector2 { X: p[2], Y: p[3] }, point2: Vector2 { X: p[4], Y: p[5] }, point3: Vector2 { X: p[6], Y: p[7] } });
+        sink.EndFigure(D2D1_FIGURE_END_OPEN); let _ = sink.Close();
+        let ss = D2D1_STROKE_STYLE_PROPERTIES1 { startCap: D2D1_CAP_STYLE_ROUND, endCap: D2D1_CAP_STYLE_ROUND, lineJoin: D2D1_LINE_JOIN_ROUND, ..Default::default() };
+        let st = self.d2d.CreateStrokeStyle(&ss, None).ok().and_then(|s| s.cast::<ID2D1StrokeStyle>().ok());
+        self.dc.DrawGeometry(&g, self.br(c), w, st.as_ref());
+    } }
+    /// Boca do rig: figura fechada up (p0->p3) + low (p3->p0), com preenchimento opcional e contorno `w`.
+    pub fn mouth(&self, up: [f32; 8], low: [f32; 8], w: f32, stroke: Rgba, fill: Option<Rgba>) { unsafe {
+        let Ok(g) = self.d2d.CreatePathGeometry() else { return };
+        let Ok(sink) = g.Open() else { return };
+        sink.BeginFigure(Vector2 { X: up[0], Y: up[1] }, D2D1_FIGURE_BEGIN_FILLED);
+        sink.AddBezier(&D2D1_BEZIER_SEGMENT { point1: Vector2 { X: up[2], Y: up[3] }, point2: Vector2 { X: up[4], Y: up[5] }, point3: Vector2 { X: up[6], Y: up[7] } });
+        sink.AddBezier(&D2D1_BEZIER_SEGMENT { point1: Vector2 { X: low[2], Y: low[3] }, point2: Vector2 { X: low[4], Y: low[5] }, point3: Vector2 { X: low[6], Y: low[7] } });
+        sink.EndFigure(D2D1_FIGURE_END_CLOSED); let _ = sink.Close();
+        if let Some(f) = fill { if f.3 > 0.003 { self.dc.FillGeometry(&g, self.br(f), None::<&ID2D1Brush>); } }
+        if stroke.3 > 0.003 {
+            let ss = D2D1_STROKE_STYLE_PROPERTIES1 { startCap: D2D1_CAP_STYLE_ROUND, endCap: D2D1_CAP_STYLE_ROUND, lineJoin: D2D1_LINE_JOIN_ROUND, ..Default::default() };
+            let st = self.d2d.CreateStrokeStyle(&ss, None).ok().and_then(|s| s.cast::<ID2D1StrokeStyle>().ok());
+            self.dc.DrawGeometry(&g, self.br(stroke), w, st.as_ref());
+        }
+    } }
+    /// Coracao do rig (olho do "apaixonado"), centrado em (cx, cy), escala `s`.
+    pub fn heart(&self, cx: f32, cy: f32, s: f32, c: Rgba) { unsafe {
+        let Ok(g) = self.d2d.CreatePathGeometry() else { return };
+        let Ok(sink) = g.Open() else { return };
+        let p = |x: f32, y: f32| Vector2 { X: cx + x * s, Y: cy + y * s };
+        let bz = |a: (f32, f32), b: (f32, f32), d: (f32, f32)| D2D1_BEZIER_SEGMENT { point1: p(a.0, a.1), point2: p(b.0, b.1), point3: p(d.0, d.1) };
+        sink.BeginFigure(p(0.0, 14.0), D2D1_FIGURE_BEGIN_FILLED);
+        sink.AddBezier(&bz((-20.0, 0.0), (-15.0, -15.0), (-7.0, -14.0))); sink.AddBezier(&bz((-3.0, -13.5), (0.0, -10.0), (0.0, -8.0)));
+        sink.AddBezier(&bz((0.0, -10.0), (3.0, -13.5), (7.0, -14.0))); sink.AddBezier(&bz((15.0, -15.0), (20.0, 0.0), (0.0, 14.0)));
+        sink.EndFigure(D2D1_FIGURE_END_CLOSED); let _ = sink.Close();
+        self.dc.FillGeometry(&g, self.br(c), None::<&ID2D1Brush>);
     } }
     /// Gradiente vertical (transparente em `start` -> `c` no fundo) sobre o retangulo (cantos de baixo seguem o clip externo).
     pub fn vgrad(&self, x: f32, y: f32, w: f32, h: f32, c: Rgba, start: f32, alpha: f32) { unsafe {

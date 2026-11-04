@@ -29,18 +29,18 @@ const WM_REFRESH: u32 = WM_APP + 20;
 const T_ANIM: usize = 1;
 static PAGE_REQ: AtomicI32 = AtomicI32::new(-1);
 
-const PAGES: [(&str, &str, u32); 10] = [("Geral", "settings", 0x6E6E76), ("Ilha e aparência", "eye", 0x6B7CFF), ("Música e letras", "music", 0xB69CFF), ("Tarefas", "list-checks", 0x5EE0B0), ("Pomodoro", "timer", 0xFF7A66),
-    ("Shelf", "inbox", 0xFFC857), ("Avisos do sistema", "bell", 0x4DC3E8), ("Atalhos", "keyboard", 0x9A6BFF), ("Desempenho", "zap", 0xFFB020), ("Sobre", "info", 0x6E6E76)];
-const P_ABOUT: usize = 9;
+const PAGES: [(&str, &str, u32); 11] = [("Geral", "settings", 0x6E6E76), ("Ilha e aparência", "eye", 0x6B7CFF), ("Música e letras", "music", 0xB69CFF), ("Tarefas", "list-checks", 0x5EE0B0), ("Pomodoro", "timer", 0xFF7A66),
+    ("Shelf", "inbox", 0xFFC857), ("Avisos do sistema", "bell", 0x4DC3E8), ("Atalhos", "keyboard", 0x9A6BFF), ("Desempenho", "zap", 0xFFB020), ("Mascote e início", "smile", 0x7CC4FF), ("Sobre", "info", 0x6E6E76)];
+const P_ABOUT: usize = 10;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-enum SAct { Page(u8), Close, Min, Tog(u8), Seg(u8, u8), Step(u8, i8), Hot(u8), Mon, Link(u8), Reset }
+enum SAct { Page(u8), Close, Min, Tog(u8), Seg(u8, u8), Step(u8, i8), Hot(u8), Mon, SlotTop, SlotBottom, Link(u8), Reset }
 const T_START: u8 = 0; const T_TRACE: u8 = 1; const T_LIVE: u8 = 2; const T_HIDE: u8 = 3; const T_LYRIC: u8 = 4; const T_AUTO: u8 = 5; const T_NOTIFY: u8 = 6; const T_ONLINE: u8 = 7;
 const T_VOL: u8 = 10; const T_BRI: u8 = 11; const T_BAT: u8 = 12; const T_WIFI: u8 = 13; const T_HP: u8 = 14; const T_CAPS: u8 = 15;
 const T_PCSTATE: u8 = 26; const T_PCCPU: u8 = 27; const T_PCRAM: u8 = 28; const T_PCGPU: u8 = 29; const T_PCNET: u8 = 30;
 const T_MINIMAL: u8 = 16; const T_SPIN: u8 = 17; const T_GRAD: u8 = 18; const T_LYRBAR: u8 = 19; const T_SHELF_EMPTY: u8 = 20; const T_THUMBS: u8 = 21; const T_HIDEFS: u8 = 22; const T_DONELAST: u8 = 23; const T_OVERDUE: u8 = 24; const T_RESPECT: u8 = 25;
 const S_PCSLOTS: u8 = 6; const S_PCROT: u8 = 7; const S_PRESET: u8 = 8; const S_FPS: u8 = 9; const S_AQ: u8 = 10; const S_LYRS: u8 = 11; const S_FX: u8 = 12; const S_VIZ: u8 = 13;
-const S_LEAVE: u8 = 14; const S_MINI: u8 = 15; const T_SHELFGLOW: u8 = 31;
+const S_LEAVE: u8 = 14; const S_MINI: u8 = 15; const S_PERS: u8 = 16; const S_INIT: u8 = 17; const T_SHELFGLOW: u8 = 31;
 const S_LOOK: u8 = 0; const S_LIVEMODE: u8 = 1; const S_ZONE: u8 = 2; const S_SCALE: u8 = 3; const S_OPEN: u8 = 4; const S_SPEED: u8 = 5;
 const ST_FOCUS: u8 = 0; const ST_SHORT: u8 = 1; const ST_LONG: u8 = 2; const ST_CYC: u8 = 3;
 
@@ -226,6 +226,16 @@ fn page_body(c: &mut Ctx, page: usize) {
             c.group("Sistema", Ctx::rh(true)); c.tog_row("Respeitar animações do Windows", Some("Com os efeitos de animação desligados no Windows, a ilha não anima."), T_RESPECT, s.respect_system_animation, true, true);
             c.foot("Ociosa, a ilha não gasta CPU em nenhum modo.");
         }
+        9 => { // Mascote e inicio
+            c.group("Mascote", Ctx::rh(true));
+            c.row("Personalidade", Some("Calmo perdoa fácil; dramático reage forte."), true, true, 260.0); c.segmented(S_PERS, &["Calmo", "Travesso", "Dramático"], match s.personality.as_str() { "travesso" => 1, "dramatico" => 2, _ => 0 }, 56.0); c.y += 56.0;
+            c.group("Início", Ctx::rh(true));
+            c.row("Página inicial", Some("Com música tocando a ilha abre no player."), true, true, 260.0); c.segmented(S_INIT, &["Última usada", "Mascote", "Música"], match s.initial_page.as_str() { "mascot" => 1, "music" => 2, _ => 0 }, 56.0); c.y += 56.0;
+            c.group("Slots da página Mascote", 44.0 * 2.0 + 0.0);
+            c.row("Slot de cima", None, true, true, 190.0); c.menu(crate::slots::Widget::parse(&s.slot_top).label(), SAct::SlotTop, 44.0); c.y += 44.0;
+            c.row("Slot de baixo", None, false, true, 190.0); c.menu(crate::slots::Widget::parse(&s.slot_bottom).label(), SAct::SlotBottom, 44.0); c.y += 44.0;
+            c.foot("A mesma opção não fica nos dois slots; com um slot em Nenhum, o outro ocupa a altura toda.");
+        }
         _ => { // Sobre
             c.group("Eavely", 190.0);
             c.g.thumb(0xEA7E_1060, include_bytes!("../../assets/app/logo-sobre.bgra"), 96, 96, CX + 16.0, c.y + 16.0, 56.0, 56.0, 0.0, 1.0); // logo oficial (scripts/make-about-logo.py)
@@ -309,11 +319,14 @@ fn apply(a: &mut SApp, act: SAct) {
             S_AQ => s.anim_quality = ["smooth", "balanced", "light"][v as usize % 3].into(), S_LYRS => s.lyrics_scroll = if v == 1 { "line" } else { "smooth" }.into(),
             S_FX => s.fx_level = ["on", "reduced", "off"][v as usize % 3].into(), S_VIZ => s.viz_level = if v == 0 { "on" } else { "reduced" }.into(),
             S_MINI => s.mini_near = v == 1,
+            S_PERS => s.personality = ["calmo", "travesso", "dramatico"][v as usize % 3].into(),
+            S_INIT => s.initial_page = ["last", "mascot", "music"][v as usize % 3].into(),
             S_LEAVE => s.leave_delay_ms = [0, 500, 1000, 2000, 3000][v as usize % 5],
             S_OPEN => s.open_mode = if v == 1 { "click" } else { "hover" }.into(), S_SPEED => s.anim_speed = if v == 1 { "fast" } else { "normal" }.into(), _ => {} }),
         SAct::Step(k, d) => settings::update(|s| { let f = |x: u32| (x as i32 + d as i32).max(0) as u32; match k {
             ST_FOCUS => s.timer.focus_min = f(s.timer.focus_min), ST_SHORT => s.timer.short_min = f(s.timer.short_min), ST_LONG => s.timer.long_min = f(s.timer.long_min), ST_CYC => s.timer.cycles_to_long = f(s.timer.cycles_to_long), _ => {} } }),
         SAct::Hot(i) => { a.capture = Some(i); }
+        SAct::SlotTop | SAct::SlotBottom => { let top = act == SAct::SlotTop; let cur = if top { settings::get().slot_top } else { settings::get().slot_bottom }; let all = crate::slots::Widget::ALL; let i = all.iter().position(|w| w.key() == cur).unwrap_or(0); let next = all[(i + 1) % all.len()].key().to_string(); settings::update(|s| if top { s.slot_top = next.clone() } else { s.slot_bottom = next.clone() }); }
         SAct::Mon => { let opts = monitor_options(); let cur = settings::get().monitor; let i = opts.iter().position(|o| o.0 == cur).unwrap_or(0); let next = opts[(i + 1) % opts.len()].0.clone(); settings::update(|s| s.monitor = next); }
         SAct::Link(i) => unsafe {
             let url = ["https://github.com/LimaEdu-7x/eavely/blob/main/THIRD-PARTY-LICENSES.md", "https://github.com/LimaEdu-7x/eavely", "https://github.com/LimaEdu-7x/eavely/blob/main/LICENSE"][i as usize % 3];

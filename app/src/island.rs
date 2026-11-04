@@ -26,7 +26,8 @@ const T_EYES: usize = 10;
 const WM_OVL: u32 = WM_APP + 4;
 const WM_CAPS: u32 = WM_APP + 5;
 const T_NET: usize = 11;
-pub const T_VOL: usize = 19; // slider de volume por hover: redesenha quando o prazo vence
+pub const T_VOL: usize = 19;
+pub const T_MASCOT: usize = 20; // pagina Mascote: proximo piscar / reavaliar humor (um timer so, rearmado pela pagina) // slider de volume por hover: redesenha quando o prazo vence
 const T_POWER: usize = 18; // reconfere a energia 1,2 s depois do evento (ACLineStatus pode atrasar)
 const WM_STAT: u32 = WM_APP + 7; // rede/energia mudou: refaz o compacto
 const T_LEAVE: usize = 12;
@@ -332,7 +333,7 @@ impl App {
             St::Live => crate::pages::live_size(),
             St::Over => (crate::layout::over_w(), crate::layout::over_h(), crate::layout::over_r()),
             St::Open if self.breathe.is_some() => self.breathe.unwrap(),
-            St::Open => (if self.split && self.page == 0 { crate::layout::split_w() } else { crate::layout::open_w() }, crate::layout::open_h() + if self.dock || (self.page == 3 && self.p.task_cal) { crate::layout::dock_extra() } else { 0.0 }, crate::layout::open_r()),
+            St::Open => (if self.split && self.page == crate::pages::P_MUSIC { crate::layout::split_w() } else { crate::layout::open_w() }, crate::layout::open_h() + if self.dock || (self.page == crate::pages::P_TASKS && self.p.task_cal) { crate::layout::dock_extra() } else { 0.0 }, crate::layout::open_r()),
         }
     }
     fn is_live(&self) -> bool { crate::pages::is_live() }
@@ -344,7 +345,8 @@ impl App {
         if on == self.drag_over { return; }
         if on && crate::droptarget::OVER.load(Relaxed) { crate::state_log("Shelf aberto automaticamente (causa: OLE DragEnter na janela)"); }
         self.drag_over = on;
-        if on { crate::droptarget::DROPPED.store(false, Relaxed); if self.page != crate::pages::P_SHELF { self.drag_prev_page = Some(self.page); self.go_page_inner(crate::pages::P_SHELF, 1.0, false); } }
+        if on { crate::droptarget::DROPPED.store(false, Relaxed); let cfg = crate::settings::get(); let slot_shelf = self.page == crate::pages::P_MASCOT && (cfg.slot_top == "shelf" || cfg.slot_bottom == "shelf"); // na pagina Mascote com o slot de Arquivos: fica nela (o mascote olha o alvo)
+            if self.page != crate::pages::P_SHELF && !slot_shelf { self.drag_prev_page = Some(self.page); self.go_page_inner(crate::pages::P_SHELF, 1.0, false); } }
         else if let Some(p) = self.drag_prev_page.take() { if !crate::droptarget::DROPPED.swap(false, Relaxed) { let d = if p > self.page { 1.0 } else { -1.0 }; self.go_page_inner(p, d, false); } }
     }
     /// Olhos (aparencia recolhida): proxima piscada em 3-7 s enquanto o peek esta visivel (um timer, sem quadros continuos)
@@ -356,7 +358,7 @@ impl App {
     }
     fn evaluate(&mut self) {
         let now = Instant::now();
-        let zone = self.class & 3; let want_dock = self.class & 4 != 0 && !(self.page == 3 && self.p.task_cal); let mi = (self.class >> 3) as usize;
+        let zone = self.class & 3; let want_dock = self.class & 4 != 0 && !(self.page == crate::pages::P_TASKS && self.p.task_cal); let mi = (self.class >> 3) as usize;
         let n = self.mons.len();
         if let Some(f) = self.force { if f != self.state { self.set_state(f, now); } else { self.publish_hit(); } return; }
         // monitor preferido: seguir o cursor (padrao), o principal, ou um fixo
@@ -488,7 +490,7 @@ impl App {
     /// ha algo animando? (precisa de quadros no ritmo do monitor)
     /// animacao de forma/pagina/dock (ou pedido de redesenho): um quadro por vblank
     fn animating_full(&self, now: Instant) -> bool {
-        self.dirty || (self.state == St::Over && (self.p.ov_v.as_ref().is_some_and(|t| t.busy(now)) || self.p.ov_ic.as_ref().is_some_and(|t| t.busy(now)))) || (self.page == crate::pages::P_SHELF && (self.p.shelf_busy() || (self.drag_over && crate::settings::flag(crate::settings::F_SHELF_GLOW)))) || !self.ty.settled() || self.p.blink_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.tw.busy(now) || self.th.busy(now) || self.tr.busy(now) || self.page_t.busy(now) || self.dock_t.busy(now) || self.split_t.busy(now) || self.p.lyr_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.p.scroll.is_some_and(|s| s.busy(now)) || self.p.pc_chg.is_some_and(|t| self.state == St::Peek && t.elapsed().as_millis() < 340) || self.p.spin.as_ref().is_some_and(|s| s.t.elapsed().as_millis() < 640)
+        self.dirty || (self.state == St::Open && self.page == crate::pages::P_MASCOT && (!overlay_simple() || self.p.mascot.busy(now, self.class & 3 == 2))) || (self.state == St::Over && (self.p.ov_v.as_ref().is_some_and(|t| t.busy(now)) || self.p.ov_ic.as_ref().is_some_and(|t| t.busy(now)))) || (self.page == crate::pages::P_SHELF && (self.p.shelf_busy() || (self.drag_over && crate::settings::flag(crate::settings::F_SHELF_GLOW)))) || !self.ty.settled() || self.p.blink_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.tw.busy(now) || self.th.busy(now) || self.tr.busy(now) || self.page_t.busy(now) || self.dock_t.busy(now) || self.split_t.busy(now) || self.p.lyr_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.p.scroll.is_some_and(|s| s.busy(now)) || self.p.pc_chg.is_some_and(|t| self.state == St::Peek && t.elapsed().as_millis() < 340) || self.p.spin.as_ref().is_some_and(|s| s.t.elapsed().as_millis() < 640)
     }
     fn animating(&self, now: Instant) -> bool {
         self.animating_full(now) || (self.state == St::Open && self.page == crate::pages::P_SHELF && self.drag_over) || (self.state == St::Live && crate::pages::eq_anim()) || (self.state == St::Open && crate::pages::open_anim(self, now))
@@ -689,6 +691,7 @@ unsafe extern "system" fn wndproc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LR
                 T_CLK => { with_app(|a| { if a.state == St::Peek && !a.vis && a.gdi_rest(St::Peek) { a.show_rest(true); } else { unsafe { let _ = KillTimer(Some(a.hwnd), T_CLK); } } }); }
                 T_BREATH => { let _ = KillTimer(Some(h), T_BREATH); with_app(|a| if a.breathe.take().is_some() && a.state == St::Open { a.retarget(Instant::now(), 240.0); }); }
                 T_LEAVE => { let _ = KillTimer(Some(h), T_LEAVE); with_app(|a| a.evaluate()); }
+                T_MASCOT => { let _ = KillTimer(Some(h), T_MASCOT); with_app(|a| a.dirty = true); }
                 T_VOL => { let _ = KillTimer(Some(h), T_VOL); with_app(|a| a.dirty = true); }
                 T_POWER => { let _ = KillTimer(Some(h), T_POWER); with_app(refresh_status); }
                 T_NET => { let _ = KillTimer(Some(h), T_NET); crate::overlay::net_check(); }
