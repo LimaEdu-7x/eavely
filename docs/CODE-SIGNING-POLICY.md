@@ -5,7 +5,7 @@ Free code signing provided by [SignPath.io](https://signpath.io), certificate by
 > Status: the signing program is **being applied for**. Until it is approved, releases are published **unsigned** and say so in their notes.
 
 ## Scope
-Only the official release artifacts of this repository (`Eavely.exe`, `Eavely-Setup.exe`) are signed. They are built from the source code in https://github.com/LimaEdu-7x/eavely by the GitHub Actions workflow `.github/workflows/release.yml` on GitHub-hosted runners. Artifacts built anywhere else are never submitted for signing.
+Only the official release artifacts of this repository (`Eavely.exe`, `Eavely-Setup.exe`) are signed. They are built from the source code in https://github.com/LimaEdu-7x/eavely by a GitHub Actions workflow on GitHub-hosted runners (in preparation: `.github/workflows/release.yml.draft`, to be activated when signing is approved). Artifacts built anywhere else are never submitted for signing.
 
 ## Team roles
 | Role | Member |

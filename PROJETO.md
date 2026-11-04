@@ -3,7 +3,7 @@
 ## Objetivo
 Um notch para o Windows: uma ilha no topo da tela que mostra música, timer, arquivos e tarefas, e some quando não é necessária. 100% nativo (Rust, Direct2D/DirectComposition), leve e sem uso de CPU quando parado. Código aberto (MIT).
 
-## Estado atual (v0.1.10)
+## Estado atual (v0.1.11)
 - Núcleo nativo concluído: janela da ilha, estados (mini notch, compacto, aberta, ao vivo), animações por vblank.
 - Páginas: Música (com letras sincronizadas), Pomodoro/timer, File Shelf (arrastar e soltar), Tarefas.
 - Configurações em janela própria: ilha e aparência, desempenho (presets, limite de quadros, efeitos), atalhos, monitor.

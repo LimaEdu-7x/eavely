@@ -10,7 +10,7 @@
 
 ![MIT license](https://img.shields.io/badge/license-MIT-green)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white)
-![Size](https://img.shields.io/badge/size-~0.8%20MB-blue)
+![Size](https://img.shields.io/badge/size-~0.96%20MB-blue)
 
 [Português](README.md)
 
@@ -66,7 +66,7 @@ Configurable in Settings. Registered through Windows; no background keyboard hoo
 
 ## Performance
 
-RAM is reported as **private memory** (`PrivateMemorySize64`), the honest measure (working set swings as Windows trims pages). v0.1.9 release exe: **5.6 MB** private when idle (working set ~36 MB), peak ~50 MB private with the island open and animating, idle CPU 0.000 s in 30 s (~0%). One machine, Windows 11. Details: [docs/perf/RESULTADOS.md](docs/perf/RESULTADOS.md).
+RAM is reported as **private memory** (`PrivateMemorySize64`), the honest measure (working set swings as Windows trims pages). v0.1.9 release exe (not yet re-measured on v0.1.11): **5.6 MB** private when idle (working set ~36 MB), peak ~50 MB private with the island open and animating, idle CPU 0.000 s in 30 s (~0%). One machine, Windows 11. Details: [docs/perf/RESULTADOS.md](docs/perf/RESULTADOS.md).
 
 ## Build from source
 
