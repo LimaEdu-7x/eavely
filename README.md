@@ -73,6 +73,9 @@ Todas são opcionais. Defina no PowerShell antes de abrir o exe, por exemplo `$e
 | Variável | O que faz |
 |---|---|
 | `EAVELY_FAKE_MEDIA` | Música falsa, para testar sem player real. |
+| `EAVELY_MULTI` | Permite abrir uma 2ª instância (testes automatizados; o app instalado não é afetado). |
+| `EAVELY_UI_K` | Fator do preset de tamanho para testes (0,6 a 1,5; o app usa Pequeno 0,8 / Padrão 1,0 / Grande 1,2). |
+| `EAVELY_PERF_OPEN=n` | Abre a ilha na página *n* depois de 3 s e a deixa parada (medir CPU/quadros com `EAVELY_FRAMELOG`). |
 | `EAVELY_FORCE` | Força o estado: `open`, `peek`, `live`, `line` (qualquer outro valor = oculto). |
 | `EAVELY_PAGE` | Número da página inicial. |
 | `EAVELY_SPLIT`, `EAVELY_DOCK`, `EAVELY_LIVE_EXPANDED` | Forçam tela dividida de letras, dock e ao vivo expandido. |
@@ -130,6 +133,15 @@ Marque o que testou e conte o resultado (passou / falhou / não deu para testar)
 - [ ] Mexer em um controle vira "personalizado" e o valor persiste ao reiniciar.
 - [ ] Opção de respeitar as animações do Windows (ligue/desligue "Efeitos de animação" no Windows e veja).
 - [ ] Parado, o uso de CPU no Gerenciador de Tarefas fica em ~0%.
+
+**🙂 Mascote e tamanhos (v0.2.0)**
+- [ ] Aba **Mascote** é a 1ª; o rosto pisca, o olhar segue o mouse e a respiração some em **Economia**.
+- [ ] Clique no rosto: surpresa; vários cliques seguidos: irritado, raiva, furioso (personalidade *Calmo*: 4, 8 e 12 cliques); parar de clicar esfria.
+- [ ] Tocando música = feliz; arrastando arquivo = curioso (a ilha continua na aba Mascote se o slot *Arquivos* está lá).
+- [ ] Noite (23h–6h), bateria baixa (notebook), muito tempo parado: sonolento/sono, preocupado, entediado.
+- [ ] Configurações → **Mascote e início**: personalidade, página inicial, slots (a mesma opção não repete), tamanho do notch (aplica na hora) e do mascote.
+- [ ] *Aparência recolhida = Mascote*: rosto espiando no compacto; no tamanho **Pequeno**, só olhos.
+- [ ] Parado e com a ilha fechada, o uso de CPU continua em ~0%.
 
 **📥 Shelf**
 - [ ] Arrastar 1 arquivo e vários; soltar fora da ilha.
