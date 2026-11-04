@@ -40,7 +40,7 @@ const T_VOL: u8 = 10; const T_BRI: u8 = 11; const T_BAT: u8 = 12; const T_WIFI: 
 const T_PCSTATE: u8 = 26; const T_PCCPU: u8 = 27; const T_PCRAM: u8 = 28; const T_PCGPU: u8 = 29; const T_PCNET: u8 = 30;
 const T_MINIMAL: u8 = 16; const T_SPIN: u8 = 17; const T_GRAD: u8 = 18; const T_LYRBAR: u8 = 19; const T_SHELF_EMPTY: u8 = 20; const T_THUMBS: u8 = 21; const T_HIDEFS: u8 = 22; const T_DONELAST: u8 = 23; const T_OVERDUE: u8 = 24; const T_RESPECT: u8 = 25;
 const S_PCSLOTS: u8 = 6; const S_PCROT: u8 = 7; const S_PRESET: u8 = 8; const S_FPS: u8 = 9; const S_AQ: u8 = 10; const S_LYRS: u8 = 11; const S_FX: u8 = 12; const S_VIZ: u8 = 13;
-const S_LEAVE: u8 = 14; const T_SHELFGLOW: u8 = 31;
+const S_LEAVE: u8 = 14; const S_MINI: u8 = 15; const T_SHELFGLOW: u8 = 31;
 const S_LOOK: u8 = 0; const S_LIVEMODE: u8 = 1; const S_ZONE: u8 = 2; const S_SCALE: u8 = 3; const S_OPEN: u8 = 4; const S_SPEED: u8 = 5;
 const ST_FOCUS: u8 = 0; const ST_SHORT: u8 = 1; const ST_LONG: u8 = 2; const ST_CYC: u8 = 3;
 
@@ -160,9 +160,10 @@ fn page_body(c: &mut Ctx, page: usize) {
             c.tog_row("Ilha mínima", Some("Sem a pílula ao vivo de música e timer."), T_MINIMAL, s.minimal_island, false, true);
             c.row("Mostrar traço quando ocioso", None, false, true, 52.0); c.toggle(T_TRACE, s.show_trace, true, 44.0); c.y += 44.0;
             c.row("Aparência recolhida", None, false, true, 190.0); c.segmented(S_LOOK, &["Bateria e hora", "Olhos"], (s.collapsed_look == "eyes") as usize, 44.0); c.y += 44.0;
-            c.group("Comportamento", 44.0 * 5.0 + 56.0);
+            c.group("Comportamento", 44.0 * 6.0 + 56.0);
             c.row("Abrir a ilha", None, true, true, 190.0); c.segmented(S_OPEN, &["Passar o mouse", "Clique"], (s.open_mode == "click") as usize, 44.0); c.y += 44.0;
             c.row("Recolher após", Some("0 s = na hora"), false, true, 240.0); c.segmented(S_LEAVE, &["0 s", "0,5 s", "1 s", "2 s", "3 s"], match s.leave_delay_ms { 0 => 0, 500 => 1, 2000 => 3, 3000 => 4, _ => 2 }, 56.0); c.y += 56.0;
+            c.row("Mini notch (janela maximizada)", None, false, true, 220.0); c.segmented(S_MINI, &["Encostar", "Pequena folga"], s.mini_near as usize, 44.0); c.y += 44.0;
             c.row("Zona de ativação do topo", None, false, true, 190.0); c.segmented(S_ZONE, &["Estreita", "Normal", "Larga"], match s.trigger_zone_px { 24 => 0, 40 => 1, _ => 2 }, 44.0); c.y += 44.0;
             c.row("Velocidade da animação", None, false, true, 150.0); c.segmented(S_SPEED, &["Normal", "Rápida"], (s.anim_speed == "fast") as usize, 44.0); c.y += 44.0;
             c.row("Mostrar a ilha ao vivo", None, false, true, 52.0); c.toggle(T_LIVE, s.show_live, true, 44.0); c.y += 44.0;
@@ -307,6 +308,7 @@ fn apply(a: &mut SApp, act: SAct) {
             S_PRESET => s.apply_preset(["max", "balanced", "eco"][v as usize % 3]), S_FPS => s.fps_cap = ["auto", "60", "30"][v as usize % 3].into(),
             S_AQ => s.anim_quality = ["smooth", "balanced", "light"][v as usize % 3].into(), S_LYRS => s.lyrics_scroll = if v == 1 { "line" } else { "smooth" }.into(),
             S_FX => s.fx_level = ["on", "reduced", "off"][v as usize % 3].into(), S_VIZ => s.viz_level = if v == 0 { "on" } else { "reduced" }.into(),
+            S_MINI => s.mini_near = v == 1,
             S_LEAVE => s.leave_delay_ms = [0, 500, 1000, 2000, 3000][v as usize % 5],
             S_OPEN => s.open_mode = if v == 1 { "click" } else { "hover" }.into(), S_SPEED => s.anim_speed = if v == 1 { "fast" } else { "normal" }.into(), _ => {} }),
         SAct::Step(k, d) => settings::update(|s| { let f = |x: u32| (x as i32 + d as i32).max(0) as u32; match k {

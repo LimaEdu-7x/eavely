@@ -1,6 +1,6 @@
 # Mocks para revisão (não são o app)
 
-Imagens **estáticas** geradas de HTML local (`build_mocks.py`) só para revisão do design de `docs/DESIGN-NATIVO.md`. O app final é nativo (Direct2D); nada aqui será usado em produção. Coordenadas = px a 100% DPI, renderizadas a 3×, sobre um fundo cinza-azulado só para mostrar a silhueta. Estado: **PROPOSTA** salvo onde o `DESIGN-NATIVO.md` diz que vem da referência (só referência de comportamento; arte própria). **Água foi removida** (decisão do Edu): 4 páginas — Música, Pomodoro, Shelf, Tarefas.
+Imagens **estáticas** geradas de HTML local (`build_mocks.py`) só para revisão do design de `docs/DESIGN-NATIVO.md`. O app final é nativo (Direct2D); nada aqui será usado em produção. Coordenadas = px a 100% DPI, renderizadas a 3×, sobre um fundo cinza-azulado só para mostrar a silhueta. Estado: **PROPOSTA** salvo onde o `DESIGN-NATIVO.md` diz que vem da referência (só referência de comportamento; arte própria). **Água foi removida** (decisão do projeto): 4 páginas — Música, Pomodoro, Shelf, Tarefas.
 
 Para regenerar: `python docs/mocks/build_mocks.py` (precisa do Microsoft Edge; usa `assets/icons`).
 

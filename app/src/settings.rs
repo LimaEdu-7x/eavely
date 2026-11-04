@@ -42,6 +42,8 @@ pub struct Settings {
     pub leave_delay_ms: u32,
     /// brilho atras do arquivo arrastado no Shelf (Economia desliga)
     pub shelf_glow: bool,
+    /// mini notch (janela maximizada): false = so ao encostar na forma (folga 1 px); true = pequena folga (6 px)
+    pub mini_near: bool,
     pub perf_preset: String, pub fps_cap: String, pub anim_quality: String, pub lyrics_scroll: String, pub fx_level: String, pub viz_level: String,
 }
 impl Default for Settings {
@@ -50,7 +52,7 @@ impl Default for Settings {
         ui_scale: "auto".into(), minimal_island: false, open_mode: "hover".into(), anim_speed: "normal".into(), cover_spin: true, cover_gradient: true, lyric_bar: true,
         shelf_start_empty: false, shelf_thumbs: true, hide_fullscreen: true, tasks_done_last: true, tasks_overdue_red: true,
         pc_state: true, pc_cpu: true, pc_ram: true, pc_gpu: true, pc_net: true, pc_slots: 1, pc_rotate: 5,
-        leave_delay_ms: 1000, shelf_glow: true, perf_preset: "balanced".into(), fps_cap: "auto".into(), anim_quality: "smooth".into(), lyrics_scroll: "smooth".into(), fx_level: "on".into(), viz_level: "reduced".into() } }
+        leave_delay_ms: 1000, shelf_glow: true, mini_near: false, perf_preset: "balanced".into(), fps_cap: "auto".into(), anim_quality: "smooth".into(), lyrics_scroll: "smooth".into(), fx_level: "on".into(), viz_level: "reduced".into() } }
 }
 impl Settings {
     /// Presets de desempenho: sobrescrevem so os controles da secao (e o intervalo do compacto de PC)
@@ -130,7 +132,7 @@ pub static CAP_US: AtomicU32 = AtomicU32::new(0); pub static ANIM_X100: AtomicU3
 fn sync_flags(s: &Settings) {
     let fx = s.fx_level.as_str();
     for (i, v) in [s.hide_fullscreen, s.anim_speed == "fast", s.open_mode == "click", s.cover_spin && fx == "on", s.cover_gradient && fx != "off", s.lyric_bar, s.shelf_thumbs, s.minimal_island, s.pc_state, s.pc_cpu, s.pc_ram, s.pc_gpu, s.pc_net, s.lyrics_scroll == "line", s.shelf_glow].into_iter().enumerate() { FLAGS[i].store(v, Relaxed); }
-    crate::island::GRACE_MS.store(s.leave_delay_ms, Relaxed);
+    crate::island::GRACE_MS.store(s.leave_delay_ms, Relaxed); crate::island::MINI_PAD.store(if s.mini_near { 6 } else { 1 }, Relaxed);
     PC_SLOTS.store(s.pc_slots, Relaxed); PC_ROT.store(s.pc_rotate, Relaxed);
     let light = s.anim_quality == "light";
     CAP_US.store(match (s.fps_cap.as_str(), light) { ("30", _) | (_, true) => 33_333, ("60", _) => 16_667, _ => 0 }, Relaxed);

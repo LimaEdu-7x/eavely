@@ -44,6 +44,10 @@ pub const MINI_H: f32 = 5.0;
 pub const MINI_R: f32 = 2.5;
 pub const MINI_FLARE: f32 = 4.0;
 pub static GRACE_MS: AtomicU32 = AtomicU32::new(1000);
+/// folga (px logicos) em volta do mini notch para ele reagir: 1 = so encostar, 6 = pequena folga
+pub static MINI_PAD: AtomicU32 = AtomicU32::new(1);
+/// estado atual e o mini notch (Line): zona de gatilho larga desligada, botao apertado nao abre
+static REST_LINE: AtomicBool = AtomicBool::new(false);
 const WM_NET: u32 = WM_APP + 6;
 static PTR_ARMED: AtomicBool = AtomicBool::new(false);
 static LOC_HOOK: AtomicIsize = AtomicIsize::new(0);
@@ -101,8 +105,11 @@ unsafe fn pointer_moved(pt: POINT, wm: u32) {
         let cx = mx + mw / 2;
         let (h0, h1, h2, h3) = (HIT[0].load(Relaxed), HIT[1].load(Relaxed), HIT[2].load(Relaxed), HIT[3].load(Relaxed));
         let inside = i == act && x >= h0 && x < h2 && y >= h1 && y < h3;
-        let trig = (x - cx).abs() < (140.0 * s) as i32 && y - my < (crate::settings::TRIG_PX.load(Relaxed) as f32 * s) as i32;
-        let zone = if inside { 2 } else if trig { 1 } else { 0 };
+        let line = REST_LINE.load(Relaxed);
+        let trig = !line && (x - cx).abs() < (140.0 * s) as i32 && y - my < (crate::settings::TRIG_PX.load(Relaxed) as f32 * s) as i32;
+        // mini notch: com qualquer botao do mouse apertado (fora arrasto de arquivos) nao abre; clicar na barra do app maximizado nao dispara a ilha
+        let busy = line && (LBTN_DOWN_ON_FILES.load(Relaxed) == false) && buttons_down();
+        let zone = if busy { 0 } else if inside { 2 } else if trig { 1 } else { 0 };
         let dock = HOOK_OPEN.load(Relaxed) && inside && (y - my) as f32 / s >= 122.0;
         class = zone | (dock as u32) << 2 | (i as u32) << 3;
     }
@@ -110,6 +117,10 @@ unsafe fn pointer_moved(pt: POINT, wm: u32) {
         let h = HW.load(Relaxed); if h != 0 { let _ = PostMessageW(Some(HWND(h as *mut _)), WM_CLASS, WPARAM(class as usize), LPARAM(0)); }
     }
 }
+fn buttons_down() -> bool { unsafe {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON, VK_RBUTTON, VK_MBUTTON};
+    [VK_LBUTTON, VK_RBUTTON, VK_MBUTTON].iter().any(|k| GetAsyncKeyState(k.0 as i32) as u16 & 0x8000 != 0)
+} }
 unsafe fn handle_raw(lp: LPARAM) {
     use windows::Win32::UI::Input::*;
     let mut buf = [0u64; 12]; let mut size = size_of_val(&buf) as u32;
@@ -451,7 +462,9 @@ impl App {
     }
     fn publish_hit(&self) {
         let m = self.mon(); let s = m.s; let (w, h, _) = self.target();
-        let (cw, ch) = match self.state { St::Line | St::Hidden => (w.max(80.0), 24.0), St::Peek | St::Live | St::Over => (w + 16.0, h + 8.0), St::Open => (w + 16.0, h + 8.0) };
+        REST_LINE.store(self.state == St::Line, Relaxed);
+        let pad = MINI_PAD.load(Relaxed) as f32;
+        let (cw, ch) = match self.state { St::Line => (w + 2.0 * pad, h + pad), St::Hidden => (w.max(80.0), 24.0), St::Peek | St::Live | St::Over => (w + 16.0, h + 8.0), St::Open => (w + 16.0, h + 8.0) };
         let cx = m.x + m.w / 2;
         HIT[0].store(cx - (cw * s / 2.0) as i32, Relaxed); HIT[1].store(m.y, Relaxed);
         HIT[2].store(cx + (cw * s / 2.0) as i32, Relaxed); HIT[3].store(m.y + (ch * s) as i32, Relaxed);
@@ -705,7 +718,9 @@ unsafe extern "system" fn wndproc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LR
         WM_CAPS => { with_app(|a| { if CAPS_EN.load(Relaxed) { CAPS_LAST.store(windows::Win32::UI::Input::KeyboardAndMouse::GetKeyState(0x14) & 1 != 0, Relaxed); SetTimer(Some(a.hwnd), T_CAPS, 250, None); } else { let _ = KillTimer(Some(a.hwnd), T_CAPS); } }); return LRESULT(0) }
         WM_REHK => { apply_hotkeys(h); return LRESULT(0) }
         WM_TRAY => { let st = with_app(|a| (a.hwnd, a.enabled)); if let Some((hw, en)) = st { crate::tray::on_msg(hw, en, lp); } return LRESULT(0) }
-        WM_CLOSE => { with_app(quit); return LRESULT(0) } // fechamento gracioso (instalador/taskkill sem /F)
+        WM_CLOSE => { crate::state_log("WM_CLOSE recebido (instalador/taskkill sem /F)"); with_app(quit); return LRESULT(0) }
+        0x0011 => return LRESULT(1), // WM_QUERYENDSESSION: nao atrapalha o logoff
+        0x0016 => { if wp.0 != 0 { crate::state_log("fim de sessao do Windows (logoff/desligar/reiniciar)"); let _ = std::fs::remove_file(crate::data_dir().join("running.txt")); } return LRESULT(0) } // WM_ENDSESSION // fechamento gracioso (instalador/taskkill sem /F)
         WM_NET => { SetTimer(Some(h), T_NET, 500, None); return LRESULT(0) } // rajada de eventos de rede: um unico teste 500 ms depois
         WM_COMMAND => { with_app(|a| crate::tray::on_cmd(a, wp.0 as u32 & 0xFFFF)); return LRESULT(0) }
         _ => {}
@@ -745,9 +760,9 @@ fn hotkey(a: &mut App, id: usize) {
     }
 }
 pub fn set_enabled(a: &mut App, on: bool, cause: &str) { a.enabled = on; a.evaluate(); crate::log(&format!("ilha {}", if on { "ligada" } else { "desligada" })); crate::state_log(&format!("ilha {} (causa: {cause})", if on { "LIGADA" } else { "DESLIGADA" })); }
-pub fn quit(a: &mut App) { crate::state_log("sair (menu da bandeja)"); crate::tray::remove(a.hwnd); crate::log("sair"); crate::fast_exit(0); }
+pub fn quit(a: &mut App) { crate::state_log("sair (menu da bandeja ou fechamento gracioso)"); crate::tray::remove(a.hwnd); crate::log("sair"); crate::fast_exit(0); }
 
-pub fn start() {
+pub fn start() -> Option<std::thread::JoinHandle<()>> {
     std::thread::Builder::new().name("island".into()).spawn(move || unsafe {
         let _ = windows::Win32::System::Ole::OleInitialize(None);
         let hi: HINSTANCE = GetModuleHandleW(None).unwrap().into();
@@ -825,7 +840,7 @@ pub fn start() {
                 } }
             else if eq && last_frame.elapsed() >= Duration::from_millis(1000 / fps as u64 - 2) { last_frame = Instant::now(); with_app(|a| if a.vis && a.animating(Instant::now()) { a.frame() }); }
         }
-    }).ok();
+    }).ok()
 }
 
 #[cfg(test)]
