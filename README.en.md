@@ -29,7 +29,7 @@
 - 🔔 **System overlays**: volume, battery, Wi-Fi, brightness (laptops only), headphones, Caps Lock (all off by default).
 - 🖥️ **PC compact**: clock plus rotating CPU, RAM, GPU and network.
 - 👀 **Eyes / pet** while idle.
-- 💤 **~0% CPU when idle (0.000 s CPU in 30 s)**, hides itself in fullscreen.
+- 💤 **~0% CPU when idle (0.000 s CPU in 30 s, measured on v0.1.9)**, hides itself in fullscreen.
 - ⚡ **Tunable performance** page: presets (Max smoothness / Balanced / Economy), frame rate Auto/60/30, animations, lyrics scroll (smooth or per line), effects.
 - 🧱 **100% native, no WebView** (Rust + Direct2D/DirectComposition/DirectWrite).
 - 🔒 **Local data**, no account, no telemetry.
