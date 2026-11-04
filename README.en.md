@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/img/logo.png" alt="Eavely logo" width="96" height="96">
+<img src="docs/img/banner.png" alt="Eavely" width="640">
 
 # Eavely
 
@@ -10,7 +10,7 @@
 
 ![MIT license](https://img.shields.io/badge/license-MIT-green)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white)
-![Size](https://img.shields.io/badge/size-~0.8%20MB-blue)
+![Size](https://img.shields.io/badge/size-~0.96%20MB-blue)
 
 [Português](README.md)
 
@@ -40,7 +40,7 @@
 
 ## Install
 
-1. Download from **[Releases](https://github.com/LimaEdu-7x/eavely/releases/latest)**: **`Eavely-Setup.exe`** (NSIS installer, per-user) or portable **`Eavely.exe`**. `Eavely.exe` is ~0.8 MB (827,904 bytes), `Eavely-Setup.exe` ~419 KB (429,407 bytes).
+1. Download from **[Releases](https://github.com/LimaEdu-7x/eavely/releases/latest)**: **`Eavely-Setup.exe`** (NSIS installer, per-user) or portable **`Eavely.exe`**. `Eavely.exe` is ~0.96 MB (980,480 bytes), `Eavely-Setup.exe` ~631 KB (646,240 bytes).
 2. Run it. A tray icon gives you Settings and Quit.
 
 **Unsigned binary warning.** Eavely has no code signing yet, so Windows may warn you:
@@ -66,7 +66,7 @@ Configurable in Settings. Registered through Windows; no background keyboard hoo
 
 ## Performance
 
-RAM is reported as **private memory** (`PrivateMemorySize64`), the honest measure (working set swings as Windows trims pages). v0.1.9 release exe: **5.6 MB** private when idle (working set ~36 MB), peak ~50 MB private with the island open and animating, idle CPU 0.000 s in 30 s (~0%). One machine, Windows 11. Details: [docs/perf/RESULTADOS.md](docs/perf/RESULTADOS.md).
+RAM is reported as **private memory** (`PrivateMemorySize64`), the honest measure (working set swings as Windows trims pages). v0.1.9 release exe (not yet re-measured on v0.1.11): **5.6 MB** private when idle (working set ~36 MB), peak ~50 MB private with the island open and animating, idle CPU 0.000 s in 30 s (~0%). One machine, Windows 11. Details: [docs/perf/RESULTADOS.md](docs/perf/RESULTADOS.md).
 
 ## Build from source
 
@@ -79,6 +79,15 @@ cargo build --release
 ```
 
 (`app/` lives on the development branch until the native app is merged into `main`.)
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org) (application in progress: **binaries are currently published unsigned**, and each Release's notes say so).
+
+- **What is signed:** only the official `Eavely.exe` and `Eavely-Setup.exe` published in GitHub Releases, built by the GitHub Actions workflow in this repository from the public source code.
+- **Roles:** author, reviewer and approver: [@LimaEdu-7x](https://github.com/LimaEdu-7x). Every signing request is approved manually.
+- **Privacy:** no account, telemetry or auto-update. The only network access is the optional lyrics lookup at LRCLIB (title, artist, album, duration), which you can turn off in Settings. See the [Privacy policy](docs/PRIVACY.md) and the [code signing policy](docs/CODE-SIGNING-POLICY.md).
+- **Reporting abuse or a problem:** [Issues](https://github.com/LimaEdu-7x/eavely/issues) or GitHub's private vulnerability reporting.
 
 ## License and credits
 

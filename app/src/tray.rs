@@ -1,5 +1,5 @@
 // Bandeja nativa (Shell_NotifyIcon): inicia escondido; menu "Desligar notch"/"Ligar notch" e "Sair".
-use windows::{core::{w, PCWSTR}, Win32::{Foundation::*, System::Registry::*, UI::{Shell::*, WindowsAndMessaging::*}}};
+use windows::{core::{w, PCWSTR}, Win32::{Foundation::*, UI::{Shell::*, WindowsAndMessaging::*}}};
 use crate::island::{self, App};
 
 const ID_TOGGLE: u32 = 1;
@@ -9,12 +9,10 @@ const ID_SETTINGS: u32 = 3;
 /// Icone claro/escuro conforme o tema da barra de tarefas (assets/app).
 pub fn app_icon() -> HICON { static I: std::sync::OnceLock<isize> = std::sync::OnceLock::new(); HICON(*I.get_or_init(|| make_icon().0 as isize) as *mut _) } // criado uma vez (vive ate o fim do processo)
 fn make_icon() -> HICON {
-    let light = unsafe {
-        let mut v = 0u32; let mut n = 4u32;
-        RegGetValueW(HKEY_CURRENT_USER, w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"), w!("SystemUsesLightTheme"), RRF_RT_REG_DWORD, None, Some(&mut v as *mut _ as *mut _), Some(&mut n)).is_ok() && v == 1
-    };
-    let png: &[u8] = if light { include_bytes!("../../assets/app/eavely-tray-black-32.png") } else { include_bytes!("../../assets/app/eavely-tray-white-32.png") };
-    unsafe { CreateIconFromResourceEx(png, true, 0x00030000, 32, 32, LR_DEFAULTCOLOR).or_else(|_| LoadIconW(None, IDI_APPLICATION)).unwrap_or_default() }
+    // um unico desenho que le em bandeja clara e escura; tamanho pelo DPI (16/20/24/32) para ficar nitido
+    let want = unsafe { GetSystemMetrics(SM_CXSMICON) };
+    let (png, px): (&[u8], i32) = match want { ..=16 => (include_bytes!("../../assets/app/eavely-tray-16.png"), 16), 17..=20 => (include_bytes!("../../assets/app/eavely-tray-20.png"), 20), 21..=24 => (include_bytes!("../../assets/app/eavely-tray-24.png"), 24), _ => (include_bytes!("../../assets/app/eavely-tray-32.png"), 32) };
+    unsafe { CreateIconFromResourceEx(png, true, 0x00030000, px, px, LR_DEFAULTCOLOR).or_else(|_| LoadIconW(None, IDI_APPLICATION)).unwrap_or_default() }
 }
 
 fn data(hwnd: HWND) -> NOTIFYICONDATAW {

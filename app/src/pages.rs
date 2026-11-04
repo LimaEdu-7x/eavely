@@ -53,6 +53,7 @@ pub struct PageState {
     pub spin: Option<Spin>, pub shown_title: String, pub shown_sub: String, pub lyr_user: Option<(Instant, f32)>, pub lyr_key_bar: String, pub lyr_prev_soft: bool, pub lyr_cur_soft: bool, pub lyr_key: String, pub lyr_idx: i64, pub lyr_prev: String, pub lyr_t: Option<Instant>, pub scroll: Option<Tw>,
     pub eq_t0: Option<Instant>, pub batt: (u8, bool), pub batt_t: Option<Instant>, pub last_wheel: Option<Instant>,
     pub tasks: Vec<crate::tasks::Task>, pub task_gen: u64, pub task_input: Option<String>, pub task_edit_id: Option<u64>, pub eye_move: Option<Instant>, pub blink_t: Option<Instant>, pub eye_x: Option<Tw>, pub eye_y: Option<Tw>, pub vol_muted: bool, pub pc_t0: Option<Instant>, pub pc_g: usize, pub pc_prev: usize, pub pc_chg: Option<Instant>, pub shelf_del: Vec<(String, Instant, bool)>, pub dots_at: Option<(Instant, usize)>, pub empty_at: Option<Instant>, pub shelf_n: usize, pub items_at: Option<Instant>, pub drag_end: Option<Instant>, pub shelf_new: Vec<(String, Instant)>, pub shelf_ids: Vec<String>, pub shelf_sx: f32, pub shelf_hover: Option<u32>, pub drag_t: Option<Instant>, pub task_edit_mode: bool, pub task_focus: Option<u64>, pub task_cal: bool, pub task_date: Option<(i32, u32, u32)>, pub task_month: (i32, u32), pub task_scroll: usize,
+    pub ov_cur: &'static str, pub ov_prev: &'static str, pub ov_v: Option<Tw>, pub ov_ic: Option<Tw>, // overlay: icone atual/anterior (crossfade) e valor animado
     pub vol: f32, pub vol_t: Option<Instant>, pub vol_drag: bool, pub select: bool, pub sel: Vec<usize>, pub edit: Option<String>, pub shelf: Vec<crate::shelf::ShelfItem>, pub shelf_gen: u64, pub lyr_cur: String, pub drag_from: Option<(u32, f32, f32)>,
 }
 
@@ -87,7 +88,7 @@ const PC_SLOT_W: f32 = 66.0; const PC_STATE_W: f32 = 56.0;
 pub fn peek_w() -> f32 {
     if !pc_mode() { return 150.0; }
     let ml = pc_metrics();
-    (14.0 + if has_battery() { 22.0 } else { 0.0 } + 44.0 + 14.0 + if crate::settings::flag(crate::settings::F_PC_STATE) { PC_STATE_W } else { 0.0 } + if ml.is_empty() { 0.0 } else { pc_slots() as f32 * PC_SLOT_W } + 10.0).max(150.0)
+    (14.0 + 22.0 + 44.0 + 14.0 + if crate::settings::flag(crate::settings::F_PC_STATE) { PC_STATE_W } else { 0.0 } + if ml.is_empty() { 0.0 } else { pc_slots() as f32 * PC_SLOT_W } + 10.0).max(150.0)
 }
 /// o timer de 1 Hz so existe com o compacto visivel e algo a mostrar
 pub fn pc_needs_tick() -> bool { pc_mode() }
@@ -207,7 +208,7 @@ pub fn draw(a: &mut App, now: Instant, w: f32, h: f32, rad: f32, hits: &mut Vec<
     let ao = ((open_f - 0.4) / 0.6).clamp(0.0, 1.0); // conteudo do aberto: entra depois da forma abrir ~40%
     let ap = if st == St::Over { ((h - 8.0) / 30.0).clamp(0.0, 1.0) } else if st == St::Live && live_expanded() { ((h - 8.0) / 20.0).clamp(0.0, 1.0) } else if st == St::Live && lyric_bar() { ((h - 8.0) / 20.0).clamp(0.0, 1.0) } else { ((h - 8.0) / 20.0).clamp(0.0, 1.0) * (1.0 - (h - 30.0) / 30.0).clamp(0.0, 1.0) }; // peek/ao vivo
     let t_s = a.p.eq_t0.get_or_insert(now).elapsed().as_secs_f32();
-    if st == St::Over && ap > 0.01 { if let Some(ov) = crate::overlay::current() { a.gfx.layer(ap); crate::overlay::draw(a, &ov); a.gfx.unlayer(); } }
+    if st == St::Over && ap > 0.01 { if let Some(ov) = crate::overlay::current() { a.gfx.layer(ap); crate::overlay::draw(a, &ov, w, ap, now); a.gfx.unlayer(); } }
     else if ap > 0.01 { a.gfx.layer(ap); if st == St::Live && live_expanded() { draw_live_expanded(a, w, t_s); } else if st == St::Live && lyric_bar() { draw_lyric_bar(a, w, h, rad, now); } else { draw_peek_live(a, w, t_s); } a.gfx.unlayer(); }
     if ao > 0.01 {
         a.gfx.rclip(w, h, rad);
@@ -239,6 +240,16 @@ fn battery(a: &mut App) -> (u8, bool) {
     }
     a.p.batt
 }
+/// icone de estado do sistema: bateria (notebook) ou rede (PC sem bateria): Wi-Fi com barras, cabeada ou sem rede
+fn status_icon(a: &mut App, x: f32, y: f32, sz: f32) {
+    use crate::netstat::Net;
+    if has_battery() { let (pc, ch) = battery(a); a.gfx.icon(if ch { "battery-charging" } else if pc <= 20 { "battery-low" } else { "battery" }, x, y, sz, batt_col(pc, ch), false); return; }
+    match crate::netstat::get() {
+        Net::Eth => a.gfx.icon("ethernet-port", x, y, sz, TEXT2, false),
+        Net::Off => a.gfx.icon("wifi-off", x, y, sz, DANGER, false),
+        Net::Wifi(b) => { a.gfx.icon("wifi", x, y, sz, (1.0, 1.0, 1.0, 0.28), false); a.gfx.icon(match b { 4 => "wifi", 3 => "wifi-high", 2 => "wifi-low", _ => "wifi-zero" }, x, y, sz, TEXT2, false); }
+    }
+}
 fn batt_col(p: u8, ch: bool) -> Rgba { if ch { OK } else if p <= 10 { DANGER } else if p <= 20 { ACCENT2 } else { TEXT2 } }
 
 fn eq_bars(a: &mut App, x: f32, y: f32, playing: bool, t: f32, col: Rgba) {
@@ -254,7 +265,7 @@ fn draw_live_expanded(a: &mut App, w: f32, t: f32) {
     if is_playing() || (!v.title.is_empty() && v.status != "stopped") {
         if let Some((g, px)) = a.p.cover.clone() { a.gfx.cover(g, &px, media::COVER_PX, 10.0, 8.0, 36.0, 8.0, 1.0); } else { a.gfx.rrect(10.0, 8.0, 36.0, 36.0, 8.0, SURFACE); a.gfx.icon("music", 17.0, 17.0, 18.0, TEXT3, false); }
         a.gfx.text(&v.title, Fmt::BodyStrong, 54.0, 7.0, 190.0, 18.0, TEXT, false);
-        let l = lyric_line(a, Instant::now()).unwrap_or_else(|| v.artist.clone());
+        let l = if crate::settings::flag(crate::settings::F_LYRBAR) { lyric_line(a, Instant::now()) } else { None }.unwrap_or_else(|| v.artist.clone()); // 'letras no recolhido' desligado: o ao vivo mostra o artista
         a.gfx.text(&l, Fmt::Body, 54.0, 26.0, 190.0, 16.0, TEXT2, false);
         eq_bars(a, w - 48.0, 19.0, is_playing(), t, PAGE_COL[0]); // margens iguais de 10 px (QA5 C8)
         a.gfx.icon("eye-off", w - 26.0, 18.0, 16.0, TEXT3, false); // ocultar durante o evento (clique: N2/Configuracoes)
@@ -322,7 +333,7 @@ fn draw_lyric_bar(a: &mut App, w: f32, h: f32, rad: f32, now: Instant) {
 fn draw_peek_pc(a: &mut App, w: f32, t: f32, now: Instant) {
     let sn = crate::metrics::snap();
     let mut x = 14.0;
-    if has_battery() { let (pc, ch) = battery(a); a.gfx.icon(if ch { "battery-charging" } else if pc <= 20 { "battery-low" } else { "battery" }, x, 7.0, 16.0, batt_col(pc, ch), false); x += 22.0; }
+    status_icon(a, x, 7.0, 16.0); x += 22.0;
     let (hm, _) = clock_str(); let cw = a.gfx.measure(&hm, Fmt::ClockLive);
     a.gfx.text(&hm, Fmt::ClockLive, x, 5.0, cw + 4.0, 20.0, TEXT, false); x += cw + 8.0;
     if sn.mic || sn.cam { a.gfx.circle(x + 3.0, 15.0, 3.0, if sn.mic { ACCENT2 } else { OK }); x += 12.0; } // ponto: laranja = microfone, verde = camera em uso
@@ -365,8 +376,8 @@ fn draw_peek_live(a: &mut App, w: f32, t: f32) {
     if a.state == St::Peek && crate::settings::get().collapsed_look == "eyes" { return draw_eyes(a, w, Instant::now()); }
     if a.state == St::Peek && pc_mode() { return draw_peek_pc(a, w, t, Instant::now()); }
     let (hm, _) = clock_str(); let (pc, ch) = battery(a);
-    let bx = 14.0;
-    a.gfx.icon(if ch { "battery-charging" } else if pc <= 20 { "battery-low" } else { "battery" }, bx, 7.0, 16.0, batt_col(pc, ch), false);
+    let bx = 14.0; let _ = (pc, ch);
+    status_icon(a, bx, 7.0, 16.0);
     if a.state == St::Peek { a.gfx.text(&hm, Fmt::ClockLive, w - 14.0 - 64.0, 5.0, 64.0, 20.0, TEXT, true); } // peek: hora a direita (mock 22)
     else { a.gfx.text(&hm, Fmt::ClockLive, 40.0, 5.0, 56.0, 20.0, TEXT, false); }
     if a.state == St::Live || is_live() && w > 160.0 {
@@ -421,7 +432,7 @@ fn header(a: &mut App, title: &str, page: usize, t: f32, now: Instant) {
         let (wh, wd) = (a.gfx.measure(&hm, Fmt::BodyStrong), a.gfx.measure(&date, Fmt::Body));
         a.gfx.text(&hm, Fmt::BodyStrong, edge - wh - 2.0, 14.0, wh + 4.0, 16.0, TEXT, true);
         a.gfx.text(&date, Fmt::Body, edge - wh - 8.0 - wd - 2.0, 14.0, wd + 4.0, 16.0, TEXT2, true);
-        a.gfx.icon(if ch { "battery-charging" } else { "battery" }, edge - wh - 8.0 - wd - 8.0 - 16.0, 14.0, 16.0, batt_col(pc, ch), false);
+        let _ = (pc, ch); status_icon(a, edge - wh - 8.0 - wd - 8.0 - 16.0, 14.0, 16.0);
         a.gfx.set_t((crate::island::WIN_W - 420.0) / 2.0, 0.0, 1.0); a.gfx.unlayer();
     }
     live_indicator(a, t);
@@ -645,6 +656,12 @@ pub fn mouse(a: &mut App, m: u32, wp: WPARAM, lp: LPARAM) {
         WM_MOUSEMOVE => {
             let nh = hit.map(|h| h.1);
             if nh != a.hover { a.hover = nh; a.dirty = true; }
+            if matches!(nh, Some(Act::Volume) | Some(Act::VolSlider)) && !a.p.vol_drag { // hover no volume: mostra o slider (some ~0,8 s depois de sair)
+                let was_open = a.p.vol_t.is_some_and(|t| t.elapsed().as_millis() < 1500);
+                if !was_open { let app = media::current().app_name.unwrap_or_default(); a.p.vol = crate::vol::app_get(&app); a.p.vol_muted = a.p.vol <= 0.001; }
+                a.p.vol_t = Some(Instant::now() - std::time::Duration::from_millis(700)); a.dirty = true;
+                unsafe { SetTimer(Some(a.hwnd), crate::island::T_VOL, 900, None); } // um quadro quando o prazo vence (parado nao ha quadros)
+            }
             if let Some((i, x0, y0)) = a.p.drag_from { if (x - x0).abs() + (y - y0).abs() > 6.0 && LBUTTON_DOWN_NOW() {
                 // arrastar o card para fora: DoDragDrop (so copia) numa thread propria; o clique nao abre o arquivo
                 a.p.drag_from = None; a.pressed = None;

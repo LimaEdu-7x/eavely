@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/img/logo.png" alt="Logo do Eavely" width="72" height="72">
+<img src="docs/img/banner.png" alt="Eavely" width="640">
 
 # Eavely · branch `dev`
 
@@ -147,6 +147,15 @@ Marque o que testou e conte o resultado (passou / falhou / não deu para testar)
 - [ ] Desconectar e reconectar um monitor com o app aberto.
 
 **Extras rápidos:** atalhos `Ctrl+Alt+E/T/F`, overlays (volume, brilho, bateria, Wi-Fi, fones, Caps Lock), Pomodoro até o fim, Tarefas com dia, compacto de PC, iniciar com o Windows.
+
+## 🔏 Assinatura de código e privacidade
+
+Assinatura gratuita fornecida pela [SignPath.io](https://signpath.io), certificado da [SignPath Foundation](https://signpath.org) (pedido em andamento: **por enquanto os binários são publicados sem assinatura**, e as notas de cada Release avisam).
+
+- **O que é assinado:** só os binários oficiais da página de Releases (`Eavely.exe`, `Eavely-Setup.exe`), compilados pelo GitHub Actions a partir deste repositório.
+- **Papéis:** autor, revisor e aprovador: [@LimaEdu-7x](https://github.com/LimaEdu-7x). Cada assinatura é aprovada manualmente.
+- **Privacidade:** sem conta, telemetria ou atualização automática. A única rede é a busca opcional de letras no LRCLIB (título, artista, álbum e duração), que dá para desligar em Configurações. Veja [docs/PRIVACY.md](docs/PRIVACY.md) e a [política de assinatura](docs/CODE-SIGNING-POLICY.md).
+- **Problemas ou abuso:** [Issues](https://github.com/LimaEdu-7x/eavely/issues) ou o relato privado de vulnerabilidade do GitHub.
 
 ## 📄 Licença e créditos
 

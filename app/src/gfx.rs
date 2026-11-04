@@ -36,8 +36,9 @@ fn icon_src(name: &str) -> &'static str {
         "coffee" => ic!("coffee"), "target" => ic!("target"), "x" => ic!("x"), "file" => ic!("file"), "folder" => ic!("folder"),
         "battery" => ic!("battery"), "battery-charging" => ic!("battery-charging"), "trash-2" => ic!("trash-2"), "eye-off" => ic!("eye-off"),
         "power" => ic!("power"), "log-out" => ic!("log-out"), "calendar" => ic!("calendar"), "circle-plus" => ic!("circle-plus"), "pencil" => ic!("pencil"),
-        "app" => include_str!("../../assets/app/eavely-icon.svg"), "plus" => ic!("plus"), "circle-check" => ic!("circle-check"), "check" => ic!("check"), "sun" => ic!("sun"), "battery-low" => ic!("battery-low"), "wifi" => ic!("wifi"), "wifi-off" => ic!("wifi-off"), "headphones" => ic!("headphones"), "arrow-big-up" => ic!("arrow-big-up"),
+        "plus" => ic!("plus"), "circle-check" => ic!("circle-check"), "check" => ic!("check"), "sun" => ic!("sun"), "battery-low" => ic!("battery-low"), "wifi" => ic!("wifi"), "wifi-off" => ic!("wifi-off"), "headphones" => ic!("headphones"), "arrow-big-up" => ic!("arrow-big-up"),
         "eye" => ic!("eye"), "bell" => ic!("bell"), "chevron-down" => ic!("chevron-down"), "info" => ic!("info"), "keyboard" => ic!("keyboard"), "minus" => ic!("minus"), "zap" => ic!("zap"),
+        "wifi-high" => ic!("wifi-high"), "wifi-low" => ic!("wifi-low"), "wifi-zero" => ic!("wifi-zero"), "ethernet-port" => ic!("ethernet-port"),
         _ => ic!("circle"),
     }
 }

@@ -10,7 +10,7 @@ mod pages2;
 mod tasks;
 mod settings;
 mod settings_ui;
-mod overlay;
+mod overlay; mod netstat;
 mod tray;
 #[cfg(feature = "devtools")]
 mod bench;

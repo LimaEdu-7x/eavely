@@ -160,10 +160,10 @@ fn page_body(c: &mut Ctx, page: usize) {
             c.tog_row("Ilha mínima", Some("Sem a pílula ao vivo de música e timer."), T_MINIMAL, s.minimal_island, false, true);
             c.row("Mostrar traço quando ocioso", None, false, true, 52.0); c.toggle(T_TRACE, s.show_trace, true, 44.0); c.y += 44.0;
             c.row("Aparência recolhida", None, false, true, 190.0); c.segmented(S_LOOK, &["Bateria e hora", "Olhos"], (s.collapsed_look == "eyes") as usize, 44.0); c.y += 44.0;
-            c.group("Comportamento", 44.0 * 6.0 + 56.0);
+            c.group("Comportamento", 44.0 * 5.0 + 56.0 * 2.0);
             c.row("Abrir a ilha", None, true, true, 190.0); c.segmented(S_OPEN, &["Passar o mouse", "Clique"], (s.open_mode == "click") as usize, 44.0); c.y += 44.0;
             c.row("Recolher após", Some("0 s = na hora"), false, true, 240.0); c.segmented(S_LEAVE, &["0 s", "0,5 s", "1 s", "2 s", "3 s"], match s.leave_delay_ms { 0 => 0, 500 => 1, 2000 => 3, 3000 => 4, _ => 2 }, 56.0); c.y += 56.0;
-            c.row("Mini notch (janela maximizada)", None, false, true, 220.0); c.segmented(S_MINI, &["Encostar", "Pequena folga"], s.mini_near as usize, 44.0); c.y += 44.0;
+            c.row("Mini notch", Some("Em janela maximizada"), false, true, 220.0); c.segmented(S_MINI, &["Encostar", "Pequena folga"], s.mini_near as usize, 56.0); c.y += 56.0;
             c.row("Zona de ativação do topo", None, false, true, 190.0); c.segmented(S_ZONE, &["Estreita", "Normal", "Larga"], match s.trigger_zone_px { 24 => 0, 40 => 1, _ => 2 }, 44.0); c.y += 44.0;
             c.row("Velocidade da animação", None, false, true, 150.0); c.segmented(S_SPEED, &["Normal", "Rápida"], (s.anim_speed == "fast") as usize, 44.0); c.y += 44.0;
             c.row("Mostrar a ilha ao vivo", None, false, true, 52.0); c.toggle(T_LIVE, s.show_live, true, 44.0); c.y += 44.0;
@@ -178,7 +178,7 @@ fn page_body(c: &mut Ctx, page: usize) {
             c.group("Letras", 56.0 + 44.0 + 56.0);
             c.tog_row("Mostrar letras", Some("Busca no LRCLIB (envia título, artista e álbum)."), T_ONLINE, s.online_lyrics, true, true);
             c.tog_row("Linha de letra na Música", None, T_LYRIC, s.show_lyric_line, false, true);
-            c.tog_row("Letra no compacto", Some("Barra com a linha atual quando a ilha recolhe."), T_LYRBAR, s.lyric_bar, false, s.show_lyric_line);
+            c.tog_row("Mostrar letras no notch recolhido", Some("Linha atual no ao vivo; a ilha aberta continua com letras."), T_LYRBAR, s.lyric_bar, false, s.show_lyric_line);
             c.group("Capa", 44.0 * 2.0); c.tog_row("Giro da capa ao trocar de música", None, T_SPIN, s.cover_spin, true, true); c.tog_row("Gradiente da capa", None, T_GRAD, s.cover_gradient, false, true);
         }
         3 => { c.group("Lista", 44.0 * 2.0); c.tog_row("Concluídas no fim da lista", None, T_DONELAST, s.tasks_done_last, true, true); c.tog_row("Atrasadas em vermelho", None, T_OVERDUE, s.tasks_overdue_red, false, true); }
@@ -228,7 +228,7 @@ fn page_body(c: &mut Ctx, page: usize) {
         }
         _ => { // Sobre
             c.group("Eavely", 190.0);
-            c.g.icon("app", CX + 16.0, c.y + 16.0, 56.0, TEXT, false);
+            c.g.thumb(0xEA7E_1060, include_bytes!("../../assets/app/logo-sobre.bgra"), 96, 96, CX + 16.0, c.y + 16.0, 56.0, 56.0, 0.0, 1.0); // logo oficial (scripts/make-about-logo.py)
             c.g.text("Eavely", Fmt::Head, CX + 88.0, c.y + 20.0, 200.0, 24.0, TEXT, false);
             c.g.text(&format!("Versão {} (compilação {})", env!("CARGO_PKG_VERSION"), env!("EAVELY_BUILD")), Fmt::Small, CX + 88.0, c.y + 46.0, 300.0, 14.0, TEXT2, false);
             c.g.text("Notch leve para Windows. Sem telemetria: a rede é usada só", Fmt::Small, CX + 16.0, c.y + 88.0, CW - 32.0, 14.0, TEXT2, false);
