@@ -228,7 +228,7 @@ fn page_body(c: &mut Ctx, page: usize) {
         }
         _ => { // Sobre
             c.group("Eavely", 190.0);
-            c.g.icon("app", CX + 16.0, c.y + 16.0, 56.0, TEXT, false);
+            c.g.thumb(0xEA7E_1060, include_bytes!("../../assets/app/logo-sobre.bgra"), 96, 96, CX + 16.0, c.y + 16.0, 56.0, 56.0, 0.0, 1.0); // logo oficial (scripts/make-about-logo.py)
             c.g.text("Eavely", Fmt::Head, CX + 88.0, c.y + 20.0, 200.0, 24.0, TEXT, false);
             c.g.text(&format!("Versão {} (compilação {})", env!("CARGO_PKG_VERSION"), env!("EAVELY_BUILD")), Fmt::Small, CX + 88.0, c.y + 46.0, 300.0, 14.0, TEXT2, false);
             c.g.text("Notch leve para Windows. Sem telemetria: a rede é usada só", Fmt::Small, CX + 16.0, c.y + 88.0, CW - 32.0, 14.0, TEXT2, false);

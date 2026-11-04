@@ -1,9 +1,0 @@
-reduced_motion=true versao=0.1.1 build=20261103.1357
-abrir-do-repouso         quadros= 29 dur=2172ms w  420.0-> 420.0 pico  420.0 min  420.0 | h 140.0->140.0 pico 140.0 min 140.0 | passo_max_w=  0.0 dt_max=266.7  FAIL: sem overshoot de largura (pico 420.0, alvo 420.0)
-fechar                   quadros=  1 dur=   0ms w  150.0-> 150.0 pico  150.0 min  150.0 | h  30.0-> 30.0 pico  30.0 min  30.0 | passo_max_w=  0.0 dt_max= 0.0  FAIL: so 1 quadros (animacao instantanea?)
-abrir-renderer-quente    quadros=  9 dur=1994ms w  420.0-> 420.0 pico  420.0 min  420.0 | h 140.0->140.0 pico 140.0 min 140.0 | passo_max_w=  0.0 dt_max=268.0  FAIL: sem overshoot de largura (pico 420.0, alvo 420.0)
-fechar-2                 quadros=  1 dur=   0ms w  150.0-> 150.0 pico  150.0 min  150.0 | h  30.0-> 30.0 pico  30.0 min  30.0 | passo_max_w=  0.0 dt_max= 0.0  FAIL: so 1 quadros (animacao instantanea?)
-abrir-do-repouso-2       quadros=  9 dur=1992ms w  420.0-> 420.0 pico  420.0 min  420.0 | h 140.0->140.0 pico 140.0 min 140.0 | passo_max_w=  0.0 dt_max=263.0  FAIL: sem overshoot de largura (pico 420.0, alvo 420.0)
-fechar-3                 quadros=  1 dur=   0ms w  150.0-> 150.0 pico  150.0 min  150.0 | h  30.0-> 30.0 pico  30.0 min  30.0 | passo_max_w=  0.0 dt_max= 0.0  FAIL: so 1 quadros (animacao instantanea?)
-mini-notch               quadros=  1 dur=   0ms w   56.0->  56.0 pico   56.0 min   56.0 | h   5.0->  5.0 pico   5.0 min   5.0 | passo_max_w=  0.0 dt_max= 0.0  FAIL: so 1 quadros (animacao instantanea?)
-mini-para-compacto       quadros=  1 dur=   0ms w  150.0-> 150.0 pico  150.0 min  150.0 | h  30.0-> 30.0 pico  30.0 min  30.0 | passo_max_w=  0.0 dt_max= 0.0  FAIL: so 1 quadros (animacao instantanea?)

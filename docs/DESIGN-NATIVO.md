@@ -283,9 +283,7 @@ Na seção **Ilha**: *Aparência recolhida* — segmentado **Bateria e hora (pad
 Conceito: uma **ilha pendurada no topo** (o beiral) com um **olho** dentro — "Eavely" ≈ *eave* (beiral) + *eye*. Arte própria, sem relação com outros apps. Arquivos em `assets/app/`:
 | Arquivo | Uso |
 |---|---|
-| `eavely-icon.svg` | fonte do ícone do app (tile escuro 256, raio 58, ilha branca com olho de íris `accent`, mini barra de progresso) |
-| `eavely-icon.ico` | 16/24/32/48/256 (PNGs embutidos) — instalador, exe, atalhos |
-| `eavely-icon-{16,24,32,48,256}.png` | PNGs avulsos |
-| `eavely-tray-white.*` | **bandeja em barra escura** (monocromático branco, olho vazado) |
-| `eavely-tray-black.*` | **bandeja em barra clara** |
-Bandeja: escolher a variante pelo tema do sistema (`AppsUseLightTheme`/`SystemUsesLightTheme` em `HKCU\...\Themes\Personalize`; barra de tarefas usa `SystemUsesLightTheme`) e trocar ao receber `WM_SETTINGCHANGE`. Tamanhos: 16 (100% DPI), 20/24 (125–150%), 32 (200%) — o `.ico` já tem 16/24/32. Legibilidade a 16 px verificada visualmente (silhueta + olho reconhecíveis).
+| `eavely-icon.ico` | 16/20/24/32 (simplificadas, sem estrelas) + 40/48/64/128/256 (completas), PNG em todas — exe, instalador, atalhos |
+| `eavely-tray-{16,20,24,32}.png` | bandeja: um desenho que le em barra clara e escura; o tamanho segue o DPI (`SM_CXSMICON`) |
+| `logo-sobre-128.png` / `logo-sobre.bgra` | logo da pagina Sobre (o `.bgra` 96x96 pre-multiplicado e gerado por `scripts/make-about-logo.py`) |
+| `docs/img/banner.png` | banner dos READMEs |

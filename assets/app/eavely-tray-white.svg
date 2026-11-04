@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <!-- Bandeja: ilha com olho vazado, 1 cor (use white em barra escura, black em barra clara). -->
-  <path fill-rule="evenodd" fill="#FFFFFF" d="M24 0H232V120A68 68 0 0 1 164 188H92A68 68 0 0 1 24 120ZM56 112Q128 44 200 112Q128 180 56 112Z"/>
-  <circle cx="128" cy="112" r="30" fill="#FFFFFF"/>
-</svg>

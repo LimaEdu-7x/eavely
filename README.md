@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/img/logo.png" alt="Logo do Eavely" width="72" height="72">
+<img src="docs/img/banner.png" alt="Eavely" width="640">
 
 # Eavely · branch `dev`
 

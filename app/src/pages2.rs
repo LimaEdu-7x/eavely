@@ -83,6 +83,27 @@ fn ellip(a: &App, s: &str, f: Fmt, maxw: f32) -> String {
     while v.len() > 1 { v.pop(); let t: String = v.iter().collect::<String>() + "…"; if a.gfx.measure(&t, f) <= maxw { return t; } }
     "…".into()
 }
+/// nome em ate 2 linhas de `maxw`: a 1a leva o que couber; a 2a, o resto com reticencias NO MEIO (a extensao do arquivo fica visivel)
+fn name2(a: &App, s: &str, f: Fmt, maxw: f32) -> (String, String) {
+    if a.gfx.measure(s, f) <= maxw { return (s.to_string(), String::new()); }
+    let v: Vec<char> = s.chars().collect();
+    let mut n = v.len().saturating_sub(1).max(1);
+    while n > 1 && a.gfx.measure(&v[..n].iter().collect::<String>(), f) > maxw { n -= 1; }
+    let l1: String = v[..n].iter().collect(); let rest: Vec<char> = v[n..].to_vec(); let r: String = rest.iter().collect();
+    if a.gfx.measure(&r, f) <= maxw { return (l1, r); }
+    let tail = rest.len().min(5); let mut head = rest.len() - tail;
+    loop { let t: String = rest[..head].iter().collect::<String>() + "…" + &rest[rest.len() - tail..].iter().collect::<String>();
+        if head == 0 || a.gfx.measure(&t, f) <= maxw { return (l1, t); } head -= 1; }
+}
+/// arte do card (miniatura/icone do shell, ou icone generico) centrada em (cx, cy) com escala k: a MESMA no card parado e na saida (excluir/limpar),
+/// senao o icone trocava para outro durante a animacao
+fn card_art(a: &mut App, it: &shelf::ShelfItem, cx: f32, cy: f32, k: f32) {
+    let th = if crate::settings::flag(crate::settings::F_THUMBS) { shelf::thumb(&it.id, &it.path) } else { None };
+    if let Some(t) = th { let key = { use std::hash::{Hash, Hasher}; let mut h = std::collections::hash_map::DefaultHasher::new(); it.id.hash(&mut h); h.finish() };
+        if t.icon { a.gfx.thumb(key, &t.px, t.w, t.h, cx - 16.0 * k, cy - 31.0 * k, 32.0 * k, 32.0 * k, 0.0, 1.0); } // icone real do shell (tipo do arquivo/pasta)
+        else { a.gfx.thumb(key, &t.px, t.w, t.h, cx - 18.0 * k, cy - 25.0 * k, 36.0 * k, 26.0 * k, 6.0 * k, 1.0); a.gfx.rrect_stroke(cx - 17.5 * k, cy - 24.5 * k, 35.0 * k, 25.0 * k, 5.5 * k, 1.0, rgba(0xFFFFFF, 0.18)); }
+    } else { a.gfx.icon(if it.is_dir { "folder" } else { "file" }, cx - 13.0 * k, cy - 24.0 * k, 26.0 * k, AMBER, false); }
+}
 fn human_pt(b: u64) -> String { if b < 1024 { format!("{b} B") } else if b < 1 << 20 { format!("{:.0} KB", b as f64 / 1024.0) } else if b < 1 << 30 { format!("{:.1} MB", b as f64 / 1048576.0).replace('.', ",") } else { format!("{:.1} GB", b as f64 / 1073741824.0).replace('.', ",") } }
 impl crate::pages::PageState {
     /// ha animacao da Shelf em andamento? (pede quadros no ritmo do monitor)
@@ -170,7 +191,8 @@ pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
     // ---- cards ----
     a.gfx.clip(16.0, 30.0, 388.0, 86.0);
     let items = a.p.shelf.clone(); let sx = a.p.shelf_sx;
-    let mut flying: Vec<(f32, f32, f32, bool)> = Vec::new();
+    let mut flying: Vec<(f32, f32, f32, shelf::ShelfItem)> = Vec::new();
+    let mut tip: Option<String> = None; // nome completo do card sob o mouse (legenda embaixo)
     // posicao deslizada: cada exclusao (shrink) anterior empurra os vizinhos 66 px
     let slide = |a: &App, upto: usize, items: &[shelf::ShelfItem]| -> f32 {
         let mut s = 0.0; for p in items.iter().take(upto) { if let Some(d) = a.p.shelf_del.iter().find(|e| e.2 && e.0 == p.id) { let t = since(d.1 + std::time::Duration::from_millis((SHRINK_MS * 0.5) as u64), now, SLIDE_MS); s -= 66.0 * crate::island::ease(t); } } s };
@@ -179,10 +201,10 @@ pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
         if x > 404.0 || x + 58.0 < 16.0 { continue; }
         let del = a.p.shelf_del.iter().find(|e| e.0 == it.id).cloned();
         if let Some((_, st0, single)) = del {
-            if !single { flying.push((x, y, since(st0, now, FLY_MS), it.is_dir)); continue; }
+            if !single { flying.push((x, y, since(st0, now, FLY_MS), it.clone())); continue; }
             let t = ease_in(since(st0, now, SHRINK_MS)); let k = 1.0 - 0.65 * t; let (w, h) = (58.0 * k, 74.0 * k);
             a.gfx.layer(1.0 - t); a.gfx.rrect(x + (58.0 - w) / 2.0, y + (74.0 - h) / 2.0, w, h, 10.0 * k, SURFACE);
-            a.gfx.icon(if it.is_dir { "folder" } else { "file" }, x + 29.0 - 13.0 * k, y + 13.0 + 37.0 * (1.0 - k) - 0.0, 26.0 * k, AMBER, false);
+            card_art(a, it, x + 29.0, y + 37.0, k); // o MESMO icone do card parado, encolhendo com ele
             a.gfx.unlayer(); continue;
         }
         // entrada do card recem-solto: escala 0,8 -> 1 e fade (300 ms)
@@ -193,15 +215,13 @@ pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
         let hov = a.hover == Some(act) || a.hover == Some(rm); let on = a.p.select && a.p.sel.contains(&i);
         if hov && crate::settings::flag(crate::settings::F_SHELF_GLOW) { a.gfx.vignette(x + 29.0, y + 37.0, 52.0, (0.45, 0.52, 1.0, 0.30)); } // brilho atras do item sob o mouse
         a.gfx.rrect(x, y, 58.0, 74.0, 10.0, if hov || on { SURFACE_H } else { SURFACE });
-        let th = if crate::settings::flag(crate::settings::F_THUMBS) { shelf::thumb(&it.id, &it.path) } else { None };
-        if let Some(t) = th { let key = { use std::hash::{Hash, Hasher}; let mut h = std::collections::hash_map::DefaultHasher::new(); it.id.hash(&mut h); h.finish() };
-            if t.icon { a.gfx.thumb(key, &t.px, t.w, t.h, x + 13.0, y + 6.0, 32.0, 32.0, 0.0, 1.0); } // icone real do shell (tipo do arquivo/pasta)
-            else { a.gfx.thumb(key, &t.px, t.w, t.h, x + 11.0, y + 12.0, 36.0, 26.0, 6.0, 1.0); a.gfx.rrect_stroke(x + 11.5, y + 12.5, 35.0, 25.0, 5.5, 1.0, rgba(0xFFFFFF, 0.18)); }
-        } else { a.gfx.icon(if it.is_dir { "folder" } else { "file" }, x + 16.0, y + 13.0, 26.0, AMBER, false); }
-        let nm = ellip(a, &it.name, Fmt::BodyStrong, 50.0); let nw = a.gfx.measure(&nm, Fmt::BodyStrong);
-        a.gfx.text(&nm, Fmt::BodyStrong, x + 4.0 + (50.0 - nw) / 2.0, y + 42.0, nw + 4.0, 14.0, TEXT, false);
-        let sz = if it.is_dir { "pasta".to_string() } else { it.size_bytes.map(human_pt).unwrap_or_else(|| "—".into()) }; let sw = a.gfx.measure(&sz, Fmt::Small);
-        a.gfx.text(&sz, Fmt::Small, x + 4.0 + (50.0 - sw) / 2.0, y + 57.0, sw + 4.0, 12.0, TEXT3, false);
+        card_art(a, it, x + 29.0, y + 37.0, 1.0);
+        // nome em ate 2 linhas (reticencias no meio, extensao visivel); nome inteiro na legenda ao passar o mouse
+        let (l1, l2) = name2(a, &it.name, Fmt::Small, 52.0);
+        let w1 = a.gfx.measure(&l1, Fmt::Small); a.gfx.text(&l1, Fmt::Small, x + 4.0 + (50.0 - w1) / 2.0, y + 38.0, w1 + 4.0, 12.0, TEXT, false);
+        if !l2.is_empty() { let w2 = a.gfx.measure(&l2, Fmt::Small); a.gfx.text(&l2, Fmt::Small, x + 4.0 + (50.0 - w2) / 2.0, y + 49.0, w2 + 4.0, 12.0, TEXT, false); if hov { tip = Some(it.name.clone()); } }
+        let sz = if it.is_dir { "pasta".to_string() } else { it.size_bytes.map(human_pt).unwrap_or_else(|| "—".into()) }; let sw = a.gfx.measure(&sz, Fmt::Tiny);
+        a.gfx.text(&sz, Fmt::Tiny, x + 4.0 + (50.0 - sw) / 2.0, y + 63.0, sw + 4.0, 10.0, TEXT3, false);
         hits.push((R { x: x + off, y, w: 58.0, h: 74.0 }, act));
         if a.p.select {
             if on { a.gfx.rrect_stroke(x + 0.75, y + 0.75, 56.5, 72.5, 9.25, 1.5, SEL_BLUE); a.gfx.circle(x + 13.0, y + 13.0, 8.0, SEL_BLUE); a.gfx.icon("check", x + 7.5, y + 7.5, 11.0, rgba(0x06223A, 1.0), false); }
@@ -215,12 +235,13 @@ pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
     // degrade na borda direita: indica rolagem horizontal
     if max_sx - sx > 1.0 { a.gfx.grad(352.0, 36.0, 30.0, 74.0, true, &[(0.0, rgba(0x000000, 0.0)), (1.0, rgba(0x000000, 1.0))], 1.0); }
     a.gfx.unclip();
+    if let Some(full) = tip { let s = ellip(a, &full, Fmt::Small, 360.0); let w = a.gfx.measure(&s, Fmt::Small); a.gfx.text(&s, Fmt::Small, 210.0 - w / 2.0, 118.0, w + 4.0, 14.0, TEXT2, false); }
     // limpar tudo: cards encolhem e voam ao botao (destino ~ 320,4), escalonados de 30 ms (sem recorte)
-    for (x, y, t, dir) in flying {
+    for (x, y, t, fit) in flying {
         let e = ease_in(t); let (cx, cy) = (x + 29.0 + (320.0 - x - 29.0) * e, y + 37.0 + (4.0 - y - 37.0) * e);
         let k = 1.0 - 0.78 * e; let (w, h) = (58.0 * k, 74.0 * k);
         a.gfx.layer(1.0 - 0.6 * e); a.gfx.rrect(cx - w / 2.0, cy - h / 2.0, w, h, 10.0 * k, SURFACE_H);
-        a.gfx.icon(if dir { "folder" } else { "file" }, cx - 13.0 * k, cy - 24.0 * k, 26.0 * k, AMBER, false); a.gfx.unlayer();
+        card_art(a, &fit, cx, cy, k); a.gfx.unlayer();
     }
 }
 impl crate::pages::PageState { fn shelf_n_known(&self) -> bool { !self.shelf_ids.is_empty() || self.shelf_n > 0 || self.shelf_gen > 0 } }
