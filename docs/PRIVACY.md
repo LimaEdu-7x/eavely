@@ -24,4 +24,4 @@ This program will not transfer any other information to other networked systems.
 - The installer is per-user and does not need administrator rights.
 
 ## Contact
-Questions: open an issue at https://github.com/LimaEdu-7x/eavely/issues
+Questions: open an issue at https://github.com/LimaEdu-7x/eavely/issues or write to contact.eavely@gmail.com

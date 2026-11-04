@@ -89,6 +89,11 @@ Free code signing provided by [SignPath.io](https://signpath.io), certificate by
 - **Privacy:** no account, telemetry or auto-update. The only network access is the optional lyrics lookup at LRCLIB (title, artist, album, duration), which you can turn off in Settings. See the [Privacy policy](docs/PRIVACY.md) and the [code signing policy](docs/CODE-SIGNING-POLICY.md).
 - **Reporting abuse or a problem:** [Issues](https://github.com/LimaEdu-7x/eavely/issues) or GitHub's private vulnerability reporting.
 
+## Contact and support
+
+- Bugs, ideas and questions: [GitHub Issues](https://github.com/LimaEdu-7x/eavely/issues).
+- Project e-mail: [contact.eavely@gmail.com](mailto:contact.eavely@gmail.com).
+
 ## License and credits
 
 MIT ([LICENSE](LICENSE)); the "Eavely" logo and name are reserved by the author, see [docs/BRAND.md](docs/BRAND.md). Icons: [Lucide](https://lucide.dev) (ISC), see [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md). Lyrics: [LRCLIB](https://lrclib.net); lyrics belong to their authors.
