@@ -642,7 +642,7 @@ impl App {
     /// Estados desenhados em GDI no repouso (sem renderer D3D): mini notch e compacto com relogio (o compacto com olhos precisa do D3D).
     /// (b) FOCO DO TECLADO: a janela e NOACTIVATE; durante a edicao (nova tarefa, MM:SS do pomodoro) ela vira ativavel, pega o foco e devolve ao app anterior ao terminar.
     /// teclado da Shelf (Delete, Ctrl+A, Esc): SO depois de um CLIQUE que deixou arquivos selecionados, com a ilha aberta. Passar o mouse nunca pega o foco.
-    fn shelf_kb(&self) -> bool { self.state == St::Open && self.p.kb_click && !self.p.sel.is_empty() && crate::pages2::shelf_visible(self) }
+    fn shelf_kb(&self) -> bool { self.state == St::Open && self.class & 3 == 2 && self.p.kb_click && !self.p.sel.is_empty() && crate::pages2::shelf_visible(self) }
     pub fn sync_kb(&mut self) {
         let editing = self.p.edit.is_some() || self.p.task_input.is_some() || self.shelf_kb();
         unsafe {
@@ -658,8 +658,9 @@ impl App {
             } else if !editing && self.kb_prev.is_some() {
                 let prev = self.kb_prev.take().unwrap_or(0);
                 let ex = GetWindowLongPtrW(self.hwnd, GWL_EXSTYLE); SetWindowLongPtrW(self.hwnd, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE.0 as isize);
-                let ph = HWND(prev as *mut _); if !self.p.kb_shelf_only && prev != 0 && ph != self.hwnd && IsWindow(Some(ph)).as_bool() { let _ = SetForegroundWindow(ph); } // Shelf: so solta (quem esta digitando em outro app nao e puxado de volta)
-                self.p.kb_shelf_only = false; self.p.kb_click = self.p.kb_click && !self.p.sel.is_empty();
+                let ph = HWND(prev as *mut _); let ours = GetForegroundWindow() == self.hwnd; // Shelf: so devolve o foco se ele AINDA e nosso (depois de Alt+Tab/clique em outro app nao puxa de volta)
+                if prev != 0 && ph != self.hwnd && IsWindow(Some(ph)).as_bool() && (!self.p.kb_shelf_only || ours) { let _ = SetForegroundWindow(ph); }
+                if self.p.kb_shelf_only { self.p.kb_click = false; } self.p.kb_shelf_only = false;
                 crate::log("teclado: foco devolvido");
             }
         }
@@ -718,7 +719,7 @@ unsafe extern "system" fn wndproc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LR
     match m {
         WM_MOUSEACTIVATE => { let grab = with_app(|a| a.kb_prev.is_some()).unwrap_or(false); return LRESULT(if grab { MA_ACTIVATE } else { MA_NOACTIVATE } as isize) }
         0x00FF => { handle_raw(lp); return DefWindowProcW(h, m, wp, lp) }
-        WM_CLASS => { with_app(|a| { a.class = wp.0 as u32; a.evaluate(); }); return LRESULT(0) }
+        WM_CLASS => { with_app(|a| { a.class = wp.0 as u32; a.evaluate(); a.sync_kb(); }); return LRESULT(0) }
         WM_WAKE => { with_app(|a| { a.apply_look(); a.sync_metrics(); a.sync_kb(); crate::pages::on_wake(a); if crate::droptarget::OVER.load(Relaxed) { a.set_drag(true); } else if !LBTN_DOWN_ON_FILES.load(Relaxed) { a.set_drag(false); } a.evaluate(); a.rearm_tick(); a.dirty = true; }); return LRESULT(0) }
         WM_TIMER => {
             match wp.0 {
