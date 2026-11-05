@@ -34,7 +34,22 @@ const PAGES: [(&str, &str, u32); 11] = [("Geral", "settings", 0x6E6E76), ("Ilha 
 const P_ABOUT: usize = 10;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-enum SAct { Page(u8), Close, Min, Tog(u8), Seg(u8, u8), Step(u8, i8), Hot(u8), Mon, SlotTop, SlotBottom, Link(u8), Reset }
+enum SAct { Page(u8), Close, Min, Tog(u8), Seg(u8, u8), Step(u8, i8), Hot(u8), Drop(u8), Link(u8), Reset }
+// listas suspensas (estilo macOS): cada campo de escolha com nome abre uma lista com check no atual
+const D_MON: u8 = 0; const D_TOP: u8 = 1; const D_BOT: u8 = 2; const D_PERS: u8 = 3; const D_INIT: u8 = 4; const D_MSIZE: u8 = 5;
+struct Menu { id: u8, anchor: R, opts: Vec<(String, String)>, cur: String }
+fn drop_opts(id: u8) -> (Vec<(String, String)>, String) {
+    let s = settings::get(); let t = |a: &[(&str, &str)]| a.iter().map(|(k, l)| (k.to_string(), l.to_string())).collect::<Vec<_>>();
+    match id {
+        D_MON => (monitor_options(), s.monitor),
+        D_TOP | D_BOT => (crate::slots::Widget::ALL.iter().map(|w| (w.key().to_string(), w.label().to_string())).collect(), if id == D_TOP { s.slot_top } else { s.slot_bottom }),
+        D_PERS => (t(&[("calmo", "Calmo"), ("travesso", "Travesso"), ("dramatico", "Dramático")]), s.personality),
+        D_INIT => (t(&[("last", "Última usada"), ("mascot", "Mascote"), ("music", "Música")]), s.initial_page),
+        _ => (t(&[("auto", "Automático"), ("large", "Grande"), ("small", "Pequeno")]), s.mascot_size),
+    }
+}
+fn drop_label(id: u8) -> String { let (o, c) = drop_opts(id); o.iter().find(|x| x.0 == c).map(|x| x.1.clone()).unwrap_or_else(|| o[0].1.clone()) }
+fn drop_pick(id: u8, key: &str) { let k = key.to_string(); settings::update(|s| match id { D_MON => s.monitor = k, D_TOP => s.slot_top = k, D_BOT => s.slot_bottom = k, D_PERS => s.personality = k, D_INIT => s.initial_page = k, _ => s.mascot_size = k }); }
 const T_START: u8 = 0; const T_TRACE: u8 = 1; const T_LIVE: u8 = 2; const T_HIDE: u8 = 3; const T_LYRIC: u8 = 4; const T_AUTO: u8 = 5; const T_NOTIFY: u8 = 6; const T_ONLINE: u8 = 7;
 const T_VOL: u8 = 10; const T_BRI: u8 = 11; const T_BAT: u8 = 12; const T_WIFI: u8 = 13; const T_HP: u8 = 14; const T_CAPS: u8 = 15;
 const T_PCSTATE: u8 = 26; const T_PCCPU: u8 = 27; const T_PCRAM: u8 = 28; const T_PCGPU: u8 = 29; const T_PCNET: u8 = 30;
@@ -44,13 +59,16 @@ const S_LEAVE: u8 = 14; const S_MINI: u8 = 15; const S_PERS: u8 = 16; const S_IN
 const S_LOOK: u8 = 0; const S_LIVEMODE: u8 = 1; const S_ZONE: u8 = 2; const S_SCALE: u8 = 3; const S_OPEN: u8 = 4; const S_SPEED: u8 = 5;
 const ST_FOCUS: u8 = 0; const ST_SHORT: u8 = 1; const ST_LONG: u8 = 2; const ST_CYC: u8 = 3;
 
-struct SApp { hwnd: HWND, gfx: Gfx, page: usize, prev: usize, page_t: Instant, scroll: f32, content_h: f32, hover: Option<SAct>, pressed: Option<SAct>, hits: Vec<(R, SAct)>, side: Vec<(R, SAct)>, capture: Option<u8>, scale: f32, dirty: bool, focus_ring: bool }
+struct SApp { hwnd: HWND, gfx: Gfx, page: usize, prev: usize, page_t: Instant, scroll: f32, content_h: f32, hover: Option<SAct>, pressed: Option<SAct>, hits: Vec<(R, SAct)>, side: Vec<(R, SAct)>, capture: Option<u8>, scale: f32, dirty: bool, focus_ring: bool, menu: Option<Menu>, menu_rects: Vec<R>, menu_hover: Option<usize> }
 thread_local! { static APP: RefCell<Option<SApp>> = const { RefCell::new(None) }; }
 
 pub fn refresh() { let h = HW.load(Relaxed); if h != 0 { unsafe { let _ = PostMessageW(Some(HWND(h as *mut _)), WM_REFRESH, WPARAM(0), LPARAM(0)); } } }
 pub fn is_open() -> bool { HW.load(Relaxed) != 0 }
 pub fn hwnd() -> isize { HW.load(Relaxed) }
 static SCROLL_REQ: AtomicI32 = AtomicI32::new(-1);
+static MENU_REQ: AtomicI32 = AtomicI32::new(-1);
+#[cfg(feature = "devtools")]
+pub fn debug_menu(id: i32) { MENU_REQ.store(id, Relaxed); refresh(); }
 /// So para capturas: rola o conteudo / escolhe a pagina sem entrada sintetica
 #[cfg(feature = "devtools")]
 pub fn debug_scroll(y: i32) { SCROLL_REQ.store(y, Relaxed); refresh(); }
@@ -152,7 +170,7 @@ fn page_body(c: &mut Ctx, page: usize) {
             c.group("Inicialização", Ctx::rh(true)); c.tog_row("Iniciar com o Windows", Some("Abre o Eavely na bandeja ao entrar no Windows."), T_START, s.start_with_windows, true, true);
             c.group("Tela cheia", Ctx::rh(true)); c.tog_row("Ocultar em tela cheia", Some("Esconde a ilha enquanto um app ou vídeo ocupa a tela inteira."), T_HIDEFS, s.hide_fullscreen, true, true);
             c.group("Monitor", 44.0); c.row("Monitor preferido", None, true, true, 190.0);
-            { let opts = monitor_options(); let label = opts.iter().find(|o| o.0 == s.monitor).map(|o| o.1.clone()).unwrap_or_else(|| "Seguir o cursor".into()); c.menu(&label, SAct::Mon, 44.0); } c.y += 44.0;
+            c.menu(&drop_label(D_MON), SAct::Drop(D_MON), 44.0); c.y += 44.0;
         }
         1 => { // Ilha e aparencia
             c.group("Ilha", 56.0 + 56.0 + 44.0 + 44.0);
@@ -228,16 +246,16 @@ fn page_body(c: &mut Ctx, page: usize) {
         }
         9 => { // Mascote e inicio
             c.group("Tamanho", Ctx::rh(true) * 2.0);
-            c.row("Tamanho do notch", Some("80 · 100 · 120 %. Aplica na hora."), true, true, 250.0); c.segmented(S_SIZE, &["Pequeno", "Padrão", "Grande"], match s.size_preset.as_str() { "small" => 0, "large" => 2, _ => 1 }, 56.0); c.y += 56.0;
-            c.row("Tamanho do mascote", Some("Auto segue o notch."), false, true, 250.0); c.segmented(S_MSIZE, &["Auto", "Grande", "Pequeno"], match s.mascot_size.as_str() { "large" => 1, "small" => 2, _ => 0 }, 56.0); c.y += 56.0;
+            c.row("Tamanho do notch", Some("80 · 100 · 120 %. Aplica na hora."), true, true, 206.0); c.segmented(S_SIZE, &["Pequeno", "Padrão", "Grande"], match s.size_preset.as_str() { "small" => 0, "large" => 2, _ => 1 }, 56.0); c.y += 56.0;
+            c.row("Tamanho do mascote", Some("Automático segue o notch."), false, true, 190.0); c.menu(&drop_label(D_MSIZE), SAct::Drop(D_MSIZE), 56.0); c.y += 56.0;
             c.group("Mascote", Ctx::rh(true) + 44.0);
-            c.row("Personalidade", Some("Como reage a cliques."), true, true, 250.0); c.segmented(S_PERS, &["Calmo", "Travesso", "Dramático"], match s.personality.as_str() { "travesso" => 1, "dramatico" => 2, _ => 0 }, 56.0); c.y += 56.0;
+            c.row("Personalidade", Some("Como reage a cliques."), true, true, 190.0); c.menu(&drop_label(D_PERS), SAct::Drop(D_PERS), 56.0); c.y += 56.0;
             c.tog_row("Olhos seguem o mouse", None, T_GAZE, s.mascot_gaze, false, true);
             c.group("Início", Ctx::rh(true));
-            c.row("Página inicial", Some("Música tocando abre o player."), true, true, 250.0); c.segmented(S_INIT, &["Última usada", "Mascote", "Música"], match s.initial_page.as_str() { "mascot" => 1, "music" => 2, _ => 0 }, 56.0); c.y += 56.0;
+            c.row("Página inicial", Some("Música tocando abre o player."), true, true, 190.0); c.menu(&drop_label(D_INIT), SAct::Drop(D_INIT), 56.0); c.y += 56.0;
             c.group("Slots da página Mascote", 44.0 * 2.0 + 0.0);
-            c.row("Slot de cima", None, true, true, 190.0); c.menu(crate::slots::Widget::parse(&s.slot_top).label(), SAct::SlotTop, 44.0); c.y += 44.0;
-            c.row("Slot de baixo", None, false, true, 190.0); c.menu(crate::slots::Widget::parse(&s.slot_bottom).label(), SAct::SlotBottom, 44.0); c.y += 44.0;
+            c.row("Slot de cima", None, true, true, 190.0); c.menu(&drop_label(D_TOP), SAct::Drop(D_TOP), 44.0); c.y += 44.0;
+            c.row("Slot de baixo", None, false, true, 190.0); c.menu(&drop_label(D_BOT), SAct::Drop(D_BOT), 44.0); c.y += 44.0;
             c.foot("Sem repetir opção; Nenhum dá a altura toda ao outro.");
         }
         _ => { // Sobre
@@ -298,6 +316,21 @@ fn draw(a: &mut SApp) {
     a.gfx.text(PAGES[a.page].0, Fmt::Head, CX, 20.0, 400.0, 24.0, TEXT, false);
     let view = H - CONTENT_TOP;
     if a.content_h > view { let th = (view * view / a.content_h).max(30.0); let ty = CONTENT_TOP + (view - th) * (a.scroll / (a.content_h - view)); a.gfx.rrect(W - 9.0, ty, 5.0, th, 2.5, rgba(0xFFFFFF, 0.2)); }
+    // lista suspensa aberta: por cima de tudo (cartao escuro, check no atual, destaque azul no item sob o mouse)
+    a.menu_rects.clear();
+    if let Some(m) = &a.menu {
+        let iw = m.opts.iter().map(|o| a.gfx.measure(&o.1, Fmt::Body)).fold(0.0f32, f32::max) + 46.0; let w = iw.max(m.anchor.w).min(300.0); let ih = 26.0; let h = ih * m.opts.len() as f32 + 10.0;
+        let x = (m.anchor.x + m.anchor.w - w).max(SIDE_W + 4.0); let below = m.anchor.y + m.anchor.h + 4.0; let y = if below + h <= H - 6.0 { below } else { (m.anchor.y - 4.0 - h).max(6.0) };
+        a.gfx.rrect(x - 3.0, y - 1.0, w + 6.0, h + 8.0, 12.0, rgba(0x000000, 0.20)); a.gfx.rrect(x - 1.5, y - 0.5, w + 3.0, h + 4.0, 10.0, rgba(0x000000, 0.28)); // sombra suave
+        a.gfx.rrect(x, y, w, h, 9.0, rgba(0x2C2C2E, 1.0)); a.gfx.rrect_stroke(x + 0.5, y + 0.5, w - 1.0, h - 1.0, 9.0, 1.0, rgba(0xFFFFFF, 0.12));
+        for (i, o) in m.opts.iter().enumerate() {
+            let rc = R { x: x + 5.0, y: y + 5.0 + ih * i as f32, w: w - 10.0, h: ih }; let hv = a.menu_hover == Some(i); let on = o.0 == m.cur;
+            if hv { a.gfx.rrect(rc.x, rc.y, rc.w, rc.h, 6.0, rgba(0x0A84FF, 1.0)); }
+            if on { a.gfx.icon("check", rc.x + 6.0, rc.y + 6.0, 14.0, TEXT, false); }
+            a.gfx.text(&o.1, Fmt::Body, rc.x + 26.0, rc.y + 5.0, rc.w - 32.0, 16.0, TEXT, false);
+            a.menu_rects.push(rc);
+        }
+    }
     let _ = a.gfx.end();
     a.dirty = f < 1.0;
 }
@@ -323,17 +356,13 @@ fn apply(a: &mut SApp, act: SAct) {
             S_AQ => s.anim_quality = ["smooth", "balanced", "light"][v as usize % 3].into(), S_LYRS => s.lyrics_scroll = if v == 1 { "line" } else { "smooth" }.into(),
             S_FX => s.fx_level = ["on", "reduced", "off"][v as usize % 3].into(), S_VIZ => s.viz_level = if v == 0 { "on" } else { "reduced" }.into(),
             S_MINI => s.mini_near = v == 1,
-            S_PERS => s.personality = ["calmo", "travesso", "dramatico"][v as usize % 3].into(),
             S_SIZE => s.size_preset = ["small", "standard", "large"][v as usize % 3].into(),
-            S_MSIZE => s.mascot_size = ["auto", "large", "small"][v as usize % 3].into(),
-            S_INIT => s.initial_page = ["last", "mascot", "music"][v as usize % 3].into(),
             S_LEAVE => s.leave_delay_ms = [0, 500, 1000, 2000, 3000][v as usize % 5],
             S_OPEN => s.open_mode = if v == 1 { "click" } else { "hover" }.into(), S_SPEED => s.anim_speed = if v == 1 { "fast" } else { "normal" }.into(), _ => {} }),
         SAct::Step(k, d) => settings::update(|s| { let f = |x: u32| (x as i32 + d as i32).max(0) as u32; match k {
             ST_FOCUS => s.timer.focus_min = f(s.timer.focus_min), ST_SHORT => s.timer.short_min = f(s.timer.short_min), ST_LONG => s.timer.long_min = f(s.timer.long_min), ST_CYC => s.timer.cycles_to_long = f(s.timer.cycles_to_long), _ => {} } }),
         SAct::Hot(i) => { a.capture = Some(i); }
-        SAct::SlotTop | SAct::SlotBottom => { let top = act == SAct::SlotTop; let cur = if top { settings::get().slot_top } else { settings::get().slot_bottom }; let all = crate::slots::Widget::ALL; let i = all.iter().position(|w| w.key() == cur).unwrap_or(0); let next = all[(i + 1) % all.len()].key().to_string(); settings::update(|s| if top { s.slot_top = next.clone() } else { s.slot_bottom = next.clone() }); }
-        SAct::Mon => { let opts = monitor_options(); let cur = settings::get().monitor; let i = opts.iter().position(|o| o.0 == cur).unwrap_or(0); let next = opts[(i + 1) % opts.len()].0.clone(); settings::update(|s| s.monitor = next); }
+        SAct::Drop(id) => { let was = a.menu.as_ref().map(|m| m.id); a.menu = None; if was != Some(id) { if let Some((rc, _)) = a.hits.iter().find(|(_, x)| *x == act).copied() { let (opts, cur) = drop_opts(id); a.menu = Some(Menu { id, anchor: R { x: rc.x, y: rc.y - a.scroll + CONTENT_TOP, w: rc.w, h: rc.h }, opts, cur }); a.menu_hover = None; } } }
         SAct::Link(i) => unsafe {
             let url = ["https://github.com/LimaEdu-7x/eavely/blob/main/THIRD-PARTY-LICENSES.md", "https://github.com/LimaEdu-7x/eavely", "https://github.com/LimaEdu-7x/eavely/blob/main/LICENSE"][i as usize % 3];
             ShellExecuteW(None, w!("open"), &HSTRING::from(url), None, None, SW_SHOWNORMAL);
@@ -376,6 +405,13 @@ unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LRESU
         WM_MOUSEMOVE | WM_LBUTTONDOWN | WM_LBUTTONUP | WM_MOUSEWHEEL => {
             with_app(|a| {
                 let (cx, cy) = ((lp.0 & 0xFFFF) as i16 as f32 / a.scale, ((lp.0 >> 16) & 0xFFFF) as i16 as f32 / a.scale);
+                if a.menu.is_some() { // lista aberta: so ela reage; clicar fora (ou rolar) fecha
+                    let over = a.menu_rects.iter().position(|r| r.has(cx, cy));
+                    match m { WM_MOUSEMOVE => { if over != a.menu_hover { a.menu_hover = over; a.dirty = true; } }
+                        WM_LBUTTONUP => { if let (Some(i), Some(mn)) = (over, a.menu.take()) { let k = mn.opts[i].0.clone(); drop_pick(mn.id, &k); } else { a.menu = None; } a.pressed = None; a.dirty = true; }
+                        WM_MOUSEWHEEL => { a.menu = None; a.dirty = true; } _ => {} }
+                    return;
+                }
                 if m == WM_MOUSEWHEEL { let d = ((wp.0 >> 16) & 0xFFFF) as i16 as f32 / 120.0;
                     a.scroll = (a.scroll - d * 48.0).clamp(0.0, (a.content_h - (H - CONTENT_TOP)).max(0.0)); a.dirty = true; return; }
                 let hit = if cx < SIDE_W || cy < CONTENT_TOP { a.side.iter().rev().find(|(r, _)| r.has(cx, cy)).map(|h| h.1) }
@@ -394,12 +430,15 @@ unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LRESU
         WM_KEYDOWN | WM_SYSKEYDOWN => {
             if with_app(|a| capture_key(a, wp.0 as u32)).unwrap_or(false) { return LRESULT(0) }
             let vk = wp.0 as u32;
+            if with_app(|a| { let Some(m) = a.menu.as_ref() else { return false }; let n = m.opts.len();
+                match vk { 0x1B => { a.menu = None; } 0x26 => { a.menu_hover = Some(a.menu_hover.map_or(n - 1, |i| (i + n - 1) % n)); } 0x28 => { a.menu_hover = Some(a.menu_hover.map_or(0, |i| (i + 1) % n)); }
+                    0x0D => { if let (Some(i), Some(mn)) = (a.menu_hover, a.menu.take()) { let k = mn.opts[i].0.clone(); drop_pick(mn.id, &k); } } _ => {} } a.dirty = true; true }).unwrap_or(false) { return LRESULT(0) }
             with_app(|a| match vk { 0x1B => { let _ = DestroyWindow(a.hwnd); } // Esc fecha
                 0x26 => { let p = (a.page + PAGES.len() - 1) % PAGES.len(); a.focus_ring = true; switch_page(a, p); } // seta para cima/baixo trocam de pagina
                 0x28 => { let p = (a.page + 1) % PAGES.len(); a.focus_ring = true; switch_page(a, p); } _ => {} });
         }
         WM_KILLFOCUS => { with_app(|a| { a.capture = None; a.dirty = true; }); }
-        WM_REFRESH => { with_app(|a| { let r = SCROLL_REQ.swap(-1, Relaxed); if r >= 0 { a.scroll = (r as f32).min((a.content_h - (H - CONTENT_TOP)).max(0.0)); }
+        WM_REFRESH => { with_app(|a| { let mq = MENU_REQ.swap(-1, Relaxed); if mq >= 0 { apply(a, SAct::Drop(mq as u8)); } let r = SCROLL_REQ.swap(-1, Relaxed); if r >= 0 { a.scroll = (r as f32).min((a.content_h - (H - CONTENT_TOP)).max(0.0)); }
             let p = PAGE_REQ.swap(-1, Relaxed); if p >= 0 { a.prev = a.page; a.page = (p as usize).min(PAGES.len() - 1); a.page_t = Instant::now() - std::time::Duration::from_secs(1); a.scroll = 0.0; } a.dirty = true; }); return LRESULT(0) }
         WM_CLOSE => { let _ = DestroyWindow(h); return LRESULT(0) }
         WM_DESTROY => { HW.store(0, Relaxed); PostQuitMessage(0); return LRESULT(0) }
@@ -425,7 +464,7 @@ unsafe fn run() {
     let round = 2i32; let _ = DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &round as *const _ as *const _, 4);
     let mg = MARGINS { cxLeftWidth: 1, cxRightWidth: 1, cyTopHeight: 1, cyBottomHeight: 1 }; let _ = DwmExtendFrameIntoClientArea(hwnd, &mg); // sombra da janela
     let Ok(gfx) = Gfx::new(hwnd, ww as u32, wh as u32, s) else { let _ = DestroyWindow(hwnd); return };
-    APP.with(|a| *a.borrow_mut() = Some(SApp { hwnd, gfx, page: 0, prev: 0, page_t: Instant::now() - std::time::Duration::from_secs(1), scroll: 0.0, content_h: 0.0, hover: None, pressed: None, hits: Vec::new(), side: Vec::new(), capture: None, scale: s, dirty: true, focus_ring: false }));
+    APP.with(|a| *a.borrow_mut() = Some(SApp { hwnd, gfx, page: 0, prev: 0, page_t: Instant::now() - std::time::Duration::from_secs(1), scroll: 0.0, content_h: 0.0, hover: None, pressed: None, hits: Vec::new(), side: Vec::new(), capture: None, scale: s, dirty: true, focus_ring: false, menu: None, menu_rects: Vec::new(), menu_hover: None }));
     HW.store(hwnd.0 as isize, Relaxed);
     crate::log(&format!("settings hwnd={}", hwnd.0 as isize));
     let _ = ShowWindow(hwnd, SW_SHOW); let _ = SetForegroundWindow(hwnd);

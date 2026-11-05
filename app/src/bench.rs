@@ -11,6 +11,12 @@ fn flog_file() -> &'static std::sync::Mutex<Option<std::fs::File>> { FLOG.get_or
 pub fn flog(t: f32, dt: f32, w: f32, h: f32, st: &str, page: usize) { use std::io::Write; if let Some(f) = flog_file().lock().unwrap().as_mut() { let _ = writeln!(f, "{t:.1},{dt:.2},{w:.2},{h:.2},{st},{page}"); } }
 pub fn flog_mark(s: &str) { use std::io::Write; if let Some(f) = flog_file().lock().unwrap().as_mut() { let _ = writeln!(f, "# {s}"); } }
 
+fn setm(v: u8) { crate::pages2::MODS_TEST.store(v, Relaxed); } // teclas modificadoras simuladas (so neste harness): bit0 Ctrl, bit1 Shift
+fn lp_for(a: &App, dx: f32, dy: f32) -> LPARAM { let s = a.gfx.scale; let k = crate::layout::k(); let w = a.tw.val(Instant::now()); let cx = ((dx * k + (crate::layout::win_w() - w) / 2.0) * s) as i32; let cy = (dy * k * s) as i32; LPARAM((((cy & 0xFFFF) << 16) | (cx & 0xFFFF)) as isize) }
+fn click(a: &mut App, dx: f32, dy: f32, down: u32, up: u32) { let lp = lp_for(a, dx, dy); crate::pages::mouse(a, WM_MOUSEMOVE, WPARAM(0), lp); crate::pages::mouse(a, down, WPARAM(0), lp); crate::pages::mouse(a, up, WPARAM(0), lp); }
+fn chk(name: &str, ok: bool) { crate::state_log(&format!("BENCH-CHECK {name}: {}", if ok { "PASS" } else { "FAIL" })); }
+fn sorted(v: &[usize]) -> Vec<usize> { let mut s = v.to_vec(); s.sort_unstable(); s }
+fn base_preset() -> String { std::env::var("EAVELY_PRESET").unwrap_or_else(|_| "standard".into()) }
 fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
     let now = Instant::now();
     let setp = |a: &mut App, p: usize| { a.page = p; a.prev_page = p; a.page_t = crate::island::Spring::new(1.0); };
@@ -125,7 +131,7 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
         92 => { crate::settings::update(|s| s.mascot_size = "small".into()); open(a, 0, false, false); "93-pequeno-mascote-pequeno" }
         93 => { crate::settings::update(|s| { s.size_preset = "large".into(); s.mascot_size = "auto".into(); }); open(a, 0, false, false); "94-tamanho-grande-mascote" }
         94 => { open(a, 1, false, false); "95-tamanho-grande-musica" }
-        95 => { crate::settings::update(|s| { s.size_preset = "standard".into(); s.mascot_size = "auto".into(); }); open(a, 0, false, false); "skip" }
+        95 => { crate::settings::update(|s| { s.size_preset = base_preset(); s.mascot_size = "auto".into(); }); open(a, 0, false, false); "skip" }
         96 => { open(a, 0, false, false); a.p.mascot.force = Some("sono".into()); "96-mascote-sono-zzz" }
         97 => { a.p.mascot.force = Some("sonolento".into()); "97-mascote-sonolento" }
         98 => { a.p.mascot.force = Some("preocupado".into()); "98-mascote-preocupado-suor" }
@@ -136,7 +142,55 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
         103 => { crate::settings::update(|s| s.size_preset = "small".into()); "103-peek-mascote-pequeno-so-olhos" }
         104 => { a.p.mascot.force = Some("raiva".into()); "104-peek-pequeno-raiva" }
         105 => { crate::settings::update(|s| { s.size_preset = "large".into(); }); a.p.mascot.force = Some("feliz".into()); "105-peek-mascote-grande" }
-        106 => { a.p.mascot.force = None; crate::settings::update(|s| { s.size_preset = "standard".into(); s.collapsed_look = "clock".into(); }); "skip" }
+        106 => { a.p.mascot.force = None; crate::settings::update(|s| { s.size_preset = base_preset(); s.collapsed_look = "clock".into(); }); "skip" }
+        107 => { crate::settings::update(|s| s.open_mode = "click".into()); a.mx[0] = true; a.force = None; a.class = 0; "skip" }
+        108 => { a.class = 2; "108-linha-encosta-faixa-desce" }
+        109 => { a.class = 0; a.mx[0] = false; a.force = None; crate::settings::update(|s| s.open_mode = "hover".into()); "skip" }
+        110 => { crate::settings_ui::debug_page(9); "skip" }
+        111 => { crate::settings_ui::debug_menu(1); "111-config-lista-suspensa-slot" }
+        112 => { crate::settings_ui::debug_page(0); "skip" }
+        113 => { crate::settings_ui::debug_menu(0); "113-config-lista-suspensa-monitor" }
+        114 => { crate::shelf::clear_native(); a.p.shelf_del.clear(); a.p.select = false; a.p.sel.clear(); let d = std::env::temp_dir().join("eavely-shots"); let _ = std::fs::create_dir_all(&d);
+            let v: Vec<_> = ["relatorio-final-v3.pdf", "foto-praia.png", "notas.txt", "contrato-assinado-2026.pdf", "planilha-orcamento.xlsx", "apresentacao-reuniao.pptx", "musica.mp3", "backup-2026.zip"].iter().map(|n| { let p = d.join(n); if !p.exists() { let _ = std::fs::write(&p, vec![b'x'; 1500]); } p }).collect();
+            crate::shelf::add_native(v); a.p.shelf = crate::shelf::list_native(); open(a, 2, false, false); a.p.items_at = None; a.p.shelf_new.clear(); a.p.shelf_sx = 0.0; a.p.shelf_sc = None; "114-shelf-8-itens" }
+        115 => { a.p.sel = vec![1, 2, 3]; a.p.sel_anchor = Some(1); "115-shelf-multi-selecao-sem-modo" }
+        116 => { a.p.shelf_sx = 150.0; a.hover = Some(crate::pages::Act::ShelfOpen(5)); "116-shelf-rolada-legenda-nome" }
+        117 => { a.hover = None; a.p.shelf_sx = 0.0; crate::pages2::remove_idx(a, vec![1, 2]); "117-shelf-lixeira-meio-da-animacao" }
+        118 => { a.p.shelf_del.clear(); crate::shelf::clear_native(); let d = std::env::temp_dir().join("eavely-shots"); let v: Vec<_> = ["relatorio-final-v3.pdf", "foto-praia.png", "notas.txt", "contrato-assinado-2026.pdf", "planilha-orcamento.xlsx"].iter().map(|n| d.join(n)).collect(); crate::shelf::add_native(v); a.p.shelf = crate::shelf::list_native();
+            crate::settings::update(|s| { s.slot_top = "shelf".into(); s.slot_bottom = "player".into(); }); open(a, 0, false, false); a.p.sel = vec![0, 1]; "118-slot-arquivos-selecao-e-mais" }
+        119 => { a.hover = Some(crate::pages::Act::ShelfOpen(0)); "119-slot-legenda-nome-completo" }
+        120 => { a.hover = None; crate::settings::update(|s| { s.slot_top = "player".into(); s.slot_bottom = "shelf".into(); }); open(a, 0, false, false); a.p.sel.clear(); a.hover = Some(crate::pages::Act::ShelfOpen(1)); "120-slot-embaixo-legenda" }
+        121 => { a.hover = None; a.p.sel.clear(); crate::shelf::clear_native(); a.p.shelf = Vec::new(); crate::settings::update(|s| { s.slot_top = "shelf".into(); s.slot_bottom = "player".into(); }); "skip" }
+        122 => { a.p.sel.clear(); a.hover = None; a.mx[0] = false; a.force = None; a.class = 0; "122-repouso-padrao-sem-force-faixa" }
+        123 => { a.class = 1; "123-zona-de-gatilho-perto-do-topo" }
+        124 => { a.class = 2; "124-encostou-na-faixa-abre" }
+        125 => { a.class = 0; a.force = Some(St::Peek); "skip" }
+        126 => { a.force = None; a.mx[0] = true; a.class = 0; "126-janela-maximizada-mini-notch" }
+        127 => { a.class = 2; "127-mini-notch-encostou" }
+        128 => { a.class = 0; a.mx[0] = false; a.force = Some(St::Peek); "skip" }
+        130 => { crate::shelf::clear_native(); a.p.shelf_del.clear(); a.p.select = false; a.p.sel.clear(); let d = std::env::temp_dir().join("eavely-shots"); let _ = std::fs::create_dir_all(&d);
+            let v: Vec<_> = ["relatorio-final-v3.pdf", "foto-praia.png", "notas.txt", "contrato-assinado-2026.pdf", "planilha-orcamento.xlsx", "apresentacao-reuniao.pptx", "musica.mp3", "backup-2026.zip"].iter().map(|n| { let p = d.join(n); if !p.exists() { let _ = std::fs::write(&p, vec![b'x'; 1500]); } p }).collect();
+            crate::shelf::add_native(v); a.p.shelf = crate::shelf::list_native(); open(a, 2, false, false); a.p.items_at = None; a.p.shelf_new.clear(); a.p.shelf_sx = 0.0; a.p.shelf_sc = None; "skip" }
+        131 => { setm(1); click(a, 45.0 + 2.0 * 66.0 + 29.0, 73.0, WM_LBUTTONDOWN, WM_LBUTTONUP); click(a, 45.0 + 4.0 * 66.0 + 29.0, 73.0, WM_LBUTTONDOWN, WM_LBUTTONUP); chk("Ctrl+clique alterna (2 e 4)", sorted(&a.p.sel) == [2, 4]); setm(0); "131-teste-ctrl-clique" }
+        132 => { setm(2); click(a, 45.0 + 6.0 * 66.0 + 29.0 - a.p.shelf_sx, 73.0, WM_LBUTTONDOWN, WM_LBUTTONUP); chk("Shift+clique marca o intervalo 4..6 a partir da ancora", sorted(&a.p.sel) == [4, 5, 6]); setm(0); "132-teste-shift-clique" }
+        133 => { setm(1); crate::pages2::key(a, 0x41, None); chk("Ctrl+A marca todos", a.p.sel.len() == 8); setm(0); "133-teste-ctrl-a" }
+        134 => { crate::pages2::key(a, 0x1B, None); chk("Esc limpa a selecao", a.p.sel.is_empty());
+            a.p.sel = vec![2, 3, 4]; chk("arrastar um selecionado leva os 3", crate::pages2::drag_ids(a, 3).len() == 3); chk("arrastar um nao selecionado leva so ele", crate::pages2::drag_ids(a, 6).len() == 1);
+            let ids = crate::pages2::drag_ids(a, 3); chk("IDataObject de varios arquivos criado", crate::shelf::multi_data_ok(&ids)); a.p.sel.clear(); "skip" }
+        135 => { a.p.shelf_sx = 0.0; a.p.shelf_sc = None; let lp = lp_for(a, 210.0, 70.0); crate::pages::mouse(a, WM_MOUSEWHEEL, WPARAM(((-120i16) as u16 as usize) << 16), lp); chk("roda: alvo da rolagem = 1 card (66 px)", a.p.shelf_sc.as_ref().is_some_and(|t| (t.target() - 66.0).abs() < 0.5)); "135-rolagem-roda-inercia" }
+        136 => { chk("roda: a rolagem andou (inercia chegando ao alvo)", a.p.shelf_sx > 30.0); "skip" }
+        137 => { crate::island::LBUTTON.store(true, Relaxed); let sx0 = a.p.shelf_sx; let lp0 = lp_for(a, 300.0, 113.0); let lp1 = lp_for(a, 200.0, 113.0);
+            crate::pages::mouse(a, WM_MOUSEMOVE, WPARAM(0), lp0); crate::pages::mouse(a, WM_LBUTTONDOWN, WPARAM(0), lp0); crate::pages::mouse(a, WM_MOUSEMOVE, WPARAM(0), lp1);
+            chk("arrastar o fundo da fileira rola (+100)", a.p.shelf_sx > sx0 + 60.0 || (a.p.shelf_sx - 330.0 + 0.0).abs() < 1.0); crate::pages::mouse(a, WM_LBUTTONUP, WPARAM(0), lp1); crate::island::LBUTTON.store(false, Relaxed);
+            chk("ao soltar a fileira segue com inercia", a.p.shelf_sc.is_some()); a.p.shelf_sx = 0.0; a.p.shelf_sc = None; "skip" }
+        138 => { a.p.sel = vec![1, 2]; a.hover = None; crate::pages2::key(a, 0x2E, None); chk("Delete tira os selecionados (2 saindo)", a.p.shelf_del.len() == 2 && a.p.sel.is_empty()); "138-delete-selecionados-lixeira" }
+        139 => { chk("Delete concluiu: 6 itens e o arquivo em disco continua", crate::shelf::list_native().len() == 6 && std::env::temp_dir().join("eavely-shots").join("foto-praia.png").exists() && std::env::temp_dir().join("eavely-shots").join("notas.txt").exists()); "139-apos-delete" }
+        140 => { let lp = lp_for(a, 45.0 + 0.0 * 66.0 + 29.0, 73.0); crate::pages::mouse(a, WM_MOUSEMOVE, WPARAM(0), lp); crate::pages::mouse(a, WM_MBUTTONUP, WPARAM(0), lp); chk("botao do meio tira o card sob o mouse", a.p.shelf_del.len() == 1); "140-botao-do-meio" }
+        141 => { chk("botao do meio concluiu: 5 itens", crate::shelf::list_native().len() == 5); "skip" }
+        142 => { a.p.shelf = crate::shelf::list_native(); crate::settings::update(|s| { s.slot_top = "shelf".into(); s.slot_bottom = "player".into(); }); open(a, 0, false, false); "skip" }
+        143 => { setm(1); click(a, 206.0 + 6.0 + 28.0, 36.0, WM_LBUTTONDOWN, WM_LBUTTONUP); setm(0); chk("slot: Ctrl+clique seleciona o card", a.p.sel == [0]);
+            let lp = lp_for(a, 206.0 + 6.0 + 60.0 + 28.0, 36.0); crate::pages::mouse(a, WM_MOUSEMOVE, WPARAM(0), lp); crate::pages::mouse(a, WM_MBUTTONUP, WPARAM(0), lp); chk("slot: botao do meio tira o card", a.p.shelf_del.len() == 1); "143-slot-selecao-e-botao-do-meio" }
+        144 => { chk("slot: saida concluida (4 itens, seguem em disco)", crate::shelf::list_native().len() == 4); a.p.sel.clear(); crate::shelf::clear_native(); a.p.shelf = Vec::new(); "skip" }
         85 => { crate::settings::update(|s| { s.slot_top = "shelf".into(); s.slot_bottom = "player".into(); }); "skip" }
         70 => { crate::settings::update(|s| { s.pc_cpu = true; s.pc_ram = true; s.pc_gpu = true; s.pc_state = true; }); "skip" }
         _ => return None,
@@ -146,13 +200,14 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
 pub fn step(a: &mut App) {
     let i = STEP.fetch_add(1, Relaxed);
     let dir = std::env::var("EAVELY_SHOTS").ok();
-    if i < 240 {
-        if i % 2 == 0 { let k = i / 2; match scenario(a, k) { Some(n) => { crate::log(&format!("BENCH cenario {n}")); flog_mark(n); NAME.with(|c| *c.borrow_mut() = n); } None => { STEP.store(240, Relaxed); } } a.evaluate_pub(); }
+    if i == 0 { if let Ok(p) = std::env::var("EAVELY_PRESET") { crate::settings::update(|s| s.size_preset = p); } } // tamanho do notch para a rodada de capturas (small|standard|large)
+    if i < 300 {
+        if i % 2 == 0 { let k = i / 2; match scenario(a, k) { Some(n) => { crate::log(&format!("BENCH cenario {n}")); flog_mark(n); NAME.with(|c| *c.borrow_mut() = n); } None => { STEP.store(300, Relaxed); } } a.evaluate_pub(); }
         else if let Some(d) = dir { let n = NAME.with(|c| *c.borrow()); if n == "skip" { } else if a.fs.iter().any(|f| *f) { crate::log("screenshot ignorado: ha janela em tela cheia (nao capturo outros apps)"); } else { unsafe { shot(a, &format!("{d}/{n}.bmp")); } } }
         return;
     }
     // fase de benchmark: abre/fecha repetidamente (animacao de forma + conteudo)
-    let k = i - 240;
+    let k = i - 300;
     if k == 0 { unsafe { SetTimer(Some(a.hwnd), 4, 450, None); } crate::timer::ui(|t, _| t.reset()); a.page = 1; a.prev_page = 1; a.split = false; a.dock = false; a.dock_t = crate::island::Tw::new(0.0); }
     if k < 40 {
         flog_mark(&format!("k={k} {}", ["abrir", "dock", "fechar", "ao-vivo"][(k % 4) as usize])); match k % 4 { 0 => a.force = Some(St::Open), 1 => { a.dock = true; a.dock_t.go(Instant::now(), 1.0, 200.0); a.retarget(Instant::now(), 200.0); } 2 => { a.dock = false; a.dock_t.go(Instant::now(), 0.0, 200.0); a.force = Some(St::Peek); } _ => a.force = Some(St::Live) }

@@ -8,8 +8,7 @@ pub fn set_k(v: f32) { K.store(v.clamp(0.6, 1.5).to_bits(), Relaxed); }
 macro_rules! m { ($($n:ident = $v:expr;)*) => { $(#[inline] pub fn $n() -> f32 { $v * k() })* } }
 m! {
     win_w = 600.0;      // janela maxima (520 das letras + flares de 18 + folga para o overshoot)
-    win_h = 176.0;      // 164 com dock + folga
-    open_w = 420.0; open_h = 140.0; open_flare = 18.0;
+    open_w = 420.0; open_flare = 18.0;
     split_w = 520.0;    // aberta com letras ao lado
     dock_extra = 32.0;  // dock/calendario
     compact_h = 30.0; compact_r = 14.0; compact_flare = 6.0;
@@ -17,6 +16,11 @@ m! {
     open_r = 28.0;
     mini_w = 56.0; mini_h = 5.0; mini_r = 2.5; mini_flare = 4.0; // MINI NOTCH (janela maximizada)
 }
+/// altura extra (unidades de projeto) que o preset PEQUENO ganha: a tipografia tem piso em px reais, entao o conteudo ocupa mais que 80 % e o rodape (pontos, dock) nao pode ser cortado.
+/// 0 em k >= 1; +10 em 0,8 (a ilha fica com ~120 px reais em vez de 112).
+#[inline] pub fn pad() -> f32 { (1.0 - k()).max(0.0) * 50.0 }
+#[inline] pub fn open_h() -> f32 { (140.0 + pad()) * k() }
+#[inline] pub fn win_h() -> f32 { (176.0 + pad()) * k() } // 164 com dock + folga
 /// tamanho de fonte (px logicos) no preset atual: escala com k, mas nunca abaixo do piso legivel (9 px). Preset pequeno ganha tipografia propria sobre este piso.
 #[inline] pub fn font(base: f32) -> f32 { (base * k()).max(FONT_FLOOR.min(base)) }
 pub const FONT_FLOOR: f32 = 9.0;
@@ -42,6 +46,10 @@ mod tests {
             assert!(mini_r() <= mini_h() && compact_r() <= compact_h(), "raios nao passam da altura em k={}", k());
         }
         set_k(1.0);
+    }
+    #[test] fn pequeno_ganha_altura_para_o_rodape_e_padrao_nao_muda() {
+        let _g = lock(); set_k(1.0); assert_eq!((pad(), open_h(), win_h()), (0.0, 140.0, 176.0)); set_k(1.2); assert_eq!(pad(), 0.0);
+        set_k(0.8); assert!((pad() - 10.0).abs() < 1e-4 && (open_h() - 120.0).abs() < 1e-3 && win_h() >= open_h() + dock_extra() + 2.0, "pad {} open {} win {}", pad(), open_h(), win_h()); set_k(1.0);
     }
     #[test] fn pisos_de_tipografia_do_rig() {
         // 80 %: titulo 12 -> 9,6 ingenuo -> piso 11; secundario 10 -> 8 -> piso 10; icone 14 -> 11,2 -> piso 12

@@ -146,6 +146,12 @@ Marque o que testou e conte o resultado (passou / falhou / não deu para testar)
 **📥 Shelf**
 - [ ] Arrastar 1 arquivo e vários; soltar fora da ilha.
 - [ ] Modo seleção, excluir um, limpar tudo.
+- [ ] **Seleção múltipla:** Ctrl+clique alterna, Shift+clique marca o intervalo, Ctrl+A marca todos, Esc ou clicar fora limpa; selecionados ficam com contorno azul.
+- [ ] **Tirar da Shelf:** botão do meio ou tecla Delete sobre o arquivo (ou sobre os selecionados) com a animação da lixeira; o arquivo original **nunca** é apagado do disco.
+- [ ] Arrastar um arquivo selecionado leva **todos** os selecionados (vários arquivos no drop).
+- [ ] Mais de 5 arquivos: roda do mouse e arrastar o fundo da fileira rolam com inércia; arrastar um arquivo para fora funciona em qualquer posição da rolagem.
+- [ ] Nome do cartão em **uma linha** (`Relatóri….pdf`), nome completo na legenda ao passar o mouse; nada vaza nem se sobrepõe nos 3 tamanhos.
+- [ ] Os mesmos gestos valem no slot **Arquivos** da página Mascote.
 - [ ] Arquivo movido/apagado depois de entrar na Shelf: o app não quebra?
 - [ ] Reiniciar o app: os itens continuam (ou somem, se "Shelf começa vazia" estiver ligado).
 

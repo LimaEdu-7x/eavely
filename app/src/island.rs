@@ -112,7 +112,7 @@ unsafe fn pointer_moved(pt: POINT, wm: u32) {
         // mini notch: com qualquer botao do mouse apertado (fora arrasto de arquivos) nao abre; clicar na barra do app maximizado nao dispara a ilha
         let busy = line && (LBTN_DOWN_ON_FILES.load(Relaxed) == false) && buttons_down();
         let zone = if busy { 0 } else if inside { 2 } else if trig { 1 } else { 0 };
-        let dock = HOOK_OPEN.load(Relaxed) && inside && (y - my) as f32 / s >= 122.0;
+        let dock = HOOK_OPEN.load(Relaxed) && inside && (y - my) as f32 / s >= 122.0 * crate::layout::k(); // zona do dock: base da ilha, em px reais (escala com o preset)
         class = zone | (dock as u32) << 2 | (i as u32) << 3;
     }
     if LAST_CLASS.swap(class, Relaxed) != class || wm == WM_LBUTTONDOWN || wm == WM_LBUTTONUP {
@@ -507,7 +507,7 @@ impl App {
         other || busy || breath
     }
     fn animating_base(&self, now: Instant) -> bool {
-        self.dirty || (self.state == St::Over && (self.p.ov_v.as_ref().is_some_and(|t| t.busy(now)) || self.p.ov_ic.as_ref().is_some_and(|t| t.busy(now)))) || (self.page == crate::pages::P_SHELF && (self.p.shelf_busy() || (self.drag_over && crate::settings::flag(crate::settings::F_SHELF_GLOW)))) || !self.ty.settled() || self.p.blink_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.tw.busy(now) || self.th.busy(now) || self.tr.busy(now) || self.page_t.busy(now) || self.dock_t.busy(now) || self.split_t.busy(now) || self.p.lyr_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.p.scroll.is_some_and(|s| s.busy(now)) || self.p.pc_chg.is_some_and(|t| self.state == St::Peek && t.elapsed().as_millis() < 340) || self.p.spin.as_ref().is_some_and(|s| s.t.elapsed().as_millis() < 640)
+        self.dirty || (self.state == St::Over && (self.p.ov_v.as_ref().is_some_and(|t| t.busy(now)) || self.p.ov_ic.as_ref().is_some_and(|t| t.busy(now)))) || (self.page == crate::pages::P_SHELF && (self.p.shelf_busy() || (self.drag_over && crate::settings::flag(crate::settings::F_SHELF_GLOW)))) || (self.state == St::Open && self.page == crate::pages::P_MASCOT && self.p.shelf_busy()) || !self.ty.settled() || self.p.blink_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.tw.busy(now) || self.th.busy(now) || self.tr.busy(now) || self.page_t.busy(now) || self.dock_t.busy(now) || self.split_t.busy(now) || self.p.lyr_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.p.scroll.is_some_and(|s| s.busy(now)) || self.p.pc_chg.is_some_and(|t| self.state == St::Peek && t.elapsed().as_millis() < 340) || self.p.spin.as_ref().is_some_and(|s| s.t.elapsed().as_millis() < 640)
     }
     fn animating(&self, now: Instant) -> bool {
         self.animating_full(now) || (self.state == St::Open && self.page == crate::pages::P_SHELF && self.drag_over) || (self.state == St::Live && crate::pages::eq_anim()) || (self.state == St::Open && crate::pages::open_anim(self, now))
@@ -639,8 +639,13 @@ impl App {
     }
     /// Estados desenhados em GDI no repouso (sem renderer D3D): mini notch e compacto com relogio (o compacto com olhos precisa do D3D).
     /// (b) FOCO DO TECLADO: a janela e NOACTIVATE; durante a edicao (nova tarefa, MM:SS do pomodoro) ela vira ativavel, pega o foco e devolve ao app anterior ao terminar.
+    /// teclado da Shelf (Delete, Ctrl+A, Esc): ha arquivos selecionados ou o mouse esta sobre um arquivo da ilha aberta; o foco fica enquanto o mouse estiver na ilha
+    fn shelf_kb(&self) -> bool {
+        if self.state != St::Open || !crate::pages2::shelf_visible(self) { return false; }
+        !self.p.sel.is_empty() || matches!(self.hover, Some(crate::pages::Act::ShelfOpen(_)) | Some(crate::pages::Act::ShelfRemove(_))) || (self.kb_prev.is_some() && self.class & 3 == 2)
+    }
     pub fn sync_kb(&mut self) {
-        let editing = self.p.edit.is_some() || self.p.task_input.is_some();
+        let editing = self.p.edit.is_some() || self.p.task_input.is_some() || self.shelf_kb();
         unsafe {
             if editing && self.kb_prev.is_none() {
                 let fg = GetForegroundWindow(); self.kb_prev = Some(fg.0 as isize);
@@ -743,7 +748,7 @@ unsafe extern "system" fn wndproc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LR
             return LRESULT(0)
         }
         WM_DISPLAYCHANGE | WM_SETTINGCHANGE => { if m == WM_DISPLAYCHANGE { crate::state_log("WM_DISPLAYCHANGE (monitores mudaram)"); } with_app(|a| { a.refresh_monitors(); a.place(); a.evaluate(); }); return DefWindowProcW(h, m, wp, lp) }
-        WM_MOUSEMOVE | WM_LBUTTONDOWN | WM_LBUTTONUP | WM_MOUSEWHEEL | 0x02A3 => { with_app(|a| { crate::pages::mouse(a, m, wp, lp); if m != WM_MOUSEMOVE { a.sync_kb(); } }); return LRESULT(0) }
+        WM_MOUSEMOVE | WM_LBUTTONDOWN | WM_LBUTTONUP | WM_MBUTTONUP | WM_MOUSEWHEEL | 0x02A3 => { with_app(|a| { crate::pages::mouse(a, m, wp, lp); if m != WM_MOUSEMOVE { a.sync_kb(); } }); return LRESULT(0) }
         WM_CHAR => { with_app(|a| { crate::pages2::key(a, 0, char::from_u32(wp.0 as u32)); a.sync_kb(); }); return LRESULT(0) }
         WM_KEYDOWN => { with_app(|a| { crate::pages2::key(a, wp.0 as u32, None); a.sync_kb(); }); return LRESULT(0) }
         WM_KILLFOCUS => { with_app(|a| { let e = a.p.edit.take().is_some() | a.p.task_input.take().is_some(); if e { a.dirty = true; } a.sync_kb(); }); return LRESULT(0) }

@@ -87,10 +87,20 @@ fn attach_input_owner() -> Option<u32> {
     }
 }
 
-fn drag_path(path: &str) -> windows::core::Result<()> {
+/// IDataObject de 1 ou N caminhos (varios arquivos de pastas diferentes no mesmo arrasto)
+unsafe fn data_for(paths: &[String]) -> windows::core::Result<IDataObject> {
+    use windows::Win32::UI::Shell::{Common::ITEMIDLIST, IShellItemArray, SHCreateShellItemArrayFromIDLists, SHParseDisplayName};
+    if let [p] = paths { let item: IShellItem = SHCreateItemFromParsingName(&HSTRING::from(p.replace('/', "\\")), None)?; return item.BindToHandler(None, &BHID_DataObject); }
+    let mut pidls: Vec<*mut ITEMIDLIST> = Vec::new();
+    for p in paths { let mut pidl: *mut ITEMIDLIST = std::ptr::null_mut(); if SHParseDisplayName(&HSTRING::from(p.replace('/', "\\")), None, &mut pidl, 0, None).is_ok() && !pidl.is_null() { pidls.push(pidl); } }
+    let cs: Vec<*const ITEMIDLIST> = pidls.iter().map(|p| *p as *const ITEMIDLIST).collect();
+    let arr: windows::core::Result<IShellItemArray> = SHCreateShellItemArrayFromIDLists(&cs);
+    for p in &pidls { windows::Win32::System::Com::CoTaskMemFree(Some(*p as *const core::ffi::c_void)); }
+    arr?.BindToHandler(None, &BHID_DataObject)
+}
+fn drag_paths(paths: &[String]) -> windows::core::Result<()> {
     unsafe {
-        let item: IShellItem = SHCreateItemFromParsingName(&HSTRING::from(path.replace('/', "\\")), None)?;
-        let data: IDataObject = item.BindToHandler(None, &BHID_DataObject)?;
+        let data: IDataObject = data_for(paths)?;
         dbg_log("IDataObject criado");
         let src: IDropSource = Src.into();
         let mut eff = DROPEFFECT_NONE;
@@ -111,17 +121,21 @@ fn drag_path(path: &str) -> windows::core::Result<()> {
     Ok(())
 }
 
-pub fn start_drag(id: &str) -> Result<(), String> {
-    let path = with_items(|v| v.iter().find(|i| i.id == id).map(|i| i.path.clone())).ok_or("item nao encontrado")?;
-    if !Path::new(&path).exists() { return Err("arquivo nao existe mais".into()); }
-    dbg_log(&format!("shelf_start_drag: id={id} path={path} thread={:?} botao_esq_apertado={}", std::thread::current().id(), lbutton_down()));
+#[cfg(feature = "devtools")]
+pub fn multi_data_ok(ids: &[String]) -> bool { let paths: Vec<String> = with_items(|v| ids.iter().filter_map(|id| v.iter().find(|i| &i.id == id).map(|i| i.path.clone())).collect()); unsafe { data_for(&paths).is_ok() } }
+/// arrasta o(s) item(ns) para fora (so COPIA; os originais nunca sao tocados)
+pub fn start_drag(ids: &[String]) -> Result<(), String> {
+    let paths: Vec<String> = with_items(|v| ids.iter().filter_map(|id| v.iter().find(|i| &i.id == id).map(|i| i.path.clone())).collect());
+    let paths: Vec<String> = paths.into_iter().filter(|p| Path::new(p).exists()).collect();
+    if paths.is_empty() { return Err("arquivo nao existe mais".into()); }
+    dbg_log(&format!("shelf_start_drag: {} item(ns) thread={:?} botao_esq_apertado={}", paths.len(), std::thread::current().id(), lbutton_down()));
     DRAGGING.store(true, Relaxed);
     // DoDragDrop e modal e precisa de uma thread STA com fila de mensagens: thread propria, nunca a principal do Tauri
     std::thread::Builder::new().name("shelf-drag".into()).spawn(move || {
         let ole = unsafe { OleInitialize(None) };
         let att = attach_input_owner();
         dbg_log(&format!("shelf drag na thread {:?}: OleInitialize={ole:?} botao_esq_apertado={}", std::thread::current().id(), lbutton_down()));
-        if let Err(e) = drag_path(&path) { dbg_log(&format!("shelf drag erro: {e}")); }
+        if let Err(e) = drag_paths(&paths) { dbg_log(&format!("shelf drag erro: {e}")); }
         DRAGGING.store(false, Relaxed);
         if let Some(t) = att { unsafe { let _ = windows::Win32::System::Threading::AttachThreadInput(windows::Win32::System::Threading::GetCurrentThreadId(), t, false); } }
         unsafe { OleUninitialize(); }

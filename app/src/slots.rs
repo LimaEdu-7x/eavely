@@ -17,7 +17,7 @@ impl Widget {
     pub fn key(self) -> &'static str { match self { Widget::Shelf => "shelf", Widget::Player => "player", Widget::Tasks => "tasks", Widget::Timer => "timer", Widget::Clock => "clock", Widget::Metrics => "metrics", Widget::Empty => "none" } }
     pub fn label(self) -> &'static str { match self { Widget::Shelf => "Arquivos", Widget::Player => "Player mini", Widget::Tasks => "Tarefas", Widget::Timer => "Timer", Widget::Clock => "Relógio / Data", Widget::Metrics => "Métricas do PC", Widget::Empty => "Nenhum" } }
 }
-pub const SLOT_W: f32 = 202.0; pub const SLOT_H: f32 = 52.0;
+pub const SLOT_W: f32 = 190.0; pub const SLOT_H: f32 = 52.0; // termina em 396: as setas de pagina (402..414) ficam fora do slot
 /// slots efetivos (retangulos) a partir das opcoes: a mesma opcao nao pode estar nos dois (o 2o vira Nenhum); com um Nenhum o outro cresce para 202x110
 pub fn layout(top: &str, bottom: &str) -> [(Widget, R); 2] {
     let (t, mut b) = (Widget::parse(top), Widget::parse(bottom)); if t != Widget::Empty && t == b { b = Widget::Empty; }
@@ -32,17 +32,19 @@ pub fn draw_slot(a: &mut App, w: Widget, s: R, hits: &mut Vec<(R, Act)>, off: f3
     if w == Widget::Empty { return; }
     // slot alto (202x110): o widget de 52 px fica centrado no cartao
     let mut sr = s; if s.h > SLOT_H + 1.0 { sr = r(s.x, s.y + (s.h - SLOT_H) / 2.0, s.w, SLOT_H); a.gfx.rrect(s.x, s.y, s.w, s.h, 14.0, SURFACE); }
+    a.gfx.clip(s.x, s.y, s.w, s.h); // nada vaza do slot, em nenhum tamanho
     match w {
         Widget::Shelf => shelf_mini(a, sr, hits, off, now), Widget::Player => player_mini(a, sr, hits, off, now), Widget::Tasks => tasks_mini(a, sr, hits, off),
         Widget::Timer => timer_mini(a, sr, hits, off), Widget::Clock => clock_mini(a, sr), Widget::Metrics => metrics_mini(a, sr), Widget::Empty => {}
     }
+    a.gfx.unclip();
 }
 fn card(a: &mut App, s: R) { a.gfx.rrect(s.x, s.y, s.w, s.h, 14.0, SURFACE); }
 
-/// Arquivos: 3 cards 42x40 (arte do shell + extensao) + alvo de soltar 48x40; vazio/arrastando = caixa tracejada
-pub fn shelf_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, _now: Instant) {
-    let g = shelf::GEN.load(std::sync::atomic::Ordering::Relaxed);
-    if a.p.shelf_gen != g { a.p.shelf = shelf::list_native(); a.p.shelf_gen = g; a.p.shelf_ids = a.p.shelf.iter().map(|i| i.id.clone()).collect(); }
+/// Arquivos: 2 cards 56x40 (arte do shell + inicio do nome e extensao em UMA linha) + alvo de soltar (ou +N); vazio/arrastando = caixa tracejada.
+/// Mesma selecao (Ctrl/Shift), Delete/botao do meio e saida animada da pagina Arquivos; nome completo na legenda.
+pub fn shelf_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
+    pages2::shelf_tick(a, now);
     let items = a.p.shelf.clone(); let drag = a.drag_over;
     card(a, s);
     if items.is_empty() || drag {
@@ -53,19 +55,32 @@ pub fn shelf_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, _now: I
         a.gfx.text(if drag { "vai para a Shelf" } else { "ou arraste direto na ilha" }, Fmt::Small, s.x + 44.0, s.y + 28.0, s.w - 52.0, 14.0, TEXT3, false);
         return;
     }
-    let (tw, th, step) = (42.0f32, 40.0f32, 48.0f32); let max = ((s.w - 12.0 - 48.0) / step) as usize;
+    hits.push((R { x: s.x + off, ..s }, Act::ShelfPan)); // clicar no vazio do slot limpa a selecao
+    let (tw, th, step) = (56.0f32, 40.0f32, 60.0f32); let max = ((s.w - 6.0 - step) / step) as usize; // 2 cards + alvo de soltar (ou +N): o nome cabe em uma linha (Relatori….pdf)
     for (i, it) in items.iter().take(max).enumerate() {
-        let (x, y) = (s.x + 6.0 + i as f32 * step, s.y + 6.0); let act = Act::ShelfOpen(i as u32); let hv = a.hover == Some(act);
-        a.gfx.rrect(x, y, tw, th, 10.0, if hv { SURFACE_H } else { SURFACE });
-        pages2::card_art(a, it, x + tw / 2.0, y + 21.0, 0.62);
-        let ext = std::path::Path::new(&it.name).extension().map(|e| e.to_string_lossy().to_uppercase()).unwrap_or_else(|| "PASTA".into());
-        let nm = pages2::ellip(a, &if it.is_dir { "pasta".to_string() } else { ext }, Fmt::Tiny, tw - 4.0); let nw = a.gfx.measure(&nm, Fmt::Tiny);
-        a.gfx.text(&nm, Fmt::Tiny, x + (tw - nw) / 2.0, y + 27.0, nw + 4.0, 11.0, TEXT2, false);
+        let (x, y) = (s.x + 6.0 + i as f32 * step, s.y + 6.0); let act = Act::ShelfOpen(i as u32);
+        if let Some(p) = pages2::del_progress(a, &it.id, now) { // saindo (lixeira): encolhe e some
+            let e = p * p; let k = 1.0 - 0.6 * e; let (w, h) = (tw * k, th * k); a.gfx.layer(1.0 - e);
+            a.gfx.rrect(x + (tw - w) / 2.0, y + (th - h) / 2.0, w, h, 10.0 * k, SURFACE_H); pages2::card_art(a, it, x + tw / 2.0, y + th / 2.0 + 1.0, 0.62 * k); a.gfx.unlayer(); continue;
+        }
+        let hv = a.hover == Some(act); let on = a.p.sel.contains(&i);
+        a.gfx.rrect(x, y, tw, th, 10.0, if hv || on { SURFACE_H } else { SURFACE });
+        pages2::card_art(a, it, x + tw / 2.0, y + 19.0, 0.62);
+        let (nm, cut) = pages2::fit_name(a, &it.name, Fmt::Tiny, tw - 4.0); let nw = a.gfx.measure(&nm, Fmt::Tiny);
+        a.gfx.text(&nm, Fmt::Tiny, x + tw / 2.0 - nw / 2.0, y + 24.5, nw + 4.0, 11.0, TEXT2, false);
+        if on { a.gfx.rrect_stroke(x + 0.75, y + 0.75, tw - 1.5, th - 1.5, 9.25, 1.5, BLUE); }
+        if cut && hv { a.p.slot_tip = Some((it.name.clone(), x + tw / 2.0, if s.y > 40.0 { y - 20.0 } else { y + th + 3.0 })); }
         hits.push((R { x: x + off, y, w: tw, h: th }, act));
     }
     let dx = s.x + 6.0 + items.len().min(max) as f32 * step;
-    if dx + 48.0 <= s.x + s.w { a.gfx.rrect_dashed(dx + 0.75, s.y + 6.75, 46.5, th - 1.5, 10.0, 1.5, rgba(0xFFFFFF, 0.28), 3.0, 2.0); a.gfx.icon("plus", dx + 18.0, s.y + 12.0, 12.0, TEXT2, false); let t = "soltar"; let tw2 = a.gfx.measure(t, Fmt::Tiny); a.gfx.text(t, Fmt::Tiny, dx + (48.0 - tw2) / 2.0, s.y + 28.0, tw2 + 4.0, 11.0, TEXT3, false); }
-    if items.len() > max { a.gfx.text(&format!("+{}", items.len() - max), Fmt::Small, s.x + s.w - 30.0, s.y + 4.0, 26.0, 12.0, TEXT3, true); }
+    if items.len() > max { // sobra: "+N" abre a pagina Arquivos
+        let rc = R { x: dx, y: s.y + 6.0, w: tw, h: th }; let hv = a.hover == Some(Act::Page(pages::P_SHELF as u8));
+        a.gfx.rrect(rc.x, rc.y, rc.w, rc.h, 10.0, if hv { SURFACE_H } else { SURFACE }); let t = format!("+{}", items.len() - max); let w = a.gfx.measure(&t, Fmt::BodyStrong);
+        a.gfx.text(&t, Fmt::BodyStrong, rc.x + (rc.w - w) / 2.0, rc.y + 12.0, w + 4.0, 16.0, TEXT2, false); hits.push((R { x: rc.x + off, ..rc }, Act::Page(pages::P_SHELF as u8)));
+    } else if dx + tw <= s.x + s.w {
+        a.gfx.rrect_dashed(dx + 0.75, s.y + 6.75, tw - 1.5, th - 1.5, 10.0, 1.5, rgba(0xFFFFFF, 0.28), 3.0, 2.0); a.gfx.icon("plus", dx + tw / 2.0 - 6.0, s.y + 12.0, 12.0, TEXT2, false);
+        let t = "soltar"; let tw2 = a.gfx.measure(t, Fmt::Tiny); a.gfx.text(t, Fmt::Tiny, dx + tw / 2.0 - tw2 / 2.0, s.y + 28.0, tw2 + 4.0, 11.0, TEXT3, false);
+    }
 }
 
 /// Player mini (sem letras nem volume): capa 40, titulo/artista, anterior/tocar/proximo e barra fina (mesmos Act e estado da Musica)
