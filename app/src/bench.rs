@@ -184,7 +184,7 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
             crate::pages::mouse(a, WM_MOUSEMOVE, WPARAM(0), lp0); crate::pages::mouse(a, WM_LBUTTONDOWN, WPARAM(0), lp0); crate::pages::mouse(a, WM_MOUSEMOVE, WPARAM(0), lp1);
             chk("arrastar o fundo da fileira rola (+100)", a.p.shelf_sx > sx0 + 60.0 || (a.p.shelf_sx - 330.0 + 0.0).abs() < 1.0); crate::pages::mouse(a, WM_LBUTTONUP, WPARAM(0), lp1); crate::island::LBUTTON.store(false, Relaxed);
             chk("ao soltar a fileira segue com inercia", a.p.shelf_sc.is_some()); a.p.shelf_sx = 0.0; a.p.shelf_sc = None; "skip" }
-        138 => { a.p.sel = vec![1, 2]; a.hover = None; crate::pages2::key(a, 0x2E, None); chk("Delete tira os selecionados (2 saindo)", a.p.shelf_del.len() == 2 && a.p.sel.is_empty()); "138-delete-selecionados-lixeira" }
+        138 => { a.p.sel = vec![1, 2]; a.p.kb_click = true; a.hover = None; crate::pages2::key(a, 0x2E, None); chk("Delete tira os selecionados (2 saindo)", a.p.shelf_del.len() == 2 && a.p.sel.is_empty()); "138-delete-selecionados-lixeira" }
         139 => { chk("Delete concluiu: 6 itens e o arquivo em disco continua", crate::shelf::list_native().len() == 6 && std::env::temp_dir().join("eavely-shots").join("foto-praia.png").exists() && std::env::temp_dir().join("eavely-shots").join("notas.txt").exists()); "139-apos-delete" }
         140 => { let lp = lp_for(a, 45.0 + 0.0 * 66.0 + 29.0, 73.0); crate::pages::mouse(a, WM_MOUSEMOVE, WPARAM(0), lp); crate::pages::mouse(a, WM_MBUTTONUP, WPARAM(0), lp); chk("botao do meio tira o card sob o mouse", a.p.shelf_del.len() == 1); "140-botao-do-meio" }
         141 => { chk("botao do meio concluiu: 5 itens", crate::shelf::list_native().len() == 5); "skip" }
@@ -192,6 +192,10 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
         143 => { setm(1); click(a, 206.0 + 6.0 + 28.0, 36.0, WM_LBUTTONDOWN, WM_LBUTTONUP); setm(0); chk("slot: Ctrl+clique seleciona o card", a.p.sel == [0]);
             let lp = lp_for(a, 206.0 + 6.0 + 60.0 + 28.0, 36.0); crate::pages::mouse(a, WM_MOUSEMOVE, WPARAM(0), lp); crate::pages::mouse(a, WM_MBUTTONUP, WPARAM(0), lp); chk("slot: botao do meio tira o card", a.p.shelf_del.len() == 1); "143-slot-selecao-e-botao-do-meio" }
         144 => { chk("slot: saida concluida (4 itens, seguem em disco)", crate::shelf::list_native().len() == 4); a.p.sel.clear(); crate::shelf::clear_native(); a.p.shelf = Vec::new(); "skip" }
+        145 => { a.force = None; a.class = 2; a.p.sel.clear(); a.p.kb_click = false; let d = std::env::temp_dir().join("eavely-shots"); let v: Vec<_> = ["relatorio-final-v3.pdf", "foto-praia.png", "notas.txt"].iter().map(|n| d.join(n)).collect(); crate::shelf::add_native(v); a.p.shelf = crate::shelf::list_native(); open(a, 2, false, false); "skip" }
+        146 => { a.hover = Some(crate::pages::Act::ShelfOpen(0)); a.sync_kb(); chk("foco: hover puro sobre card NAO pega o teclado", a.kb_prev.is_none()); a.p.sel = vec![0]; a.sync_kb(); chk("foco: selecao sem clique NAO pega o teclado", a.kb_prev.is_none());
+            a.p.sel.clear(); setm(1); click(a, 45.0 + 29.0, 73.0, WM_LBUTTONDOWN, WM_LBUTTONUP); setm(0); a.sync_kb(); chk("foco: Ctrl+clique no card pega o teclado", a.kb_prev.is_some() && a.p.kb_click); "skip" }
+        147 => { a.force = Some(St::Peek); a.evaluate_pub(); chk("foco: saiu de Open -> solta o teclado e limpa a selecao", a.kb_prev.is_none() && a.p.sel.is_empty() && !a.p.kb_click); a.force = None; crate::shelf::clear_native(); a.p.shelf = Vec::new(); "skip" }
         85 => { crate::settings::update(|s| { s.slot_top = "shelf".into(); s.slot_bottom = "player".into(); }); "skip" }
         70 => { crate::settings::update(|s| { s.pc_cpu = true; s.pc_ram = true; s.pc_gpu = true; s.pc_state = true; }); "skip" }
         _ => return None,

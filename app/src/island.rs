@@ -439,6 +439,8 @@ impl App {
         if new == St::Peek && crate::settings::get().collapsed_look == "eyes" { unsafe { SetTimer(Some(self.hwnd), T_LOOK, 33, None); } self.p.eye_move = Some(Instant::now()); unsafe { SetTimer(Some(self.hwnd), T_EYES, 3000, None); } } else { unsafe { let _ = KillTimer(Some(self.hwnd), T_EYES); } }
         if new == St::Peek { self.p.pc_t0 = Some(now); self.p.pc_g = 0; }
         self.sync_metrics();
+        if new != St::Open { self.p.kb_click = false; self.p.sel.clear(); self.p.sel_anchor = None; } // saiu de Open: a Shelf larga o teclado
+        self.sync_kb();
         crate::log(&format!("estado {old:?} -> {new:?}"));
     }
     pub fn retarget(&mut self, now: Instant, dur: f32) {
@@ -639,15 +641,13 @@ impl App {
     }
     /// Estados desenhados em GDI no repouso (sem renderer D3D): mini notch e compacto com relogio (o compacto com olhos precisa do D3D).
     /// (b) FOCO DO TECLADO: a janela e NOACTIVATE; durante a edicao (nova tarefa, MM:SS do pomodoro) ela vira ativavel, pega o foco e devolve ao app anterior ao terminar.
-    /// teclado da Shelf (Delete, Ctrl+A, Esc): ha arquivos selecionados ou o mouse esta sobre um arquivo da ilha aberta; o foco fica enquanto o mouse estiver na ilha
-    fn shelf_kb(&self) -> bool {
-        if self.state != St::Open || !crate::pages2::shelf_visible(self) { return false; }
-        !self.p.sel.is_empty() || matches!(self.hover, Some(crate::pages::Act::ShelfOpen(_)) | Some(crate::pages::Act::ShelfRemove(_))) || (self.kb_prev.is_some() && self.class & 3 == 2)
-    }
+    /// teclado da Shelf (Delete, Ctrl+A, Esc): SO depois de um CLIQUE que deixou arquivos selecionados, com a ilha aberta. Passar o mouse nunca pega o foco.
+    fn shelf_kb(&self) -> bool { self.state == St::Open && self.p.kb_click && !self.p.sel.is_empty() && crate::pages2::shelf_visible(self) }
     pub fn sync_kb(&mut self) {
         let editing = self.p.edit.is_some() || self.p.task_input.is_some() || self.shelf_kb();
         unsafe {
             if editing && self.kb_prev.is_none() {
+                self.p.kb_shelf_only = self.p.edit.is_none() && self.p.task_input.is_none();
                 let fg = GetForegroundWindow(); self.kb_prev = Some(fg.0 as isize);
                 let ex = GetWindowLongPtrW(self.hwnd, GWL_EXSTYLE); SetWindowLongPtrW(self.hwnd, GWL_EXSTYLE, ex & !(WS_EX_NOACTIVATE.0 as isize));
                 let (me, other) = (windows::Win32::System::Threading::GetCurrentThreadId(), GetWindowThreadProcessId(fg, None));
@@ -658,7 +658,8 @@ impl App {
             } else if !editing && self.kb_prev.is_some() {
                 let prev = self.kb_prev.take().unwrap_or(0);
                 let ex = GetWindowLongPtrW(self.hwnd, GWL_EXSTYLE); SetWindowLongPtrW(self.hwnd, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE.0 as isize);
-                let ph = HWND(prev as *mut _); if prev != 0 && ph != self.hwnd && IsWindow(Some(ph)).as_bool() { let _ = SetForegroundWindow(ph); }
+                let ph = HWND(prev as *mut _); if !self.p.kb_shelf_only && prev != 0 && ph != self.hwnd && IsWindow(Some(ph)).as_bool() { let _ = SetForegroundWindow(ph); } // Shelf: so solta (quem esta digitando em outro app nao e puxado de volta)
+                self.p.kb_shelf_only = false; self.p.kb_click = self.p.kb_click && !self.p.sel.is_empty();
                 crate::log("teclado: foco devolvido");
             }
         }
@@ -751,7 +752,7 @@ unsafe extern "system" fn wndproc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LR
         WM_MOUSEMOVE | WM_LBUTTONDOWN | WM_LBUTTONUP | WM_MBUTTONUP | WM_MOUSEWHEEL | 0x02A3 => { with_app(|a| { crate::pages::mouse(a, m, wp, lp); if m != WM_MOUSEMOVE { a.sync_kb(); } }); return LRESULT(0) }
         WM_CHAR => { with_app(|a| { crate::pages2::key(a, 0, char::from_u32(wp.0 as u32)); a.sync_kb(); }); return LRESULT(0) }
         WM_KEYDOWN => { with_app(|a| { crate::pages2::key(a, wp.0 as u32, None); a.sync_kb(); }); return LRESULT(0) }
-        WM_KILLFOCUS => { with_app(|a| { let e = a.p.edit.take().is_some() | a.p.task_input.take().is_some(); if e { a.dirty = true; } a.sync_kb(); }); return LRESULT(0) }
+        WM_KILLFOCUS => { with_app(|a| { let e = a.p.edit.take().is_some() | a.p.task_input.take().is_some(); if e { a.dirty = true; } if a.p.kb_click { a.p.kb_click = false; a.p.sel.clear(); a.p.sel_anchor = None; a.dirty = true; } a.sync_kb(); }); return LRESULT(0) }
         0x0312 => { let id = wp.0; with_app(|a| hotkey(a, id)); return LRESULT(0) } // WM_HOTKEY
         WM_OVL => { with_app(|a| { a.evaluate(); a.dirty = true; let ms = crate::overlay::ms_left() + 40; SetTimer(Some(a.hwnd), T_OVER, ms, None); }); return LRESULT(0) }
         0x0218 => { // WM_POWERBROADCAST: 0xA = PBT_APMPOWERSTATUSCHANGE, 0x8013 = PBT_POWERSETTINGCHANGE (AC/DC e brilho)

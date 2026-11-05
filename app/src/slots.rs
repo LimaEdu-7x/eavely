@@ -65,9 +65,9 @@ pub fn shelf_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: In
         }
         let hv = a.hover == Some(act); let on = a.p.sel.contains(&i);
         a.gfx.rrect(x, y, tw, th, 10.0, if hv || on { SURFACE_H } else { SURFACE });
-        pages2::card_art(a, it, x + tw / 2.0, y + 19.0, 0.62);
+        pages2::card_art(a, it, x + tw / 2.0, y + 17.0, 0.52); // icone menor: a legenda fica dentro do card com respiro
         let (nm, cut) = pages2::fit_name(a, &it.name, Fmt::Tiny, tw - 4.0); let nw = a.gfx.measure(&nm, Fmt::Tiny);
-        a.gfx.text(&nm, Fmt::Tiny, x + tw / 2.0 - nw / 2.0, y + 24.5, nw + 4.0, 11.0, TEXT2, false);
+        a.gfx.text(&nm, Fmt::Tiny, x + tw / 2.0 - nw / 2.0, y + 22.0, nw + 4.0, 11.0, TEXT2, false);
         if on { a.gfx.rrect_stroke(x + 0.75, y + 0.75, tw - 1.5, th - 1.5, 9.25, 1.5, BLUE); }
         if cut && hv { a.p.slot_tip = Some((it.name.clone(), x + tw / 2.0, if s.y > 40.0 { y - 20.0 } else { y + th + 3.0 })); }
         hits.push((R { x: x + off, y, w: tw, h: th }, act));

@@ -3,4 +3,3 @@ dist
 app/target
 app/target-dev
 app/gen
-graphify-out/

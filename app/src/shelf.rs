@@ -92,7 +92,7 @@ unsafe fn data_for(paths: &[String]) -> windows::core::Result<IDataObject> {
     use windows::Win32::UI::Shell::{Common::ITEMIDLIST, IShellItemArray, SHCreateShellItemArrayFromIDLists, SHParseDisplayName};
     if let [p] = paths { let item: IShellItem = SHCreateItemFromParsingName(&HSTRING::from(p.replace('/', "\\")), None)?; return item.BindToHandler(None, &BHID_DataObject); }
     let mut pidls: Vec<*mut ITEMIDLIST> = Vec::new();
-    for p in paths { let mut pidl: *mut ITEMIDLIST = std::ptr::null_mut(); if SHParseDisplayName(&HSTRING::from(p.replace('/', "\\")), None, &mut pidl, 0, None).is_ok() && !pidl.is_null() { pidls.push(pidl); } }
+    for p in paths { let mut pidl: *mut ITEMIDLIST = std::ptr::null_mut(); if SHParseDisplayName(&HSTRING::from(p.replace('/', "\\")), None, &mut pidl, 0, None).is_ok() && !pidl.is_null() { pidls.push(pidl); } else { crate::state_log("arrasto multiplo: um item nao pode ser resolvido pelo shell (ignorado)"); } }
     let cs: Vec<*const ITEMIDLIST> = pidls.iter().map(|p| *p as *const ITEMIDLIST).collect();
     let arr: windows::core::Result<IShellItemArray> = SHCreateShellItemArrayFromIDLists(&cs);
     for p in &pidls { windows::Win32::System::Com::CoTaskMemFree(Some(*p as *const core::ffi::c_void)); }

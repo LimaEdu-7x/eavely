@@ -240,8 +240,8 @@ pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
         if let Some(m) = mat { a.gfx.set_matrix(m); a.gfx.unlayer(); }
     }
     // degrade na borda direita: indica rolagem horizontal
-    if max_sx - sx > 1.0 { a.gfx.grad(368.0, 36.0, 30.0, 74.0, true, &[(0.0, rgba(0x000000, 0.0)), (1.0, rgba(0x000000, 1.0))], 1.0); }
-    if sx > 1.0 { a.gfx.grad(22.0, 36.0, 30.0, 74.0, true, &[(0.0, rgba(0x000000, 1.0)), (1.0, rgba(0x000000, 0.0))], 1.0); } // borda esquerda: ha o que rolar para tras
+    if max_sx - sx > 1.0 { a.gfx.grad(350.0, 36.0, 48.0, 74.0, true, &[(0.0, rgba(0x000000, 0.0)), (1.0, rgba(0x000000, 1.0))], 1.0); }
+    if sx > 1.0 { a.gfx.grad(22.0, 36.0, 48.0, 74.0, true, &[(0.0, rgba(0x000000, 1.0)), (1.0, rgba(0x000000, 0.0))], 1.0); } // borda esquerda: ha o que rolar para tras
     a.gfx.unclip();
     if let Some(full) = tip { let s = ellip(a, &full, Fmt::Small, 360.0); let w = a.gfx.measure(&s, Fmt::Small); a.gfx.text(&s, Fmt::Small, 210.0 - w / 2.0, 112.5, w + 4.0, 14.0, TEXT2, false); }
     // limpar tudo: cards encolhem e voam ao botao (destino ~ 320,4), escalonados de 30 ms (sem recorte)
@@ -334,7 +334,7 @@ pub fn remove_with_sel(a: &mut App, i: usize) { let v = if a.p.sel.contains(&i) 
 fn shelf_key(a: &mut App, vk: u32) -> bool {
     if !shelf_visible(a) { return false; }
     match vk {
-        0x2E => { if !a.p.sel.is_empty() { let v = a.p.sel.clone(); remove_idx(a, v); true } else if let Some(Act::ShelfOpen(i)) = a.hover { remove_idx(a, vec![i as usize]); true } else { false } }
+        0x2E => { if a.p.kb_click && !a.p.sel.is_empty() { let v = a.p.sel.clone(); remove_idx(a, v); true } else { false } } // so com selecao criada por clique (foco vem do clique, nunca do hover)
         0x41 if mods().0 => { a.p.sel = (0..a.p.shelf.len()).collect(); a.p.sel_anchor = Some(0); a.dirty = true; true }
         0x1B if !a.p.sel.is_empty() || a.p.select => { a.p.sel.clear(); a.p.sel_anchor = None; a.p.select = false; a.dirty = true; true }
         _ => false,

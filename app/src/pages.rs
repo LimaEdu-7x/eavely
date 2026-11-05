@@ -56,7 +56,7 @@ pub struct PageState {
     pub mascot: crate::mascot::Mascot, pub mascot_over: bool, // pagina Mascote
     pub ov_cur: &'static str, pub ov_prev: &'static str, pub ov_v: Option<Tw>, pub ov_ic: Option<Tw>, // overlay: icone atual/anterior (crossfade) e valor animado
     pub vol: f32, pub vol_t: Option<Instant>, pub vol_drag: bool, pub select: bool, pub sel: Vec<usize>, pub edit: Option<String>, pub shelf: Vec<crate::shelf::ShelfItem>, pub shelf_gen: u64, pub lyr_cur: String, pub drag_from: Option<(u32, f32, f32)>,
-    pub sel_anchor: Option<usize>, pub shelf_sc: Option<Tw>, pub pan: Option<Pan>, pub slot_tip: Option<(String, f32, f32)>, // multi-selecao, rolagem com inercia, legenda do nome completo nos slots
+    pub kb_click: bool, pub kb_shelf_only: bool, pub sel_anchor: Option<usize>, pub shelf_sc: Option<Tw>, pub pan: Option<Pan>, pub slot_tip: Option<(String, f32, f32)>, // multi-selecao, rolagem com inercia, legenda do nome completo nos slots
 }
 /// arrasto da fileira de arquivos (rolagem com o mouse): ponto inicial, rolagem inicial, ultimo ponto/instante e velocidade (px/s)
 pub struct Pan { pub x0: f32, pub sx0: f32, pub lx: f32, pub lt: Instant, pub v: f32, pub moved: bool }
@@ -701,7 +701,7 @@ pub fn mouse(a: &mut App, m: u32, wp: WPARAM, lp: LPARAM) {
     match m {
         WM_MOUSEMOVE => {
             let nh = hit.map(|h| h.1);
-            if nh != a.hover { a.hover = nh; a.dirty = true; a.sync_kb(); } // sobre um arquivo o teclado (Delete) vale: o foco e assumido e devolvido (sync_kb)
+            if nh != a.hover { a.hover = nh; a.dirty = true; }
             if a.page == P_MASCOT { a.dirty = true; } // o olhar do mascote segue o mouse (evento, nao polling)
             if matches!(nh, Some(Act::Volume) | Some(Act::VolSlider)) && !a.p.vol_drag { // hover no volume: mostra o slider (some ~0,8 s depois de sair)
                 let was_open = a.p.vol_t.is_some_and(|t| t.elapsed().as_millis() < 1500);
@@ -794,6 +794,7 @@ fn click(a: &mut App, act: Act) {
         Act::ShelfSelect | Act::TimerMode(_) | Act::TimerPlay | Act::TimerReset | Act::TimerEdit | Act::ShelfClear | Act::ShelfRemove(_) | Act::ShelfOpen(_) | Act::ShelfDragStart(_) => crate::pages2::click(a, act),
         _ => {}
     }
+    if matches!(act, Act::ShelfOpen(_)) { a.p.kb_click = !a.p.sel.is_empty(); } // o teclado da Shelf nasce do clique que selecionou
     a.dirty = true;
 }
 
