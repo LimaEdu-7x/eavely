@@ -196,17 +196,17 @@ pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
         if n == 0 { return; }
     }
     // ---- cards ----
-    a.gfx.clip(16.0, 30.0, 388.0, 86.0);
+    a.gfx.clip(22.0, 30.0, 376.0, 86.0); // 22..398: as setas de pagina (3..17 e 403..417) ficam livres
     let items = a.p.shelf.clone(); let sx = a.p.shelf_sx;
     let mut flying: Vec<(f32, f32, f32, shelf::ShelfItem)> = Vec::new();
     let mut tip: Option<String> = None; // nome completo do card sob o mouse (legenda embaixo)
     // posicao deslizada: cada exclusao (shrink) anterior empurra os vizinhos 66 px
-    hits.push((R { x: 16.0 + off, y: 30.0, w: 388.0, h: 86.0 }, Act::ShelfPan)); // fundo da fileira: arrastar rola; clicar limpa a selecao (os cards vem depois e tem prioridade)
+    hits.push((R { x: 22.0 + off, y: 30.0, w: 376.0, h: 86.0 }, Act::ShelfPan)); // fundo da fileira: arrastar rola; clicar limpa a selecao (os cards vem depois e tem prioridade)
     let slide = |a: &App, upto: usize, items: &[shelf::ShelfItem]| -> f32 {
         let mut s = 0.0; for p in items.iter().take(upto) { if let Some(d) = a.p.shelf_del.iter().find(|e| e.2 && e.0 == p.id) { let t = since(d.1 + std::time::Duration::from_millis((SHRINK_MS * 0.5) as u64), now, SLIDE_MS); s -= 66.0 * crate::island::ease(t); } } s };
     for (i, it) in items.iter().enumerate() {
         let x = 45.0 + i as f32 * 66.0 + slide(a, i, &items) - sx; let y = 36.0;
-        if x > 404.0 || x + 58.0 < 16.0 { continue; }
+        if x > 398.0 || x + 58.0 < 22.0 { continue; }
         let del = a.p.shelf_del.iter().find(|e| e.0 == it.id).cloned();
         if let Some((_, st0, single)) = del {
             if !single { flying.push((x, y, since(st0, now, FLY_MS), it.clone())); continue; }
@@ -230,17 +230,18 @@ pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
         if cut && hov { tip = Some(it.name.clone()); }
         let sz = if it.is_dir { "pasta".to_string() } else { it.size_bytes.map(human_pt).unwrap_or_else(|| "—".into()) }; let sz = ellip(a, &sz, Fmt::Tiny, 52.0); let sw = a.gfx.measure(&sz, Fmt::Tiny);
         a.gfx.text(&sz, Fmt::Tiny, x + 29.0 - sw / 2.0, y + 58.0, sw + 4.0, 10.0, TEXT3, false);
-        let (hx0, hx1) = (x.max(16.0), (x + 58.0).min(404.0)); if hx1 - hx0 > 6.0 { hits.push((R { x: hx0 + off, y, w: hx1 - hx0, h: 74.0 }, act)); } // so a parte visivel responde
+        let (hx0, hx1) = (x.max(22.0), (x + 58.0).min(398.0)); if hx1 - hx0 > 6.0 { hits.push((R { x: hx0 + off, y, w: hx1 - hx0, h: 74.0 }, act)); } // so a parte visivel responde
         if on { a.gfx.rrect_stroke(x + 0.75, y + 0.75, 56.5, 72.5, 9.25, 1.5, SEL_BLUE); a.gfx.circle(x + 13.0, y + 13.0, 8.0, SEL_BLUE); a.gfx.icon("check", x + 7.5, y + 7.5, 11.0, rgba(0x06223A, 1.0), false); }
         else if sel_mode { a.gfx.ring(x + 13.0, y + 13.0, 7.25, 1.5, TEXT3); }
         else if hov {
             a.gfx.circle(x + 50.5, y + 11.5, 7.5, if a.hover == Some(rm) { rgba(0xFFFFFF, 0.34) } else { rgba(0xFFFFFF, 0.22) }); a.gfx.icon("x", x + 46.0, y + 7.0, 9.0, TEXT, false);
-            if x + 39.0 >= 16.0 && x + 63.0 <= 404.0 { hits.push((R { x: x + 39.0 + off, y: y - 2.0, w: 24.0, h: 24.0 }, rm)); }
+            if x + 39.0 >= 22.0 && x + 63.0 <= 398.0 { hits.push((R { x: x + 39.0 + off, y: y - 2.0, w: 24.0, h: 24.0 }, rm)); }
         }
         if let Some(m) = mat { a.gfx.set_matrix(m); a.gfx.unlayer(); }
     }
     // degrade na borda direita: indica rolagem horizontal
-    if max_sx - sx > 1.0 { a.gfx.grad(352.0, 36.0, 30.0, 74.0, true, &[(0.0, rgba(0x000000, 0.0)), (1.0, rgba(0x000000, 1.0))], 1.0); }
+    if max_sx - sx > 1.0 { a.gfx.grad(368.0, 36.0, 30.0, 74.0, true, &[(0.0, rgba(0x000000, 0.0)), (1.0, rgba(0x000000, 1.0))], 1.0); }
+    if sx > 1.0 { a.gfx.grad(22.0, 36.0, 30.0, 74.0, true, &[(0.0, rgba(0x000000, 1.0)), (1.0, rgba(0x000000, 0.0))], 1.0); } // borda esquerda: ha o que rolar para tras
     a.gfx.unclip();
     if let Some(full) = tip { let s = ellip(a, &full, Fmt::Small, 360.0); let w = a.gfx.measure(&s, Fmt::Small); a.gfx.text(&s, Fmt::Small, 210.0 - w / 2.0, 112.5, w + 4.0, 14.0, TEXT2, false); }
     // limpar tudo: cards encolhem e voam ao botao (destino ~ 320,4), escalonados de 30 ms (sem recorte)

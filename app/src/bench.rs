@@ -168,11 +168,12 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
         126 => { a.force = None; a.mx[0] = true; a.class = 0; "126-janela-maximizada-mini-notch" }
         127 => { a.class = 2; "127-mini-notch-encostou" }
         128 => { a.class = 0; a.mx[0] = false; a.force = Some(St::Peek); "skip" }
+        129 => { "skip" }
         130 => { crate::shelf::clear_native(); a.p.shelf_del.clear(); a.p.select = false; a.p.sel.clear(); let d = std::env::temp_dir().join("eavely-shots"); let _ = std::fs::create_dir_all(&d);
             let v: Vec<_> = ["relatorio-final-v3.pdf", "foto-praia.png", "notas.txt", "contrato-assinado-2026.pdf", "planilha-orcamento.xlsx", "apresentacao-reuniao.pptx", "musica.mp3", "backup-2026.zip"].iter().map(|n| { let p = d.join(n); if !p.exists() { let _ = std::fs::write(&p, vec![b'x'; 1500]); } p }).collect();
             crate::shelf::add_native(v); a.p.shelf = crate::shelf::list_native(); open(a, 2, false, false); a.p.items_at = None; a.p.shelf_new.clear(); a.p.shelf_sx = 0.0; a.p.shelf_sc = None; "skip" }
         131 => { setm(1); click(a, 45.0 + 2.0 * 66.0 + 29.0, 73.0, WM_LBUTTONDOWN, WM_LBUTTONUP); click(a, 45.0 + 4.0 * 66.0 + 29.0, 73.0, WM_LBUTTONDOWN, WM_LBUTTONUP); chk("Ctrl+clique alterna (2 e 4)", sorted(&a.p.sel) == [2, 4]); setm(0); "131-teste-ctrl-clique" }
-        132 => { setm(2); click(a, 45.0 + 6.0 * 66.0 + 29.0 - a.p.shelf_sx, 73.0, WM_LBUTTONDOWN, WM_LBUTTONUP); chk("Shift+clique marca o intervalo 4..6 a partir da ancora", sorted(&a.p.sel) == [4, 5, 6]); setm(0); "132-teste-shift-clique" }
+        132 => { setm(2); click(a, 388.0, 73.0, WM_LBUTTONDOWN, WM_LBUTTONUP); chk("Shift+clique marca o intervalo 4..5 a partir da ancora (4)", sorted(&a.p.sel) == [4, 5]); setm(0); "132-teste-shift-clique" }
         133 => { setm(1); crate::pages2::key(a, 0x41, None); chk("Ctrl+A marca todos", a.p.sel.len() == 8); setm(0); "133-teste-ctrl-a" }
         134 => { crate::pages2::key(a, 0x1B, None); chk("Esc limpa a selecao", a.p.sel.is_empty());
             a.p.sel = vec![2, 3, 4]; chk("arrastar um selecionado leva os 3", crate::pages2::drag_ids(a, 3).len() == 3); chk("arrastar um nao selecionado leva so ele", crate::pages2::drag_ids(a, 6).len() == 1);
