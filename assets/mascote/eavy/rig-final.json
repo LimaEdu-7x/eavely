@@ -1,0 +1,2723 @@
+{
+ "versao": "final",
+ "nome_trabalho": "Eavy",
+ "doc": "Rig do mascote v3 (desenho vetorial proprio, SVG viewBox -30 -38 160 160; corpo em 0..100 x 6..86). Sem arquivos/sprites/sons do Mochi. Tempos em ms; oy/ox em fracao de H=90/W=100; angulos em rad; sx/sy/es multiplicadores.",
+ "forma": {
+  "corpo_path": "M50 6 C70 6 85 17 91 38 C97 60 89 86 50 86 C11 86 3 60 9 38 C15 17 30 6 50 6Z",
+  "ancora_squash": [
+   50,
+   86
+  ],
+  "centro_roll": [
+   50,
+   50
+  ],
+  "olhos": {
+   "L": [
+    36,
+    55
+   ],
+   "R": [
+    64,
+    55
+   ],
+   "rx": 4.4,
+   "ry": 5.8
+  },
+  "rubor": {
+   "L": [
+    26,
+    63
+   ],
+   "R": [
+    74,
+    63
+   ],
+   "rx": 7.5,
+   "ry": 4.2
+  },
+  "boca": [
+   50,
+   68
+  ],
+  "maos": {
+   "L": [
+    1,
+    64
+   ],
+   "R": [
+    99,
+    64
+   ],
+   "r": 6.5
+  },
+  "tufo": {
+   "base": [
+    50,
+    9
+   ],
+   "path": "M50 9C46 -3 57 -9 63 -2",
+   "w": 5
+  }
+ },
+ "paleta": {
+  "corpo": "#f5f1e9",
+  "sombra": "#d8d1c3",
+  "tinta": "#14121a",
+  "acento": "#bfb6a3",
+  "nota": "Corpo branco quente; as ranhuras viram a cor do estado (60% de mistura)."
+ },
+ "tracos_proprios": [
+  "corpo retangular achatado com ranhuras que mudam de cor com o estado",
+  "branco quente + greige",
+  "olhos em cápsula vertical",
+  "carregando eletrizante com raios"
+ ],
+ "seguir": {
+  "kGen": 0.0008,
+  "kLook": 0.0025,
+  "kCor": 0.002,
+  "formula": "valor += (alvo - valor) * k, k = 1 - base^dt; igual em qualquer fps"
+ },
+ "piscar": {
+  "min_s": 2.2,
+  "max_s": 5.4,
+  "duplo": 0.22,
+  "duplo_apos_ms": 230,
+  "fecha_ms": 70,
+  "abre_ms": 130,
+  "fecha_a": 0.06,
+  "nao_pisca": [
+   "sono",
+   "tonto",
+   "olho em linha/feliz/cansado"
+  ]
+ },
+ "olhar": {
+  "px_pleno": 150,
+  "memoria_s": 4,
+  "alvo": "cursor global (tela toda)",
+  "olho_max_u": [
+   7,
+   4.5
+  ],
+  "kLook": 0.0025
+ },
+ "respiracao": {
+  "so_dormindo": true,
+  "w": 1.8,
+  "a": 0.035,
+  "espelho_x": 0.57
+ },
+ "mola_tufo": {
+  "rigidez": 60,
+  "amortecimento": 9,
+  "limite": 1
+ },
+ "danca_bpm": 112,
+ "easings": {
+  "lin": "t",
+  "out": "1-(1-t)^3",
+  "inOut": "t<.5?4t^3:1-(-2t+2)^3/2",
+  "back": "1+c3(t-1)^3+c1(t-1)^2, c1=1.7",
+  "easeIn": "t^3"
+ },
+ "fps": {
+  "acordado": 30,
+  "dormindo": 4,
+  "ilha_oculta": 0
+ },
+ "tamanhos_notch": {
+  "Pequeno": {
+   "k": 0.8,
+   "ilha": [
+    336,
+    112
+   ],
+   "largura_expandido": 58,
+   "largura_compacto": 21
+  },
+  "Padrão": {
+   "k": 1.0,
+   "ilha": [
+    420,
+    140
+   ],
+   "largura_expandido": 72,
+   "largura_compacto": 26
+  },
+  "Grande": {
+   "k": 1.2,
+   "ilha": [
+    504,
+    168
+   ],
+   "largura_expandido": 86,
+   "largura_compacto": 31
+  },
+  "nota": "largura do mascote = largura_expandido / largura_compacto px (svg = largura*1.6)"
+ },
+ "estado_inicial": "idle-pisca",
+ "gatilhos_eavely": {
+  "ilha abre": "saudacao",
+  "musica toca": "danca",
+  "musica pausa": "musica-pausa",
+  "troca de faixa": "troca-faixa",
+  "pomodoro inicia": "pomodoro-inicio",
+  "pomodoro termina": "pomodoro-fim (+ orgulho se meta)",
+  "arquivo na shelf": "engolir",
+  "bateria baixa": "bateria-baixa",
+  "carregador conectado": "carregando -> carregando-ativo",
+  "notificacao": "notificacao (approval se exige acao)",
+  "lembrete com resposta": "pergunta",
+  "falha": "erro",
+  "ocioso 60 s": "bocejo",
+  "ocioso 120 s + mouse > 150 px / noite": "sono",
+  "clique": "clique-tapa",
+  "3 cliques em 1,7 s": "tonto",
+  "mouse na tela": "hover",
+  "busca": "busca"
+ },
+ "reacoes": [
+  {
+   "id": "idle-pisca",
+   "nome": "Piscar e olhar o mouse",
+   "tipo": "estado",
+   "gatilho_eavely": "Ilha em repouso / ocioso",
+   "ref": "idle",
+   "estado": {
+    "eye": "open",
+    "blush": 0.12,
+    "breathe": {
+     "w": 2.2,
+     "a": 0.02
+    }
+   },
+   "notas": "Respira de leve (sy 1+sin(2,2t)*.02). Pisca a cada 2,2-5,4 s (22% duplo, 230 ms depois). Olhos seguem o cursor na TELA TODA; esquece o mouse 4 s depois de parar.",
+   "sb": [
+    0,
+    800,
+    1600,
+    2400,
+    3200,
+    4000
+   ],
+   "cor": {
+    "hex": null,
+    "origem": null,
+    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+   },
+   "objeto": "Sem objeto"
+  },
+  {
+   "id": "saudacao",
+   "nome": "Aceno de saudação",
+   "tipo": "gesto",
+   "gatilho_eavely": "Abrir a ilha (1a vez no dia ou hover)",
+   "ref": "greet",
+   "dur": 1950,
+   "notas": "Maos sobem 250 ms (out), aceno 0,45-1,55 s a 1,2 Hz, maos descem 200 ms; piscadas aos 550 e 1500 ms; olho feliz no fim.",
+   "sb": [
+    0,
+    250,
+    700,
+    1100,
+    1600,
+    1900
+   ],
+   "tracks": {
+    "hands": [
+     [
+      1,
+      250,
+      "out"
+     ],
+     [
+      1,
+      1300,
+      "lin"
+     ],
+     [
+      0,
+      200,
+      "inOut"
+     ]
+    ],
+    "blush": [
+     [
+      0.5,
+      300,
+      "out"
+     ],
+     [
+      0.5,
+      1300,
+      "lin"
+     ],
+     [
+      0,
+      350,
+      "inOut"
+     ]
+    ]
+   },
+   "proc": {
+    "type": "wave",
+    "from": 450,
+    "to": 1550,
+    "hz": 1.2,
+    "t0": -0.06,
+    "t1": 0.07
+   },
+   "eyes": [
+    [
+     1500,
+     1950,
+     "happy"
+    ]
+   ],
+   "events": [
+    {
+     "t": 550,
+     "do": "blink"
+    },
+    {
+     "t": 1450,
+     "do": "blink"
+    }
+   ],
+   "cor": {
+    "hex": null,
+    "origem": null,
+    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+   },
+   "objeto": "Sem objeto: acena com as mãozinhas",
+   "boca": [
+    0,
+    1950,
+    {
+     "c": 1.3,
+     "w": 6
+    }
+   ]
+  },
+  {
+   "id": "danca",
+   "nome": "Dança no ritmo",
+   "tipo": "estado",
+   "gatilho_eavely": "Música começa a tocar (SMTC)",
+   "ref": "dance",
+   "estado": {
+    "dance": 1,
+    "eye": "open",
+    "blush": 0.3,
+    "tint": "#4f9bf0",
+    "tintA": 0.45,
+    "boca": {
+     "c": 1.2,
+     "w": 5.5,
+     "o": 0.12
+    },
+    "cena_on": [
+     "globo",
+     "toca"
+    ],
+    "emit": [
+     {
+      "type": "refl",
+      "every": 0.1,
+      "n": 2
+     }
+    ]
+   },
+   "notas": "112 BPM (ideal: BPM da faixa). hop=|sin(pi*beat)|; dx .06W, dy .1H, rot .1 rad; pouso (1-hop)^6 -> sx+4,5% sy-6%. Entra em 0,3 s, sai em 0,5 s. Notas ♪ a cada 1,1 s.",
+   "sb": [
+    0,
+    134,
+    268,
+    402,
+    536,
+    670
+   ],
+   "cor": {
+    "hex": "#4f9bf0",
+    "origem": "coucou",
+    "nota": "working (azul) = musica/timer rodando"
+   },
+   "objeto": "Globo de discoteca (desce do teto) + toca-discos ao fundo"
+  },
+  {
+   "id": "musica-pausa",
+   "nome": "Para de dançar e olha em volta",
+   "tipo": "gesto",
+   "gatilho_eavely": "Música pausa",
+   "ref": "dance->idle",
+   "dur": 1800,
+   "notas": "A dança desfaz em 0,5 s; olha esquerda, direita e volta ao centro (seguir-alvo kLook).",
+   "sb": [
+    0,
+    250,
+    600,
+    1000,
+    1400,
+    1750
+   ],
+   "base_now": "idle-pisca",
+   "then": "idle-pisca",
+   "look": [
+    [
+     500,
+     -0.85,
+     0.1
+    ],
+    [
+     1000,
+     0.85,
+     0.1
+    ],
+    [
+     1500,
+     0,
+     0
+    ]
+   ],
+   "cor": {
+    "hex": null,
+    "origem": null,
+    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+   },
+   "objeto": "Globo e toca-discos saem de cena"
+  },
+  {
+   "id": "troca-faixa",
+   "nome": "Piscadela na troca de faixa",
+   "tipo": "gesto",
+   "gatilho_eavely": "Música troca de faixa",
+   "ref": "wink",
+   "dur": 4600,
+   "notas": "Olha o toca-discos, ergue a agulha, tira o vinil, põe outro, agulha desce (3,2 s). Espera ~1,4 s; se a música continua (ctx.musica), o globo desce do teto (1,4 s, back) e ele dança; se pausou, volta ao idle.",
+   "sb": [
+    0,
+    120,
+    300,
+    500,
+    800,
+    980
+   ],
+   "tracks": {
+    "tilt": [
+     [
+      0.05,
+      300,
+      "out"
+     ],
+     [
+      0.05,
+      3000,
+      "lin"
+     ],
+     [
+      0,
+      400,
+      "inOut"
+     ]
+    ],
+    "oy": [
+     [
+      0,
+      3200,
+      "lin"
+     ],
+     [
+      -0.05,
+      120,
+      "out"
+     ],
+     [
+      0,
+      220,
+      "inOut"
+     ],
+     [
+      -0.04,
+      120,
+      "out"
+     ],
+     [
+      0,
+      220,
+      "inOut"
+     ]
+    ]
+   },
+   "cor": {
+    "hex": null,
+    "origem": null,
+    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+   },
+   "objeto": "Troca o vinil no toca-discos; se a música segue, o globo desce e ele dança",
+   "boca": [
+    0,
+    4600,
+    {
+     "c": 1.3,
+     "w": 5.5
+    }
+   ],
+   "cena_on": [
+    "toca"
+   ],
+   "cena_t": [
+    0,
+    4600
+   ],
+   "then_cond": {
+    "ctx": "musica",
+    "se": "danca",
+    "senao": "idle-pisca"
+   },
+   "then": null,
+   "cena_par": {
+    "toca": [
+     [
+      0,
+      {
+       "rec": 1,
+       "arm": 1
+      }
+     ],
+     [
+      400,
+      {
+       "rec": 1,
+       "arm": 0
+      }
+     ],
+     [
+      900,
+      {
+       "rec": 0,
+       "arm": 0
+      }
+     ],
+     [
+      2700,
+      {
+       "rec": 1,
+       "arm": 0,
+       "lab": "c"
+      }
+     ],
+     [
+      3200,
+      {
+       "rec": 1,
+       "arm": 1,
+       "lab": "c"
+      }
+     ]
+    ]
+   },
+   "maosK": [
+    {
+     "h": "R",
+     "a": 300,
+     "z": 700,
+     "x": 104,
+     "y": 60,
+     "r": 30
+    },
+    {
+     "h": "R",
+     "a": 700,
+     "z": 1200,
+     "x": 110,
+     "y": 66,
+     "r": 20
+    },
+    {
+     "h": "R",
+     "a": 1200,
+     "z": 2400,
+     "x": 100,
+     "y": 44,
+     "r": 25
+    },
+    {
+     "h": "R",
+     "a": 2400,
+     "z": 2800,
+     "x": 110,
+     "y": 66,
+     "r": 20
+    },
+    {
+     "h": "R",
+     "a": 2800,
+     "z": 3300,
+     "x": 102,
+     "y": 60,
+     "r": 30
+    }
+   ],
+   "itens": [
+    {
+     "t": "vinil",
+     "u": 2.4,
+     "opts": {
+      "lab": "O"
+     },
+     "win": [
+      900,
+      2000
+     ],
+     "hold": {
+      "h": "R",
+      "dx": 4,
+      "dy": -4
+     }
+    },
+    {
+     "t": "vinil",
+     "u": 2.4,
+     "opts": {
+      "lab": "c"
+     },
+     "win": [
+      2000,
+      2800
+     ],
+     "hold": {
+      "h": "R",
+      "dx": 4,
+      "dy": -4
+     }
+    }
+   ],
+   "look": [
+    [
+     0,
+     0.9,
+     0
+    ],
+    [
+     3600,
+     0,
+     0
+    ]
+   ],
+   "eyes": [
+    [
+     3300,
+     4200,
+     "happy"
+    ]
+   ],
+   "proc": [],
+   "events": []
+  },
+  {
+   "id": "pomodoro-inicio",
+   "nome": "Concentrado",
+   "tipo": "estado",
+   "gatilho_eavely": "Pomodoro/timer inicia",
+   "ref": "thinking",
+   "estado": {
+    "eye": "open",
+    "tint": "#8a63ec",
+    "tintA": 0.75,
+    "blush": 0,
+    "emit": [
+     {
+      "type": "dots",
+      "every": 1.5
+     }
+    ],
+    "boca": {
+     "c": 0,
+     "w": 3
+    },
+    "itens": [
+     {
+      "t": "jornal",
+      "proc": "jornal",
+      "u": 2.6,
+      "pos": [
+       50,
+       80
+      ]
+     }
+    ],
+    "leitura": {
+     "p": 5.6
+    }
+   },
+   "notas": "Cor violeta (fade ~0,5 s), olhar para cima-direita fixo, 3 pontinhos de pensamento a cada 1,5 s. Troca de estado so muda o alvo.",
+   "sb": [
+    0,
+    600,
+    1200,
+    1800,
+    2400,
+    3000
+   ],
+   "cor": {
+    "hex": "#8a63ec",
+    "origem": "coucou",
+    "nota": "thinking (roxo)"
+   },
+   "objeto": "Jornal aberto (abaixa de vez em quando e espia)"
+  },
+  {
+   "id": "pomodoro-fim",
+   "nome": "Rolinho de vitória",
+   "tipo": "gesto",
+   "gatilho_eavely": "Pomodoro/timer termina",
+   "ref": "finished",
+   "dur": 2800,
+   "notas": "Roll 0->2pi em 950 ms inOut; faiscas aos 500 ms; salto curto ao pousar; olho feliz e rubor; verde-menta ate 2,8 s, depois idle.",
+   "sb": [
+    0,
+    300,
+    550,
+    800,
+    1300,
+    2200
+   ],
+   "tracks": {
+    "roll": [
+     [
+      6.2832,
+      950,
+      "inOut"
+     ]
+    ],
+    "oy": [
+     [
+      0,
+      850,
+      "lin"
+     ],
+     [
+      -0.12,
+      150,
+      "out"
+     ],
+     [
+      0,
+      250,
+      "inOut"
+     ]
+    ],
+    "blush": [
+     [
+      0.55,
+      500,
+      "out"
+     ],
+     [
+      0.55,
+      1800,
+      "lin"
+     ],
+     [
+      0,
+      400,
+      "inOut"
+     ]
+    ]
+   },
+   "tint": [
+    0,
+    2800,
+    "#1fbf84",
+    0.85
+   ],
+   "eyes": [
+    [
+     950,
+     2500,
+     "happy"
+    ]
+   ],
+   "events": [
+    {
+     "t": 500,
+     "do": "spawn",
+     "type": "spark",
+     "n": 9,
+     "c": "#d9ffe9"
+    },
+    {
+     "t": 500,
+     "do": "spawn",
+     "type": "conf",
+     "n": 18
+    }
+   ],
+   "then": "idle-pisca",
+   "cor": {
+    "hex": "#1fbf84",
+    "origem": "coucou",
+    "nota": "finished (verde)"
+   },
+   "objeto": "Troféu no chão + confete",
+   "boca": [
+    0,
+    2800,
+    {
+     "c": 1.6,
+     "w": 7,
+     "o": 0.2
+    }
+   ],
+   "cena_on": [
+    "trofeu"
+   ],
+   "cena_t": [
+    350,
+    2700
+   ]
+  },
+  {
+   "id": "orgulho",
+   "nome": "Orgulhoso",
+   "tipo": "gesto",
+   "gatilho_eavely": "Meta cumprida (ciclos de pomodoro, tarefas)",
+   "ref": "proud",
+   "dur": 1800,
+   "notas": "5 estrelas escalonadas a cada 140 ms; tilt -.14 (220 ms out, mantem, 280 ms inOut); rubor .7; peito aberto sy 1,05.",
+   "sb": [
+    0,
+    220,
+    500,
+    900,
+    1400,
+    1750
+   ],
+   "tracks": {
+    "tilt": [
+     [
+      -0.14,
+      220,
+      "out"
+     ],
+     [
+      -0.14,
+      1300,
+      "lin"
+     ],
+     [
+      0,
+      280,
+      "inOut"
+     ]
+    ],
+    "blush": [
+     [
+      0.7,
+      220,
+      "out"
+     ],
+     [
+      0.7,
+      1300,
+      "lin"
+     ],
+     [
+      0,
+      280,
+      "inOut"
+     ]
+    ],
+    "sy": [
+     [
+      1.05,
+      220,
+      "out"
+     ],
+     [
+      1.05,
+      1300,
+      "lin"
+     ],
+     [
+      1,
+      280,
+      "inOut"
+     ]
+    ]
+   },
+   "eyes": [
+    [
+     0,
+     1800,
+     "happy"
+    ]
+   ],
+   "events": [
+    {
+     "t": 120,
+     "do": "spawn",
+     "type": "star",
+     "n": 5
+    }
+   ],
+   "cor": {
+    "hex": null,
+    "origem": null,
+    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+   },
+   "objeto": "Medalha pequena embaixo, saindo do corpo",
+   "boca": [
+    0,
+    1800,
+    {
+     "c": 1.3,
+     "w": 5.5
+    }
+   ],
+   "itens": [
+    {
+     "t": "medalha",
+     "u": 2.2,
+     "pos": [
+      24,
+      92
+     ],
+     "win": [
+      100,
+      1700
+     ]
+    }
+   ]
+  },
+  {
+   "id": "engolir",
+   "nome": "Engole o arquivo",
+   "tipo": "gesto",
+   "gatilho_eavely": "Arquivo solto na Shelf",
+   "ref": "gulp",
+   "dur": 3700,
+   "notas": "Pasta cai ao lado (450 ms); mão vai até ela (0,5-1,0 s), leva à boca (1,0-1,5 s); boca abre em 1,3 s; entra e some (1,5-1,8 s); bochecha estufa, mastiga de olho fechado (1,95-2,7 s); engole (squash) e fica satisfeito (sorriso, olho feliz).",
+   "sb": [
+    0,
+    200,
+    420,
+    700,
+    1000,
+    1240
+   ],
+   "tracks": {
+    "mouth": [
+     [
+      0,
+      1250,
+      "lin"
+     ],
+     [
+      0.85,
+      250,
+      "out"
+     ],
+     [
+      0.85,
+      250,
+      "lin"
+     ],
+     [
+      0.25,
+      250,
+      "inOut"
+     ],
+     [
+      0.25,
+      700,
+      "lin"
+     ],
+     [
+      0,
+      200,
+      "inOut"
+     ]
+    ],
+    "cheek": [
+     [
+      0,
+      1700,
+      "lin"
+     ],
+     [
+      1,
+      250,
+      "out"
+     ],
+     [
+      1,
+      750,
+      "lin"
+     ],
+     [
+      0,
+      250,
+      "inOut"
+     ]
+    ],
+    "sy": [
+     [
+      1,
+      2800,
+      "lin"
+     ],
+     [
+      0.86,
+      90,
+      "out"
+     ],
+     [
+      1.08,
+      150,
+      "out"
+     ],
+     [
+      1,
+      200,
+      "inOut"
+     ]
+    ],
+    "sx": [
+     [
+      1,
+      2800,
+      "lin"
+     ],
+     [
+      1.1,
+      90,
+      "out"
+     ],
+     [
+      0.96,
+      150,
+      "out"
+     ],
+     [
+      1,
+      200,
+      "inOut"
+     ]
+    ],
+    "blush": [
+     [
+      0,
+      2900,
+      "lin"
+     ],
+     [
+      0.4,
+      200,
+      "out"
+     ],
+     [
+      0.4,
+      500,
+      "lin"
+     ],
+     [
+      0,
+      200,
+      "inOut"
+     ]
+    ]
+   },
+   "events": [],
+   "cor": {
+    "hex": null,
+    "origem": null,
+    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+   },
+   "objeto": "Pasta cai ao lado, ele pega e engole (bochecha estufa)",
+   "boca": [
+    2800,
+    3600,
+    {
+     "c": 1.6,
+     "w": 6.5
+    }
+   ],
+   "cena_on": [],
+   "maosK": [
+    {
+     "h": "R",
+     "a": 500,
+     "z": 1000,
+     "x": 106,
+     "y": 68,
+     "r": 30
+    },
+    {
+     "h": "R",
+     "a": 1000,
+     "z": 1500,
+     "x": 66,
+     "y": 72,
+     "r": 70
+    },
+    {
+     "h": "R",
+     "a": 1500,
+     "z": 1900,
+     "x": 62,
+     "y": 72,
+     "r": 70
+    },
+    {
+     "h": "R",
+     "a": 1900,
+     "z": 2300,
+     "x": 98,
+     "y": 66,
+     "r": 35
+    }
+   ],
+   "itens": [
+    {
+     "t": "pasta",
+     "u": 2.6,
+     "win": [
+      0,
+      1000
+     ],
+     "path": [
+      [
+       0,
+       112,
+       -26
+      ],
+      [
+       450,
+       112,
+       70
+      ],
+      [
+       1000,
+       112,
+       70
+      ]
+     ]
+    },
+    {
+     "t": "pasta",
+     "u": 2.6,
+     "win": [
+      1000,
+      1800
+     ],
+     "hold": {
+      "h": "R",
+      "dx": 3,
+      "dy": -3
+     },
+     "esc": [
+      1500,
+      1800
+     ]
+    }
+   ],
+   "look": [
+    [
+     0,
+     0.95,
+     0.3
+    ],
+    [
+     1000,
+     0.5,
+     0.5
+    ],
+    [
+     1500,
+     0,
+     0.2
+    ],
+    [
+     2800,
+     0,
+     0
+    ]
+   ],
+   "eyes": [
+    [
+     1950,
+     2750,
+     "closed"
+    ],
+    [
+     2900,
+     3500,
+     "happy"
+    ]
+   ],
+   "proc": [
+    {
+     "type": "chew",
+     "from": 1950,
+     "to": 2700,
+     "base": 0.25,
+     "amp": 0.18,
+     "hz": 3.4
+    }
+   ]
+  },
+  {
+   "id": "bateria-baixa",
+   "nome": "Cansado e suando",
+   "tipo": "estado",
+   "gatilho_eavely": "Bateria baixa",
+   "ref": "ratelimit",
+   "estado": {
+    "eye": "tired",
+    "tint": "#f0953f",
+    "tintA": 0.7,
+    "tilt": 0.05,
+    "sy": 0.96,
+    "sx": 1.03,
+    "blush": 0,
+    "emit": [
+     {
+      "type": "sweat",
+      "every": 1.3,
+      "p": 0.5
+     }
+    ],
+    "boca": {
+     "c": -0.5,
+     "w": 4
+    },
+    "cena_on": [
+     "bateria"
+    ],
+    "look": [
+     0.9,
+     0.35
+    ]
+   },
+   "notas": "Laranja, olho cansado, leve achatado, gota de suor a cada 1,3 s (50%).",
+   "sb": [
+    0,
+    600,
+    1200,
+    1800,
+    2400,
+    3000
+   ],
+   "cor": {
+    "hex": "#f0953f",
+    "origem": "coucou",
+    "nota": "ratelimit (laranja)"
+   },
+   "objeto": "Bateria vertical com a última barra vermelha piscando"
+  },
+  {
+   "id": "carregando",
+   "nome": "Eletrizante",
+   "tipo": "gesto",
+   "gatilho_eavely": "Carregador conectado",
+   "ref": "NOVO (nota do Edu)",
+   "dur": 5650,
+   "notas": "Passinhos (hops, balanço, mãos balançando) até a parede em 1,5 s (inOut); pega o plug (0,7 s); encosta (1,75 s: faísca), empurra (0,35 s, out): os pinos somem no encaixe; eletrizante 2,1-3,7 s; puxa o plug, volta andando 1,4 s. O cabo sai do corpo, tem catenária e balança com mola (rigidez 38, amortecimento 4,5).",
+   "sb": [
+    0,
+    700,
+    1500,
+    1900,
+    2800,
+    5000
+   ],
+   "tracks": {
+    "ox": [
+     [
+      0.236,
+      1500,
+      "inOut"
+     ],
+     [
+      0.236,
+      250,
+      "lin"
+     ],
+     [
+      0.356,
+      350,
+      "out"
+     ],
+     [
+      0.356,
+      1800,
+      "lin"
+     ],
+     [
+      0.236,
+      350,
+      "inOut"
+     ],
+     [
+      0,
+      1400,
+      "inOut"
+     ]
+    ],
+    "sy": [
+     [
+      1,
+      2100,
+      "lin"
+     ],
+     [
+      0.88,
+      150,
+      "inOut"
+     ],
+     [
+      1.12,
+      130,
+      "out"
+     ],
+     [
+      1,
+      260,
+      "inOut"
+     ],
+     [
+      1,
+      3010,
+      "lin"
+     ]
+    ],
+    "sx": [
+     [
+      1,
+      2100,
+      "lin"
+     ],
+     [
+      1.08,
+      150,
+      "inOut"
+     ],
+     [
+      0.95,
+      130,
+      "out"
+     ],
+     [
+      1,
+      260,
+      "inOut"
+     ],
+     [
+      1,
+      3010,
+      "lin"
+     ]
+    ],
+    "oy": [
+     [
+      0,
+      2100,
+      "lin"
+     ],
+     [
+      -0.14,
+      130,
+      "out"
+     ],
+     [
+      0,
+      330,
+      "back"
+     ],
+     [
+      0,
+      3090,
+      "lin"
+     ]
+    ],
+    "es": [
+     [
+      1,
+      2100,
+      "lin"
+     ],
+     [
+      1.3,
+      120,
+      "out"
+     ],
+     [
+      1.3,
+      1500,
+      "lin"
+     ],
+     [
+      1,
+      400,
+      "inOut"
+     ],
+     [
+      1,
+      1530,
+      "lin"
+     ]
+    ],
+    "glow": [
+     [
+      0,
+      2100,
+      "lin"
+     ],
+     [
+      0.9,
+      160,
+      "out"
+     ],
+     [
+      0.4,
+      1400,
+      "inOut"
+     ],
+     [
+      0,
+      900,
+      "inOut"
+     ],
+     [
+      0,
+      1090,
+      "lin"
+     ]
+    ]
+   },
+   "tint": [
+    2100,
+    4300,
+    "#ffe45c",
+    0.85
+   ],
+   "eyes": [
+    [
+     2100,
+     3900,
+     "wide"
+    ]
+   ],
+   "events": [
+    {
+     "t": 1760,
+     "do": "spawn",
+     "type": "spark",
+     "n": 7,
+     "x": 148,
+     "y": 61,
+     "c": "#fff6a0"
+    },
+    {
+     "t": 2100,
+     "do": "spawn",
+     "type": "spark",
+     "n": 10,
+     "x": 148,
+     "y": 61,
+     "c": "#ffe45c"
+    },
+    {
+     "t": 2100,
+     "do": "spawn",
+     "type": "bolt",
+     "n": 8
+    }
+   ],
+   "then": "carregando-ativo",
+   "cor": {
+    "hex": "#ffe45c",
+    "origem": "nosso",
+    "nota": "eletrico amarelo + raios ciano (pedido do Edu)"
+   },
+   "objeto": "Anda até a parede, enfia o plug (pinos somem no encaixe), eletriza",
+   "boca": [
+    2100,
+    3900,
+    {
+     "c": 1,
+     "w": 5,
+     "o": 0.45
+    }
+   ],
+   "cena_on": [
+    "parede"
+   ],
+   "cena_t": [
+    0,
+    5650
+   ],
+   "proc": [
+    {
+     "type": "walk",
+     "from": 0,
+     "to": 1500,
+     "hz": 3.2
+    },
+    {
+     "type": "electric",
+     "from": 2100,
+     "to": 3700,
+     "amp": 0.012
+    },
+    {
+     "type": "walk",
+     "from": 4250,
+     "to": 5650,
+     "hz": 3.2
+    }
+   ],
+   "look": [
+    [
+     0,
+     0.85,
+     0
+    ],
+    [
+     1500,
+     0.95,
+     0
+    ],
+    [
+     3900,
+     -0.5,
+     0
+    ],
+    [
+     5000,
+     0,
+     0
+    ]
+   ],
+   "maosK": [
+    {
+     "h": "L",
+     "a": 0,
+     "z": 1500,
+     "x": 2,
+     "y": 70,
+     "r": -35,
+     "swing": {
+      "hz": 1.6,
+      "a": 7
+     }
+    },
+    {
+     "h": "L",
+     "a": 4250,
+     "z": 5650,
+     "x": 2,
+     "y": 70,
+     "r": -35,
+     "swing": {
+      "hz": 1.6,
+      "a": 7
+     }
+    },
+    {
+     "h": "R",
+     "a": 0,
+     "z": 700,
+     "x": 98,
+     "y": 70,
+     "r": 35,
+     "swing": {
+      "hz": 1.6,
+      "a": 7
+     }
+    },
+    {
+     "h": "R",
+     "a": 700,
+     "z": 4250,
+     "x": 104,
+     "y": 61,
+     "r": 25
+    },
+    {
+     "h": "R",
+     "a": 4250,
+     "z": 5650,
+     "x": 98,
+     "y": 70,
+     "r": 35,
+     "swing": {
+      "hz": 1.6,
+      "a": 7
+     }
+    }
+   ],
+   "itens": [
+    {
+     "t": "cabo",
+     "port": [
+      94,
+      80
+     ],
+     "L": 72
+    },
+    {
+     "t": "plug",
+     "u": 2.4,
+     "hold": {
+      "h": "R",
+      "dx": 4,
+      "dy": 0
+     },
+     "clip": true,
+     "win": [
+      700,
+      4250
+     ]
+    }
+   ]
+  },
+  {
+   "id": "carregando-ativo",
+   "nome": "Carregando (sustentado)",
+   "tipo": "estado",
+   "gatilho_eavely": "Carregador conectado (apos o gesto)",
+   "ref": "NOVO",
+   "estado": {
+    "eye": "wide",
+    "tint": "#ffe45c",
+    "tintA": 0.45,
+    "blush": 0.15,
+    "emit": [
+     {
+      "type": "bolt",
+      "every": 0.7,
+      "p": 0.85
+     }
+    ]
+   },
+   "notas": "Brilho amarelo suave + um raio curto a cada .7 s. Sai ao desconectar.",
+   "sb": [
+    0,
+    600,
+    1200,
+    1800,
+    2400,
+    3000
+   ],
+   "extra": true,
+   "cor": {
+    "hex": "#ffe45c",
+    "origem": "nosso",
+    "nota": "eletrico suave sustentado"
+   },
+   "objeto": "Sem objeto"
+  },
+  {
+   "id": "notificacao",
+   "nome": "Susto e pula",
+   "tipo": "gesto",
+   "gatilho_eavely": "Notificação nova",
+   "ref": "surprised",
+   "dur": 1800,
+   "notas": "oy -.3 (140 out + 380 back); olhos es 1,25 (120 out, 500 inOut); '!' sobe aos 100 ms. Se exige acao -> estado 'approval' (laranja, pula, '!' fixo).",
+   "sb": [
+    0,
+    120,
+    260,
+    450,
+    900,
+    1700
+   ],
+   "tracks": {
+    "oy": [
+     [
+      -0.3,
+      140,
+      "out"
+     ],
+     [
+      0,
+      380,
+      "back"
+     ]
+    ],
+    "es": [
+     [
+      1.25,
+      120,
+      "out"
+     ],
+     [
+      1.25,
+      900,
+      "lin"
+     ],
+     [
+      1,
+      500,
+      "inOut"
+     ]
+    ],
+    "sy": [
+     [
+      1.08,
+      140,
+      "out"
+     ],
+     [
+      1,
+      380,
+      "inOut"
+     ]
+    ]
+   },
+   "events": [
+    {
+     "t": 100,
+     "do": "spawn",
+     "type": "bang"
+    }
+   ],
+   "cor": {
+    "hex": null,
+    "origem": null,
+    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+   },
+   "objeto": "Sininho na frente, balançando",
+   "boca": [
+    0,
+    1500,
+    {
+     "o": 0.7,
+     "w": 3,
+     "c": 0
+    }
+   ],
+   "cena_on": [
+    "sino"
+   ],
+   "cena_t": [
+    100,
+    1500
+   ]
+  },
+  {
+   "id": "approval",
+   "nome": "Pede ação (notificação importante)",
+   "tipo": "estado",
+   "gatilho_eavely": "Notificação que exige ação",
+   "ref": "approval",
+   "estado": {
+    "eye": "wide",
+    "tint": "#f2a93a",
+    "tintA": 0.7,
+    "bounce": {
+     "w": 5.2,
+     "a": 0.07
+    },
+    "badge": "bang",
+    "blush": 0,
+    "boca": {
+     "o": 0.3,
+     "w": 3.2,
+     "c": 0
+    },
+    "cena_on": [
+     "sino"
+    ],
+    "cena_par": {
+     "sino": [
+      [
+       0,
+       {
+        "_shake": {
+         "amp": 9,
+         "hz": 6
+        }
+       }
+      ]
+     ]
+    }
+   },
+   "notas": "Pula -|sin(5,2 t)|*.07; selo '!' laranja fixo.",
+   "sb": [
+    0,
+    600,
+    1200,
+    1800,
+    2400,
+    3000
+   ],
+   "extra": true,
+   "cor": {
+    "hex": "#f2a93a",
+    "origem": "coucou",
+    "nota": "approval (ambar)"
+   },
+   "objeto": "Sininho (pede ação)"
+  },
+  {
+   "id": "pergunta",
+   "nome": "Cabeça inclinada",
+   "tipo": "estado",
+   "gatilho_eavely": "Lembrete que pede resposta",
+   "ref": "question",
+   "estado": {
+    "eye": "open",
+    "tint": "#3fc0d6",
+    "tintA": 0.7,
+    "tilt": 0.17,
+    "badge": null,
+    "blush": 0.1,
+    "boca": {
+     "c": -0.2,
+     "w": 3.2,
+     "o": 0.2
+    },
+    "cena_on": [
+     "cartaz"
+    ]
+   },
+   "notas": "Ciano, tilt .17 rad por seguir-alvo, selo '?' com bobbing, piscada na entrada.",
+   "sb": [
+    0,
+    600,
+    1200,
+    1800,
+    2400,
+    3000
+   ],
+   "cor": {
+    "hex": "#3fc0d6",
+    "origem": "coucou",
+    "nota": "question (ciano)"
+   },
+   "objeto": "Cartaz com ? fincado no chão"
+  },
+  {
+   "id": "erro",
+   "nome": "Balança a cabeça",
+   "tipo": "gesto",
+   "gatilho_eavely": "Falha (nao achou a faixa, erro de app)",
+   "ref": "error",
+   "dur": 2200,
+   "notas": "Chave inglesa cai do alto girando (0,45 s, easeIn), bate na cabeça (squash 70 ms, olhos fecham, 4 estrelinhas), quica para a direita (0,3 s), cai e crava no chão (poeira, balanço amortecido) na mesma posição de antes; fumacinha, tom vermelho e sacudida vêm depois da batida.",
+   "sb": [
+    0,
+    50,
+    120,
+    190,
+    400,
+    2000
+   ],
+   "tracks": {
+    "ox": [
+     [
+      0,
+      450,
+      "lin"
+     ],
+     [
+      0.08,
+      50,
+      "out"
+     ],
+     [
+      -0.08,
+      70,
+      "inOut"
+     ],
+     [
+      0.05,
+      70,
+      "inOut"
+     ],
+     [
+      0,
+      90,
+      "out"
+     ]
+    ],
+    "blush": [
+     [
+      0,
+      10
+     ]
+    ],
+    "sy": [
+     [
+      1,
+      450,
+      "lin"
+     ],
+     [
+      0.76,
+      70,
+      "out"
+     ],
+     [
+      1.1,
+      130,
+      "out"
+     ],
+     [
+      1,
+      170,
+      "inOut"
+     ]
+    ],
+    "sx": [
+     [
+      1,
+      450,
+      "lin"
+     ],
+     [
+      1.18,
+      70,
+      "out"
+     ],
+     [
+      0.95,
+      130,
+      "out"
+     ],
+     [
+      1,
+      170,
+      "inOut"
+     ]
+    ]
+   },
+   "tint": [
+    0,
+    2200,
+    "#e4585f",
+    0.8
+   ],
+   "eyes": [
+    [
+     0,
+     430,
+     "wide"
+    ],
+    [
+     430,
+     1000,
+     "closed"
+    ],
+    [
+     1000,
+     2200,
+     "line"
+    ]
+   ],
+   "then": "idle-pisca",
+   "cor": {
+    "hex": "#e4585f",
+    "origem": "coucou",
+    "nota": "error (vermelho)"
+   },
+   "objeto": "Chave inglesa no chão + fumacinha",
+   "boca": [
+    0,
+    2200,
+    {
+     "c": -1.3,
+     "w": 5.5
+    }
+   ],
+   "cena_on": [
+    "chave"
+   ],
+   "cena_t": [
+    0,
+    2000
+   ],
+   "look": [
+    [
+     0,
+     0,
+     -0.9
+    ],
+    [
+     470,
+     0,
+     0.2
+    ],
+    [
+     800,
+     0.6,
+     -0.3
+    ],
+    [
+     1100,
+     0.95,
+     0.1
+    ],
+    [
+     1600,
+     0,
+     0
+    ]
+   ],
+   "cena_traj": {
+    "chave": [
+     [
+      0,
+      50,
+      -58,
+      0
+     ],
+     [
+      450,
+      50,
+      -2,
+      540,
+      "easeIn"
+     ],
+     [
+      760,
+      92,
+      -14,
+      800,
+      "out"
+     ],
+     [
+      1050,
+      null,
+      null,
+      1080,
+      "easeIn"
+     ],
+     [
+      1150,
+      null,
+      null,
+      1115,
+      "out"
+     ],
+     [
+      1240,
+      null,
+      null,
+      1090,
+      "inOut"
+     ],
+     [
+      1330,
+      null,
+      null,
+      1105,
+      "inOut"
+     ],
+     [
+      1420,
+      null,
+      null,
+      1098,
+      "inOut"
+     ]
+    ]
+   },
+   "events": [
+    {
+     "t": 450,
+     "do": "spawn",
+     "type": "star",
+     "n": 4,
+     "life": 0.55
+    },
+    {
+     "t": 1050,
+     "do": "spawn",
+     "type": "puff",
+     "n": 4,
+     "x": 116,
+     "y": 87
+    },
+    {
+     "t": 800,
+     "do": "spawn",
+     "type": "fumaca",
+     "n": 1
+    },
+    {
+     "t": 1100,
+     "do": "spawn",
+     "type": "fumaca",
+     "n": 1
+    },
+    {
+     "t": 1400,
+     "do": "spawn",
+     "type": "fumaca",
+     "n": 1
+    },
+    {
+     "t": 1700,
+     "do": "spawn",
+     "type": "fumaca",
+     "n": 1
+    },
+    {
+     "t": 2000,
+     "do": "spawn",
+     "type": "fumaca",
+     "n": 1
+    }
+   ]
+  },
+  {
+   "id": "bocejo",
+   "nome": "Boceja",
+   "tipo": "gesto",
+   "gatilho_eavely": "Ficando ocioso (~60 s)",
+   "ref": "yawn",
+   "dur": 1800,
+   "notas": "sy 1,12 / sx .94 (500 ms inOut); boca abre aos 350 ms; olho fecha aos 700 ms; 2 'Z' (700 e 1000 ms); volta em 500 ms.",
+   "sb": [
+    0,
+    350,
+    700,
+    1000,
+    1400,
+    1750
+   ],
+   "tracks": {
+    "sy": [
+     [
+      1.12,
+      500,
+      "inOut"
+     ],
+     [
+      1.12,
+      500,
+      "lin"
+     ],
+     [
+      1,
+      500,
+      "inOut"
+     ]
+    ],
+    "sx": [
+     [
+      0.94,
+      500,
+      "inOut"
+     ],
+     [
+      0.94,
+      500,
+      "lin"
+     ],
+     [
+      1,
+      500,
+      "inOut"
+     ]
+    ],
+    "mouth": [
+     [
+      0,
+      350
+     ],
+     [
+      0.9,
+      400,
+      "out"
+     ],
+     [
+      0.9,
+      450,
+      "lin"
+     ],
+     [
+      0,
+      350,
+      "inOut"
+     ]
+    ]
+   },
+   "eyes": [
+    [
+     700,
+     1500,
+     "closed"
+    ]
+   ],
+   "events": [
+    {
+     "t": 700,
+     "do": "spawn",
+     "type": "z",
+     "k": 0
+    },
+    {
+     "t": 1000,
+     "do": "spawn",
+     "type": "z",
+     "k": 1
+    }
+   ],
+   "cor": {
+    "hex": null,
+    "origem": null,
+    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+   },
+   "objeto": "Xícara de café no chão com vapor",
+   "boca": [
+    350,
+    1500,
+    {
+     "c": 0,
+     "w": 3.6
+    }
+   ],
+   "cena_on": [
+    "xicara"
+   ],
+   "cena_t": [
+    0,
+    1800
+   ]
+  },
+  {
+   "id": "sono",
+   "nome": "Dormindo",
+   "tipo": "estado",
+   "gatilho_eavely": "Noite / ocioso longo / pausa",
+   "ref": "sleeping",
+   "estado": {
+    "eye": "closed",
+    "tint": "#8fa3c8",
+    "tintA": 0.6,
+    "blush": 0.2,
+    "tilt": 0.04,
+    "breathe": {
+     "w": 1.8,
+     "a": 0.035
+    },
+    "emit": [
+     {
+      "type": "z",
+      "every": 1.3
+     }
+    ],
+    "fps": 4,
+    "boca": {
+     "c": 0.4,
+     "w": 3.2
+    },
+    "itens": [
+     {
+      "t": "touca",
+      "u": 2.6,
+      "pos": [
+       44,
+       17
+      ],
+      "r": -8
+     }
+    ]
+   },
+   "notas": "Cinza-azul, olhos fechados, respira (sy=1+sin(1,8t)*.035, sx espelhado .57), Z a cada 1,3 s, 4 fps; sem polling de cursor.",
+   "sb": [
+    0,
+    600,
+    1200,
+    1800,
+    2400,
+    3000
+   ],
+   "cor": {
+    "hex": "#8fa3c8",
+    "origem": "coucou",
+    "nota": "sleeping (cinza-azul)"
+   },
+   "objeto": "Touca de dormir"
+  },
+  {
+   "id": "clique-tapa",
+   "nome": "Reage ao clique",
+   "tipo": "gesto",
+   "gatilho_eavely": "Clicar no mascote (espera 300 ms p/ distinguir duplo-clique)",
+   "ref": "slap",
+   "dur": 800,
+   "notas": "Squash 370 ms: sy .78->1,1->1 (70/130/170), sx 1,16->.95->1; olho em linha por .8 s; 3 em 1,7 s = tonto; sem som copiado.",
+   "sb": [
+    0,
+    70,
+    200,
+    370,
+    600,
+    790
+   ],
+   "tracks": {
+    "sy": [
+     [
+      0.78,
+      70,
+      "out"
+     ],
+     [
+      1.1,
+      130,
+      "out"
+     ],
+     [
+      1,
+      170,
+      "inOut"
+     ]
+    ],
+    "sx": [
+     [
+      1.16,
+      70,
+      "out"
+     ],
+     [
+      0.95,
+      130,
+      "out"
+     ],
+     [
+      1,
+      170,
+      "inOut"
+     ]
+    ],
+    "blush": [
+     [
+      0.35,
+      100,
+      "out"
+     ],
+     [
+      0.35,
+      400,
+      "lin"
+     ],
+     [
+      0,
+      300,
+      "inOut"
+     ]
+    ]
+   },
+   "eyes": [
+    [
+     0,
+     800,
+     "line"
+    ]
+   ],
+   "events": [
+    {
+     "t": 60,
+     "do": "spawn",
+     "type": "puff",
+     "n": 4
+    }
+   ],
+   "cor": {
+    "hex": null,
+    "origem": null,
+    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+   },
+   "objeto": "Sem objeto",
+   "boca": [
+    0,
+    800,
+    {
+     "c": -0.3,
+     "w": 3.6
+    }
+   ]
+  },
+  {
+   "id": "tonto",
+   "nome": "Tonto",
+   "tipo": "gesto",
+   "gatilho_eavely": "3 cliques rápidos no mascote (em 1,7 s)",
+   "ref": "dizzy",
+   "dur": 1700,
+   "notas": "Roll 2 voltas em 1300 ms inOut; olhos em espiral; rosa; 3 estrelas orbitando a cabeca; balanco final decrescente.",
+   "sb": [
+    0,
+    300,
+    650,
+    1000,
+    1300,
+    1650
+   ],
+   "tracks": {
+    "roll": [
+     [
+      12.566,
+      1300,
+      "inOut"
+     ]
+    ],
+    "tilt": [
+     [
+      0,
+      1300,
+      "lin"
+     ],
+     [
+      0.1,
+      100,
+      "out"
+     ],
+     [
+      -0.07,
+      150,
+      "inOut"
+     ],
+     [
+      0,
+      150,
+      "inOut"
+     ]
+    ],
+    "blush": [
+     [
+      0.5,
+      200,
+      "out"
+     ],
+     [
+      0.5,
+      1300,
+      "lin"
+     ],
+     [
+      0,
+      200,
+      "inOut"
+     ]
+    ],
+    "mc": [
+     [
+      1.4,
+      120,
+      "inOut"
+     ],
+     [
+      -1.4,
+      120,
+      "inOut"
+     ],
+     [
+      1.4,
+      120,
+      "inOut"
+     ],
+     [
+      -1.4,
+      120,
+      "inOut"
+     ],
+     [
+      1.4,
+      120,
+      "inOut"
+     ],
+     [
+      -1.4,
+      120,
+      "inOut"
+     ],
+     [
+      1.4,
+      120,
+      "inOut"
+     ],
+     [
+      -1.4,
+      120,
+      "inOut"
+     ],
+     [
+      1.4,
+      120,
+      "inOut"
+     ],
+     [
+      -1.4,
+      120,
+      "inOut"
+     ],
+     [
+      1.4,
+      120,
+      "inOut"
+     ],
+     [
+      -1.4,
+      120,
+      "inOut"
+     ]
+    ]
+   },
+   "tint": [
+    0,
+    1700,
+    "#ef7fae",
+    0.8
+   ],
+   "eyes": [
+    [
+     0,
+     1700,
+     "spiral"
+    ]
+   ],
+   "orbit": true,
+   "then": "idle-pisca",
+   "cor": {
+    "hex": "#ef7fae",
+    "origem": "coucou",
+    "nota": "dizzy (rosa)"
+   },
+   "objeto": "Sem objeto (estrelas girando)",
+   "boca": [
+    0,
+    1700,
+    {
+     "c": 0,
+     "w": 4.6
+    }
+   ]
+  },
+  {
+   "id": "hover",
+   "nome": "Olha para o cursor",
+   "tipo": "comportamento",
+   "gatilho_eavely": "Mouse em qualquer lugar da tela",
+   "ref": "idle",
+   "notas": "Nao e um gesto: e o alvo do olhar. Vetor do centro do mascote ao cursor global (GetCursorPos), saturado em 150 px; vertical x .75. Olhos deslocam ate 7 u e 4,5 u; cabeca ox .02W e tilt .04 rad. Esquece o mouse 4 s depois de parar. Dormindo: sem polling. Impede de dormir quando perto (< 150 px).",
+   "sb": [
+    0,
+    600,
+    1200,
+    1800,
+    2400,
+    3000
+   ],
+   "cor": {
+    "hex": null,
+    "origem": null,
+    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+   },
+   "objeto": "Sem objeto"
+  },
+  {
+   "id": "busca",
+   "nome": "Procurando",
+   "tipo": "estado",
+   "gatilho_eavely": "Busca de arquivos (futuro)",
+   "ref": "searching",
+   "estado": {
+    "eye": "open",
+    "tint": "#5b5cf0",
+    "tintA": 0.7,
+    "scan": {
+     "p": 1.7,
+     "a": 0.9
+    },
+    "blush": 0,
+    "boca": {
+     "c": 0.2,
+     "w": 3.6
+    },
+    "itens": [
+     {
+      "t": "lupa",
+      "u": 2.8,
+      "hold": {
+       "h": "R",
+       "dx": -16,
+       "dy": -14
+      }
+     }
+    ],
+    "maosK": [
+     {
+      "h": "R",
+      "a": null,
+      "z": null,
+      "x": 82,
+      "y": 72,
+      "r": 25,
+      "swingx": {
+       "hz": 0.5882352941176471,
+       "a": 14
+      }
+     }
+    ]
+   },
+   "notas": "Indigo; olhos varrem de lado a lado (senoide 1,7 s).",
+   "sb": [
+    0,
+    600,
+    1200,
+    1800,
+    2400,
+    3000
+   ],
+   "cor": {
+    "hex": "#5b5cf0",
+    "origem": "coucou",
+    "nota": "searching (indigo)"
+   },
+   "objeto": "Lupa varrendo"
+  }
+ ],
+ "cenario": {
+  "globo": {
+   "t": "globo",
+   "x": 50,
+   "y": -9,
+   "u": 3.0,
+   "z": "b",
+   "d": 0.25,
+   "desce": {
+    "de": -56,
+    "ms": 1400
+   }
+  },
+  "toca": {
+   "t": "toca",
+   "x": 120,
+   "base": 86,
+   "u": 2.6,
+   "z": "b",
+   "d": 0.4,
+   "opts": {
+    "rec": 1,
+    "arm": 1,
+    "lab": "O"
+   }
+  },
+  "parede": {
+   "t": "parede",
+   "x": 166,
+   "base": 90,
+   "u": 2.6,
+   "z": "b",
+   "d": 0.15
+  },
+  "bateria": {
+   "t": "bateria",
+   "x": 118,
+   "base": 89,
+   "u": 3.0,
+   "z": "f",
+   "d": 0
+  },
+  "sino": {
+   "t": "sino",
+   "x": 112,
+   "y": 20,
+   "u": 2.8,
+   "z": "f",
+   "d": 0,
+   "shake": {
+    "amp": 14,
+    "hz": 9
+   }
+  },
+  "cartaz": {
+   "t": "cartaz",
+   "x": 116,
+   "base": 89,
+   "u": 2.6,
+   "z": "f",
+   "d": 0
+  },
+  "chave": {
+   "t": "chave",
+   "x": 116,
+   "base": 89,
+   "u": 2.8,
+   "z": "f",
+   "d": 0,
+   "r": 18
+  },
+  "xicara": {
+   "t": "xicara",
+   "x": 116,
+   "base": 89,
+   "u": 2.8,
+   "z": "f",
+   "d": 0
+  },
+  "trofeu": {
+   "t": "trofeu",
+   "x": 116,
+   "base": 89,
+   "u": 2.8,
+   "z": "f",
+   "d": 0
+  }
+ },
+ "propostas_deslocamento": [
+  "bateria-baixa (entrada): arrasta-se até a bateria e se apoia nela.",
+  "danca (entrada): 2 passinhos até ficar ao lado do toca-discos."
+ ],
+ "objetos": "Objetos desenhados do zero (objSvg em mascote3.js), simples e legiveis a 72 px; mao = luvinha arredondada (MITTEN). Nem toda reacao tem objeto.",
+ "boca": {
+  "estilo": "traco fino 1,8 u, sorriso curvo pequeno (c=0,8; meia-largura 4,6) medido na ref",
+  "parametros": "c = curvatura (+ sorriso, - triste), w = meia largura, o = abertura; seguem alvo kM=1-0,00002^dt",
+  "ref": "mascote-ref/v3/final/ref-olhos-boca-edu.png"
+ },
+ "nome_oficial": "Eavy",
+ "modelo": {
+  "id": "areia",
+  "nome": "Eavy",
+  "skin": {
+   "id": "areia-final",
+   "corpo": "M26 22H74C90 22 96 30 96 48V60C96 78 90 86 74 86H26C10 86 4 78 4 60V48C4 30 10 22 26 22Z",
+   "paleta": {
+    "corpo": "#f5f1e9",
+    "sombra": "#d8d1c3",
+    "acento": "#bfb6a3"
+   },
+   "olhos": {
+    "estilo": "capsula",
+    "cor": "#14121a",
+    "x": [
+     34.6,
+     65.4
+    ],
+    "y": 54
+   },
+   "boca": true,
+   "bocaY": 72,
+   "bocaF": 4.5,
+   "bocaW": 1.8,
+   "bocaDW": 4.6,
+   "viewBox": "-30 -38 220 160",
+   "chao": true,
+   "rubor": 0,
+   "detalhe": "ranhura",
+   "tint_corpo": 1.0,
+   "mouth": "#3a3030"
+  },
+  "escolha": "Eavy = corpo Areia (forma e ranhuras), esbranquicado; olhos em cápsula vertical e boca fina da ref do Edu; maos e objetos por reacao; cores de estado do Mochi."
+ }
+}

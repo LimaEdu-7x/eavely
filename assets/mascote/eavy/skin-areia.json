@@ -1,0 +1,29 @@
+{
+ "id": "areia-final",
+ "corpo": "M26 22H74C90 22 96 30 96 48V60C96 78 90 86 74 86H26C10 86 4 78 4 60V48C4 30 10 22 26 22Z",
+ "paleta": {
+  "corpo": "#f5f1e9",
+  "sombra": "#d8d1c3",
+  "acento": "#bfb6a3"
+ },
+ "olhos": {
+  "estilo": "capsula",
+  "cor": "#14121a",
+  "x": [
+   34.6,
+   65.4
+  ],
+  "y": 54
+ },
+ "boca": true,
+ "bocaY": 72,
+ "bocaF": 4.5,
+ "bocaW": 1.8,
+ "bocaDW": 4.6,
+ "viewBox": "-30 -38 220 160",
+ "chao": true,
+ "rubor": 0,
+ "detalhe": "ranhura",
+ "tint_corpo": 1.0,
+ "mouth": "#3a3030"
+}

@@ -329,6 +329,8 @@ impl App {
         let m = self.mon(); let mut p = POINT::default(); unsafe { let _ = GetCursorPos(&mut p); }
         (210.0 + (p.x - (m.x + m.w / 2)) as f32 / m.s / crate::layout::k(), (p.y - m.y) as f32 / m.s / crate::layout::k())
     }
+    /// deslocamento do cursor (px de tela) em relacao a um ponto (unidades de projeto) da ilha; vale para a tela toda
+    pub fn cursor_px_from(&self, ux: f32, uy: f32) -> (f32, f32) { let (cx, cy) = self.cursor_local(); let k = crate::layout::k() * self.mon().s; ((cx - ux) * k, (cy - uy) * k) }
     fn mon(&self) -> Mon { self.mons[self.active.min(self.mons.len() - 1)] }
     pub fn now() -> Instant { Instant::now() }
 
@@ -504,9 +506,10 @@ impl App {
         let mascot = self.state == St::Open && self.page == crate::pages::P_MASCOT;
         let peek = self.state == St::Peek && crate::settings::get().collapsed_look == "mascot";
         let busy = (mascot || peek) && self.p.mascot.busy(now, mascot && self.class & 3 == 2);
-        let breath = mascot && !overlay_simple();
-        LOW_FPS.store(breath && !busy && !other, Relaxed);
-        other || busy || breath
+        // Eavy: 30 fps acordado (o laco limita), 4 fps dormindo/animacoes reduzidas (timer), 0 com a ilha oculta
+        let awake = busy && !overlay_simple();
+        LOW_FPS.store(awake && !other, Relaxed);
+        other || awake
     }
     fn animating_base(&self, now: Instant) -> bool {
         self.dirty || (self.state == St::Over && (self.p.ov_v.as_ref().is_some_and(|t| t.busy(now)) || self.p.ov_ic.as_ref().is_some_and(|t| t.busy(now)))) || (self.page == crate::pages::P_SHELF && (self.p.shelf_busy() || (self.drag_over && crate::settings::flag(crate::settings::F_SHELF_GLOW)))) || (self.state == St::Open && self.page == crate::pages::P_MASCOT && self.p.shelf_busy()) || !self.ty.settled() || self.p.blink_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.tw.busy(now) || self.th.busy(now) || self.tr.busy(now) || self.page_t.busy(now) || self.dock_t.busy(now) || self.split_t.busy(now) || self.p.lyr_t.is_some_and(|t| t.elapsed().as_millis() < 260) || self.p.scroll.is_some_and(|s| s.busy(now)) || self.p.pc_chg.is_some_and(|t| self.state == St::Peek && t.elapsed().as_millis() < 340) || self.p.spin.as_ref().is_some_and(|s| s.t.elapsed().as_millis() < 640)

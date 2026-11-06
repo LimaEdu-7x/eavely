@@ -16,6 +16,8 @@ pub struct ShelfItem { pub id: String, pub name: String, pub path: String, pub i
 pub static DRAGGING: AtomicBool = AtomicBool::new(false);
 /// Incrementa a cada mudanca da lista (a UI nativa recarrega quando difere).
 pub static GEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+/// arquivos adicionados a Shelf (o Eavy engole um por vez)
+pub static ADDS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 fn bump() { GEN.fetch_add(1, Relaxed); crate::island::wake(); }
 static ITEMS: Mutex<Option<Vec<ShelfItem>>> = Mutex::new(None);
 
@@ -48,7 +50,7 @@ fn save(v: &[ShelfItem]) { crate::store::write_atomic(&file(), serde_json::to_st
 /// Adiciona sem AppHandle (UI nativa: drop no OLE).
 pub fn add_native(paths: Vec<PathBuf>) {
     let new: Vec<ShelfItem> = paths.iter().filter_map(|p| item_for(p)).collect();
-    if with_items(|v| merge(v, new).then(|| save(v)).is_some()) { bump(); }
+    if with_items(|v| merge(v, new).then(|| save(v)).is_some()) { ADDS.fetch_add(1, Relaxed); bump(); }
 }
 pub fn clear_native() { with_items(|v| { v.clear(); save(v); }); bump(); }
 pub fn remove_native(id: &str) { if with_items(|v| { let n = v.len(); v.retain(|i| i.id != id); (v.len() != n).then(|| save(v)).is_some() }) { bump(); } }

@@ -409,17 +409,16 @@ fn draw_open(a: &mut App, now: Instant, w: f32, h: f32, t: f32, hits: &mut Vec<(
     chrome(a, now, w, h, dx, split_f, t, hits);
 }
 
-/// contexto do mascote: musica, arrasto, noite (23h-6h), bateria baixa (notebook fora da tomada e <= 20 %)
-fn mascot_ctx<'a>(a: &App, mouse: Option<(f32, f32)>, personality: &'a str, calm: bool) -> crate::mascot::Ctx<'a> {
-    let h = unsafe { GetLocalTime() }.wHour; let low = has_battery() && { let (pc, ch) = rest_battery(); !ch && pc <= 20 };
-    crate::mascot::Ctx { playing: is_playing(), dragging: a.drag_over, mouse, personality, calm_fx: calm, night: h >= 23 || h < 6, low_batt: low }
+/// contexto do Eavy: o que o app sabe agora (musica, faixa, carregador, timer, arquivos na Shelf, cursor global em px relativo ao centro do mascote)
+fn mascot_ctx(a: &App, center: (f32, f32), gaze: bool) -> crate::mascot::Ctx {
+    let v = crate::media::view(); let tm = timer::timer_get().map(|t| match t.status { timer::Status::Running => 1, timer::Status::Paused => 2, timer::Status::Done => 3, _ => 0 }).unwrap_or(0);
+    crate::mascot::Ctx { playing: v.status == "playing", track: format!("{}\u{1}{}", v.title, v.artist), charging: if has_battery() { Some(rest_battery().1) } else { None }, timer: tm,
+        shelf_adds: crate::shelf::ADDS.load(std::sync::atomic::Ordering::Relaxed), pointer: if gaze { Some(a.cursor_px_from(center.0, center.1)) } else { None }, calm: !crate::island::overlay_simple() }
 }
-/// Compacto (peek) com mascote: rosto espiando (k >= 1) ou so olhos (< 150 px reais). Usa o MESMO estado/humor da pagina; so pede quadros ao piscar/morfar.
+/// Compacto (peek) com o Eavy: so o corpo/rosto (sem cenario); corpo de 26 u de projeto (21/26/31 px reais conforme o preset)
 fn draw_peek_mascot(a: &mut App, w: f32, h: f32, now: Instant) {
-    let cfg = crate::settings::get(); let calm = !crate::island::overlay_simple();
-    let ctx = mascot_ctx(a, None, &cfg.personality, calm);
-    let (pose, gaze) = a.p.mascot.step(&ctx, now);
-    crate::mascot::draw_peek(a, &pose, gaze, w, h, crate::layout::k() < 0.999);
+    let cfg = crate::settings::get(); let ctx = mascot_ctx(a, (210.0, h / 2.0), cfg.mascot_gaze);
+    a.p.mascot.step(&ctx, now); let l = 26.0; a.p.mascot.e.draw(&a.gfx, w / 2.0, h / 2.0 + l * 0.35, l, true);
     if let Some(ms) = a.p.mascot.wake_ms(now) { unsafe { SetTimer(Some(a.hwnd), crate::island::T_MASCOT, ms.max(15), None); } }
 }
 /// Pagina Mascote (v0.2.0): rosto a esquerda (150 px, reage ao mouse e a cliques), 2 slots configuraveis a direita (padrao: Arquivos em cima, Player mini embaixo)
@@ -430,20 +429,12 @@ fn mascot_page(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
         let s = crate::pages2::ellip(a, &txt, Fmt::Small, 176.0); let tw = a.gfx.measure(&s, Fmt::Small); let bw = tw + 14.0; let bx = (cx - bw / 2.0).clamp(208.0, 394.0 - bw);
         a.gfx.rrect(bx, ty, bw, 17.0, 8.5, rgba(0x000000, 0.94)); a.gfx.rrect_stroke(bx + 0.5, ty + 0.5, bw - 1.0, 16.0, 8.0, 1.0, rgba(0xFFFFFF, 0.16)); a.gfx.text(&s, Fmt::Small, bx + 7.0, ty + 1.5, tw + 4.0, 14.0, TEXT, false);
     }
-    let over = a.class & 3 == 2;
-    let mouse = if over { let (cx, cy) = a.cursor_local(); Some((cx - 104.0, cy - 68.0)) } else { None };
-    let calm = !crate::island::overlay_simple();
-    let mouse = if cfg.mascot_gaze { mouse } else { None };
-    let ctx = mascot_ctx(a, mouse, &cfg.personality, calm);
-    let (pose, gaze) = a.p.mascot.step(&ctx, now);
-    let t = (a.p.mascot.age_ms(now) as f32) / 1000.0;
-    let breath = if calm { 1.0 + 0.0125 * (1.0 - (std::f32::consts::TAU * t / 3.2).cos()) } else { 1.0 }; // respiracao 3,2 s (some em Economia)
-    let amp = crate::mascot::rig().personalities.get(cfg.personality.as_str()).map_or(0.5, |p| p.amplitude);
-    let shake = if a.p.mascot.raging() && calm { amp * 2.0 * (std::f32::consts::TAU * 18.0 * t).sin() } else { 0.0 };
-    let fw = cfg.mascot_w().min(160.0); let (fx, fy) = (104.0 - fw / 2.0, 68.0 - fw * 0.3); // rosto centrado na metade esquerda (centro 104, 68)
-    crate::mascot::draw(a, &pose, gaze, fx, fy, fw, breath, shake, t);
-    hits.push((r(fx + off, fy, fw, fw * 0.62), Act::Mascot));
-    if let Some(ms) = a.p.mascot.wake_ms(now) { unsafe { SetTimer(Some(a.hwnd), crate::island::T_MASCOT, ms.max(15), None); } } // piscar/reavaliar: um timer so
+    let (cx, cy) = (104.0, 68.0);
+    let ctx = mascot_ctx(a, (cx, cy), cfg.mascot_gaze); a.p.mascot.step(&ctx, now);
+    let l = 72.0 * cfg.mascot_w() / 150.0; // corpo de 72 u (x k = 58/72/86 px); o tamanho do mascote escala sobre isso
+    a.p.mascot.e.draw(&a.gfx, cx, cy + l * 0.35 + 8.0, l, false);
+    hits.push((r(cx - l * 0.55 + off, cy - l * 0.4, l * 1.1, l * 0.9), Act::Mascot));
+    if let Some(ms) = a.p.mascot.wake_ms(now) { unsafe { SetTimer(Some(a.hwnd), crate::island::T_MASCOT, ms.max(15), None); } } // dormindo: 4 fps por um timer so
 }
 
 fn page_layer(a: &mut App, now: Instant, page: usize, dx: f32, alpha: f32, off: f32, split_f: f32, t: f32, w: f32, hits: &mut Vec<(R, Act)>) {

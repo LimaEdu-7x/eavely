@@ -10,6 +10,8 @@ use windows::{
 };
 
 pub type Rgba = (f32, f32, f32, f32);
+/// segmentos de caminho (mascote): M mover, L reta, Q quadratica, C cubica, Z fecha
+#[derive(Clone, Copy, Debug)] pub enum Seg { M(f32, f32), L(f32, f32), Q(f32, f32, f32, f32), C(f32, f32, f32, f32, f32, f32), Z }
 pub const fn rgba(hex: u32, a: f32) -> Rgba { (((hex >> 16) & 255) as f32 / 255.0, ((hex >> 8) & 255) as f32 / 255.0, (hex & 255) as f32 / 255.0, a) }
 fn col(c: Rgba) -> D2D1_COLOR_F { D2D1_COLOR_F { r: c.0, g: c.1, b: c.2, a: c.3 } }
 fn rc(x: f32, y: f32, w: f32, h: f32) -> D2D_RECT_F { D2D_RECT_F { left: x, top: y, right: x + w, bottom: y + h } }
@@ -159,6 +161,38 @@ impl Gfx {
     pub fn get_matrix(&self) -> Matrix3x2 { let mut m = Matrix3x2::default(); unsafe { self.dc.GetTransform(&mut m); } m }
     fn br(&self, c: Rgba) -> &ID2D1SolidColorBrush { unsafe { self.brush.SetColor(&col(c)); &self.brush } }
 
+    fn geo(&self, segs: &[Seg]) -> Option<ID2D1PathGeometry> { unsafe {
+        let g = self.d2d.CreatePathGeometry().ok()?; let sink = g.Open().ok()?; let mut open = false; let g: ID2D1PathGeometry = g.cast().ok()?;
+        let v = |x: f32, y: f32| Vector2 { X: x, Y: y };
+        for s in segs { match *s {
+            Seg::M(x, y) => { if open { sink.EndFigure(D2D1_FIGURE_END_OPEN); } sink.BeginFigure(v(x, y), D2D1_FIGURE_BEGIN_FILLED); open = true; }
+            Seg::L(x, y) => sink.AddLine(v(x, y)),
+            Seg::Q(a, b, x, y) => sink.AddQuadraticBezier(&D2D1_QUADRATIC_BEZIER_SEGMENT { point1: v(a, b), point2: v(x, y) }),
+            Seg::C(a, b, c, d, x, y) => sink.AddBezier(&D2D1_BEZIER_SEGMENT { point1: v(a, b), point2: v(c, d), point3: v(x, y) }),
+            Seg::Z => { if open { sink.EndFigure(D2D1_FIGURE_END_CLOSED); open = false; } } } }
+        if open { sink.EndFigure(D2D1_FIGURE_END_OPEN); }
+        sink.Close().ok()?; g.cast::<ID2D1PathGeometry>().ok()
+    } }
+    /// Caminho generico: preenchimento e/ou contorno (pontas e juncoes redondas).
+    pub fn path(&self, segs: &[Seg], fill: Option<Rgba>, stroke: Option<(f32, Rgba)>) { unsafe {
+        let Some(g) = self.geo(segs) else { return };
+        if let Some(f) = fill { if f.3 > 0.003 { self.dc.FillGeometry(&g, self.br(f), None::<&ID2D1Brush>); } }
+        if let Some((w, c)) = stroke { if c.3 > 0.003 {
+            let ss = D2D1_STROKE_STYLE_PROPERTIES1 { startCap: D2D1_CAP_STYLE_ROUND, endCap: D2D1_CAP_STYLE_ROUND, lineJoin: D2D1_LINE_JOIN_ROUND, ..Default::default() };
+            let st = self.d2d.CreateStrokeStyle(&ss, None).ok().and_then(|s| s.cast::<ID2D1StrokeStyle>().ok());
+            self.dc.DrawGeometry(&g, self.br(c), w, st.as_ref()); } }
+    } }
+    /// Caminho preenchido com gradiente vertical (y0 -> top, y1 -> bot).
+    pub fn path_vgrad(&self, segs: &[Seg], y0: f32, y1: f32, top: Rgba, bot: Rgba) { unsafe {
+        let Some(g) = self.geo(segs) else { return };
+        let stops = [D2D1_GRADIENT_STOP { position: 0.0, color: col(top) }, D2D1_GRADIENT_STOP { position: 1.0, color: col(bot) }];
+        let Ok(coll) = self.dc.CreateGradientStopCollection(&stops, D2D1_COLOR_SPACE_SRGB, D2D1_COLOR_SPACE_SRGB, D2D1_BUFFER_PRECISION_8BPC_UNORM, D2D1_EXTEND_MODE_CLAMP, D2D1_COLOR_INTERPOLATION_MODE_PREMULTIPLIED) else { return };
+        let props = D2D1_LINEAR_GRADIENT_BRUSH_PROPERTIES { startPoint: Vector2 { X: 0.0, Y: y0 }, endPoint: Vector2 { X: 0.0, Y: y1 } };
+        let Ok(b) = self.dc.CreateLinearGradientBrush(&props, None, &coll) else { return };
+        self.dc.FillGeometry(&g, &b, None::<&ID2D1Brush>);
+    } }
+    /// liga/desliga o antialiasing das primitivas (sprites pixel art ficam nitidos sem frestas)
+    pub fn aa(&self, on: bool) { unsafe { self.dc.SetAntialiasMode(if on { D2D1_ANTIALIAS_MODE_PER_PRIMITIVE } else { D2D1_ANTIALIAS_MODE_ALIASED }); } }
     pub fn clip(&self, x: f32, y: f32, w: f32, h: f32) { unsafe { self.dc.PushAxisAlignedClip(&rc(x, y, w, h), D2D1_ANTIALIAS_MODE_ALIASED); } }
     pub fn unclip(&self) { unsafe { self.dc.PopAxisAlignedClip(); } }
     /// Grupo com opacidade (fade de conteudo).
