@@ -278,7 +278,7 @@ pub fn click(a: &mut App, act: Act) {
 fn focus_window(a: &App) { unsafe { let _ = windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow(a.hwnd); let _ = windows::Win32::UI::Input::KeyboardAndMouse::SetFocus(Some(a.hwnd)); } }
 pub fn key(a: &mut App, vk: u32, ch: Option<char>) -> bool {
     if a.p.task_input.is_none() { // Delete exclui a linha focada (a ultima clicada)
-        if vk == 0x2E && a.page == 3 { if let Some(id) = a.p.task_focus.take() { remove(id); a.dirty = true; return true; } }
+        if vk == 0x2E && a.page == crate::pages::P_TASKS { if let Some(id) = a.p.task_focus.take() { remove(id); a.dirty = true; return true; } }
         return false;
     }
     let Some(buf) = a.p.task_input.as_mut() else { return false };

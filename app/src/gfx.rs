@@ -23,7 +23,7 @@ pub struct Gfx {
     dcomp: IDCompositionDevice, _target: IDCompositionTarget, _visual: IDCompositionVisual,
     d2d: ID2D1Factory1, dw: IDWriteFactory, brush: ID2D1SolidColorBrush, fmts: HashMap<Fmt, IDWriteTextFormat>,
     svgs: HashMap<(&'static str, u32), ID2D1SvgDocument>, covers: HashMap<u64, ID2D1Bitmap1>, thumbs: HashMap<u64, ID2D1Bitmap1>,
-    pub size: (u32, u32), pub scale: f32, pub font: &'static str,
+    pub size: (u32, u32), pub scale: f32, pub font: &'static str, pub font_k: f32, // k do preset de tamanho: pisos de tipografia (so a ilha; a janela de Configuracoes fica em 1.0)
 }
 
 macro_rules! ic { ($n:literal) => { include_str!(concat!("../../assets/icons/", $n, ".svg")) }; }
@@ -38,11 +38,28 @@ fn icon_src(name: &str) -> &'static str {
         "power" => ic!("power"), "log-out" => ic!("log-out"), "calendar" => ic!("calendar"), "circle-plus" => ic!("circle-plus"), "pencil" => ic!("pencil"),
         "plus" => ic!("plus"), "circle-check" => ic!("circle-check"), "check" => ic!("check"), "sun" => ic!("sun"), "battery-low" => ic!("battery-low"), "wifi" => ic!("wifi"), "wifi-off" => ic!("wifi-off"), "headphones" => ic!("headphones"), "arrow-big-up" => ic!("arrow-big-up"),
         "eye" => ic!("eye"), "bell" => ic!("bell"), "chevron-down" => ic!("chevron-down"), "info" => ic!("info"), "keyboard" => ic!("keyboard"), "minus" => ic!("minus"), "zap" => ic!("zap"),
-        "wifi-high" => ic!("wifi-high"), "wifi-low" => ic!("wifi-low"), "wifi-zero" => ic!("wifi-zero"), "ethernet-port" => ic!("ethernet-port"),
+        "smile" => ic!("smile"), "clock" => ic!("clock"), "cpu" => ic!("cpu"), "wifi-high" => ic!("wifi-high"), "wifi-low" => ic!("wifi-low"), "wifi-zero" => ic!("wifi-zero"), "ethernet-port" => ic!("ethernet-port"),
         _ => ic!("circle"),
     }
 }
 
+/// formatos de texto da ilha para o fator k: tamanho em unidades de projeto = max(base, piso/k) (tipografia propria nos presets pequenos)
+fn build_fmts(dw: &IDWriteFactory, font: &str, k: f32) -> Result<HashMap<Fmt, IDWriteTextFormat>> { unsafe {
+    use crate::layout::{design_px, FLOOR_SECOND, FLOOR_TITLE};
+    let mk = |size: f32, weight: DWRITE_FONT_WEIGHT| -> Result<IDWriteTextFormat> {
+        let f = dw.CreateTextFormat(&windows::core::HSTRING::from(font), None, weight, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, size, w!("pt-BR"))?;
+        f.SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP)?;
+        let sign = dw.CreateEllipsisTrimmingSign(&f)?;
+        f.SetTrimming(&DWRITE_TRIMMING { granularity: DWRITE_TRIMMING_GRANULARITY_CHARACTER, delimiter: 0, delimiterCount: 0 }, &sign)?;
+        Ok(f)
+    };
+    let mut fmts = HashMap::new();
+    for (f, sz, wt, floor) in [(Fmt::Title, 14.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE), (Fmt::Body, 12.0, DWRITE_FONT_WEIGHT_NORMAL, FLOOR_SECOND), (Fmt::BodyStrong, 12.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE),
+        (Fmt::Small, 11.0, DWRITE_FONT_WEIGHT_NORMAL, FLOOR_SECOND), (Fmt::Clock, 16.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE), (Fmt::ClockLive, 14.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE),
+        (Fmt::Big, 30.0, DWRITE_FONT_WEIGHT_BOLD, FLOOR_TITLE), (Fmt::Head, 18.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE), (Fmt::Row, 13.0, DWRITE_FONT_WEIGHT_NORMAL, FLOOR_SECOND), (Fmt::RowStrong, 13.0, DWRITE_FONT_WEIGHT_MEDIUM, FLOOR_SECOND),
+        (Fmt::Tiny, 11.5, DWRITE_FONT_WEIGHT_MEDIUM, FLOOR_SECOND)] { fmts.insert(f, mk(design_px(sz, floor, k), wt)?); }
+    Ok(fmts)
+} }
 impl Drop for Gfx { fn drop(&mut self) { unsafe { if !self.wait.is_invalid() { let _ = windows::Win32::Foundation::CloseHandle(self.wait); } } } } // HANDLE do swap chain (1 por ciclo da ilha)
 
 impl Gfx {
@@ -79,15 +96,14 @@ impl Gfx {
             f.SetTrimming(&DWRITE_TRIMMING { granularity: DWRITE_TRIMMING_GRANULARITY_CHARACTER, delimiter: 0, delimiterCount: 0 }, &sign)?;
             Ok(f)
         };
-        let mut fmts = HashMap::new();
-        for (k, sz, wt) in [(Fmt::Title, 14.0, DWRITE_FONT_WEIGHT_SEMI_BOLD), (Fmt::Body, 12.0, DWRITE_FONT_WEIGHT_NORMAL), (Fmt::BodyStrong, 12.0, DWRITE_FONT_WEIGHT_SEMI_BOLD),
-            (Fmt::Small, 11.0, DWRITE_FONT_WEIGHT_NORMAL), (Fmt::Clock, 16.0, DWRITE_FONT_WEIGHT_SEMI_BOLD), (Fmt::ClockLive, 14.0, DWRITE_FONT_WEIGHT_SEMI_BOLD),
-            (Fmt::Big, 30.0, DWRITE_FONT_WEIGHT_BOLD), (Fmt::Head, 18.0, DWRITE_FONT_WEIGHT_SEMI_BOLD), (Fmt::Row, 13.0, DWRITE_FONT_WEIGHT_NORMAL), (Fmt::RowStrong, 13.0, DWRITE_FONT_WEIGHT_MEDIUM), (Fmt::Tiny, 11.5, DWRITE_FONT_WEIGHT_MEDIUM)] { fmts.insert(k, mk(sz, wt)?); }
+        let fmts = build_fmts(&dw, font, 1.0)?;
         let dc5 = dc.cast::<ID2D1DeviceContext5>().ok();
         crate::log(&format!("gfx: fonte={font} svg={}", dc5.is_some()));
-        Ok(Gfx { dc, dc5, swap, wait, dcomp, _target: target, _visual: visual, d2d, dw: dw.clone(), brush, fmts, svgs: HashMap::new(), covers: HashMap::new(), thumbs: HashMap::new(), size: (w, h), scale, font })
+        Ok(Gfx { dc, dc5, swap, wait, dcomp, _target: target, _visual: visual, d2d, dw: dw.clone(), brush, fmts, svgs: HashMap::new(), covers: HashMap::new(), thumbs: HashMap::new(), size: (w, h), scale, font, font_k: 1.0 })
     } }
 
+    /// aplica o fator k do preset: refaz os formatos com os pisos (a ilha chama ao criar o renderer e ao trocar o tamanho)
+    pub fn set_font_k(&mut self, k: f32) { if (k - self.font_k).abs() < 1e-4 { return; } if let Ok(f) = build_fmts(&self.dw, self.font, k) { self.fmts = f; self.font_k = k; } }
     pub fn resize(&mut self, w: u32, h: u32, scale: f32) { unsafe {
         self.scale = scale;
         if (w, h) == self.size { return; }
@@ -140,6 +156,7 @@ impl Gfx {
         old
     } }
     pub fn set_matrix(&self, m: Matrix3x2) { unsafe { self.dc.SetTransform(&m); } }
+    pub fn get_matrix(&self) -> Matrix3x2 { let mut m = Matrix3x2::default(); unsafe { self.dc.GetTransform(&mut m); } m }
     fn br(&self, c: Rgba) -> &ID2D1SolidColorBrush { unsafe { self.brush.SetColor(&col(c)); &self.brush } }
 
     pub fn clip(&self, x: f32, y: f32, w: f32, h: f32) { unsafe { self.dc.PushAxisAlignedClip(&rc(x, y, w, h), D2D1_ANTIALIAS_MODE_ALIASED); } }
@@ -182,6 +199,45 @@ impl Gfx {
         let ss = D2D1_STROKE_STYLE_PROPERTIES1 { startCap: D2D1_CAP_STYLE_ROUND, endCap: D2D1_CAP_STYLE_ROUND, ..Default::default() };
         let st = self.d2d.CreateStrokeStyle(&ss, None).ok().and_then(|s| s.cast::<ID2D1StrokeStyle>().ok());
         self.dc.DrawGeometry(&g, self.br(c), sw, st.as_ref());
+    } }
+    /// Curva de Bezier cubica (p = x0,y0,x1,y1,x2,y2,x3,y3) com traco `w` de pontas redondas (rig do mascote).
+    pub fn bezier(&self, p: [f32; 8], w: f32, c: Rgba) { unsafe {
+        if c.3 <= 0.003 { return; }
+        let Ok(g) = self.d2d.CreatePathGeometry() else { return };
+        let Ok(sink) = g.Open() else { return };
+        sink.BeginFigure(Vector2 { X: p[0], Y: p[1] }, D2D1_FIGURE_BEGIN_HOLLOW);
+        sink.AddBezier(&D2D1_BEZIER_SEGMENT { point1: Vector2 { X: p[2], Y: p[3] }, point2: Vector2 { X: p[4], Y: p[5] }, point3: Vector2 { X: p[6], Y: p[7] } });
+        sink.EndFigure(D2D1_FIGURE_END_OPEN); let _ = sink.Close();
+        let ss = D2D1_STROKE_STYLE_PROPERTIES1 { startCap: D2D1_CAP_STYLE_ROUND, endCap: D2D1_CAP_STYLE_ROUND, lineJoin: D2D1_LINE_JOIN_ROUND, ..Default::default() };
+        let st = self.d2d.CreateStrokeStyle(&ss, None).ok().and_then(|s| s.cast::<ID2D1StrokeStyle>().ok());
+        self.dc.DrawGeometry(&g, self.br(c), w, st.as_ref());
+    } }
+    /// Boca do rig: figura fechada up (p0->p3) + low (p3->p0), com preenchimento opcional e contorno `w`.
+    pub fn mouth(&self, up: [f32; 8], low: [f32; 8], w: f32, stroke: Rgba, fill: Option<Rgba>) { unsafe {
+        let Ok(g) = self.d2d.CreatePathGeometry() else { return };
+        let Ok(sink) = g.Open() else { return };
+        sink.BeginFigure(Vector2 { X: up[0], Y: up[1] }, D2D1_FIGURE_BEGIN_FILLED);
+        sink.AddBezier(&D2D1_BEZIER_SEGMENT { point1: Vector2 { X: up[2], Y: up[3] }, point2: Vector2 { X: up[4], Y: up[5] }, point3: Vector2 { X: up[6], Y: up[7] } });
+        sink.AddBezier(&D2D1_BEZIER_SEGMENT { point1: Vector2 { X: low[2], Y: low[3] }, point2: Vector2 { X: low[4], Y: low[5] }, point3: Vector2 { X: low[6], Y: low[7] } });
+        sink.EndFigure(D2D1_FIGURE_END_CLOSED); let _ = sink.Close();
+        if let Some(f) = fill { if f.3 > 0.003 { self.dc.FillGeometry(&g, self.br(f), None::<&ID2D1Brush>); } }
+        if stroke.3 > 0.003 {
+            let ss = D2D1_STROKE_STYLE_PROPERTIES1 { startCap: D2D1_CAP_STYLE_ROUND, endCap: D2D1_CAP_STYLE_ROUND, lineJoin: D2D1_LINE_JOIN_ROUND, ..Default::default() };
+            let st = self.d2d.CreateStrokeStyle(&ss, None).ok().and_then(|s| s.cast::<ID2D1StrokeStyle>().ok());
+            self.dc.DrawGeometry(&g, self.br(stroke), w, st.as_ref());
+        }
+    } }
+    /// Coracao do rig (olho do "apaixonado"), centrado em (cx, cy), escala `s`.
+    pub fn heart(&self, cx: f32, cy: f32, s: f32, c: Rgba) { unsafe {
+        let Ok(g) = self.d2d.CreatePathGeometry() else { return };
+        let Ok(sink) = g.Open() else { return };
+        let p = |x: f32, y: f32| Vector2 { X: cx + x * s, Y: cy + y * s };
+        let bz = |a: (f32, f32), b: (f32, f32), d: (f32, f32)| D2D1_BEZIER_SEGMENT { point1: p(a.0, a.1), point2: p(b.0, b.1), point3: p(d.0, d.1) };
+        sink.BeginFigure(p(0.0, 14.0), D2D1_FIGURE_BEGIN_FILLED);
+        sink.AddBezier(&bz((-20.0, 0.0), (-15.0, -15.0), (-7.0, -14.0))); sink.AddBezier(&bz((-3.0, -13.5), (0.0, -10.0), (0.0, -8.0)));
+        sink.AddBezier(&bz((0.0, -10.0), (3.0, -13.5), (7.0, -14.0))); sink.AddBezier(&bz((15.0, -15.0), (20.0, 0.0), (0.0, 14.0)));
+        sink.EndFigure(D2D1_FIGURE_END_CLOSED); let _ = sink.Close();
+        self.dc.FillGeometry(&g, self.br(c), None::<&ID2D1Brush>);
     } }
     /// Gradiente vertical (transparente em `start` -> `c` no fundo) sobre o retangulo (cantos de baixo seguem o clip externo).
     pub fn vgrad(&self, x: f32, y: f32, w: f32, h: f32, c: Rgba, start: f32, alpha: f32) { unsafe {
@@ -279,6 +335,7 @@ impl Gfx {
     /// Icone SVG (Lucide) 24x24 desenhado em `size` px logicos. `solid` = tambem preenche (play/pause/skip).
     /// Usa a transformacao atual (translate + escala) como base.
     pub fn icon(&mut self, name: &'static str, x: f32, y: f32, size: f32, c: Rgba, solid: bool) { unsafe {
+        let (x, y, size) = if self.font_k < 1.0 { let n = crate::layout::design_px(size, crate::layout::FLOOR_ICON, self.font_k); (x - (n - size) / 2.0, y - (n - size) / 2.0, n) } else { (x, y, size) }; // piso de 12 px reais, mantendo o centro
         let key = (name, ((c.0 * 255.0) as u32) << 16 | ((c.1 * 255.0) as u32) << 8 | (c.2 * 255.0) as u32 | ((solid as u32) << 24));
         if !self.svgs.contains_key(&key) {
             let Some(dc5) = &self.dc5 else { return };

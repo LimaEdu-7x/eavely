@@ -10,7 +10,7 @@
 
 ![MIT license](https://img.shields.io/badge/license-MIT-green)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white)
-![Size](https://img.shields.io/badge/size-~1.1%20MB-blue)
+![Size](https://img.shields.io/badge/size-~1.2%20MB-blue)
 
 [Português](README.md)
 
@@ -28,11 +28,18 @@
 - ✅ **Tasks** with time, calendar and editing.
 - 🔔 **System overlays**: volume, battery, Wi-Fi, brightness (laptops only), headphones, Caps Lock (all off by default).
 - 🖥️ **PC compact**: clock plus rotating CPU, RAM, GPU and network.
-- 👀 **Eyes / pet** while idle.
+- 🙂 **Mascot** (new first tab): an expressive face that follows your mouse, blinks and reacts (music, dragging a file, clicks, night, low battery), with two configurable slots next to it (Files, mini Player, Tasks, Timer, Clock, PC metrics). It can also appear in the collapsed notch. Default personality: *Calm*.
+- 📐 **Notch size**: Small / Standard / Large, applied instantly (*Settings → Mascot and start*).
+- 👀 **Eyes** while idle (collapsed look: Battery and clock, Eyes or Mascot).
 - 💤 **~0% CPU when idle (0.000 s CPU in 30 s, measured on v0.1.9)**, hides itself in fullscreen.
 - ⚡ **Tunable performance** page: presets (Max smoothness / Balanced / Economy), frame rate Auto/60/30, animations, lyrics scroll (smooth or per line), effects.
 - 🧱 **100% native, no WebView** (Rust + Direct2D/DirectComposition/DirectWrite).
 - 🔒 **Local data**, no account, no telemetry.
+
+<p align="center">
+<img src="docs/img/mascote.png" alt="Mascot page: face, Files slot and mini player" width="440"><br>
+<img src="docs/img/mascote-humores.png" alt="Mascot moods: curious, annoyed, sleepy, crying" width="640">
+</p>
 
 <p align="center">
 <img src="docs/img/avisos-e-compacto.png" alt="Overlays, eyes and PC compact" width="640">
@@ -40,7 +47,7 @@
 
 ## Install
 
-1. Download from **[Releases](https://github.com/LimaEdu-7x/eavely/releases/latest)**: **`Eavely-Setup.exe`** (NSIS installer, per-user) or portable **`Eavely.exe`**. `Eavely.exe` is ~1.1 MB (1,098,752 bytes), `Eavely-Setup.exe` ~680 KB (696,580 bytes).
+1. Download from **[Releases](https://github.com/LimaEdu-7x/eavely/releases/latest)**: **`Eavely-Setup.exe`** (NSIS installer, per-user) or portable **`Eavely.exe`**. `Eavely.exe` is ~1.2 MB (1,223,168 bytes), `Eavely-Setup.exe` ~729 KB (746,297 bytes).
 2. Run it. A tray icon gives you Settings and Quit.
 
 **Unsigned binary warning.** Eavely has no code signing yet, so Windows may warn you:
@@ -66,7 +73,7 @@ Configurable in Settings. Registered through Windows; no background keyboard hoo
 
 ## Performance
 
-RAM is reported as **private memory** (`PrivateMemorySize64`), the honest measure (working set swings as Windows trims pages). v0.1.9 release exe (not yet re-measured on v0.1.11): **5.6 MB** private when idle (working set ~36 MB), peak ~50 MB private with the island open and animating, idle CPU 0.000 s in 30 s (~0%). One machine, Windows 11. Details: [docs/perf/RESULTADOS.md](docs/perf/RESULTADOS.md).
+RAM is reported as **private memory** (`PrivateMemorySize64`), the honest measure (working set swings as Windows trims pages). v0.1.9 release exe (not re-measured since v0.1.9): **5.6 MB** private when idle (working set ~36 MB), peak ~50 MB private with the island open and animating, idle CPU 0.000 s in 30 s (~0%). One machine, Windows 11. Details: [docs/perf/RESULTADOS.md](docs/perf/RESULTADOS.md).
 
 ## Build from source
 

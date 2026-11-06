@@ -10,14 +10,14 @@
 
 ![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-green)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white)
-![Tamanho](https://img.shields.io/badge/tamanho-~1%2C1%20MB-blue)
+![Tamanho](https://img.shields.io/badge/tamanho-~1%2C2%20MB-blue)
 ![Sem WebView](https://img.shields.io/badge/100%25%20nativo-Rust%20%2B%20Direct2D-orange)
 
 [English](README.en.md) · [Recursos](#-recursos) · [Instalação](#-instalação) · [Atalhos](#atalhos) · [Privacidade](#-privacidade) · [Contato](#-contato-e-suporte) · [Compilar](#compilar-do-código)
 
 <br>
 
-<img src="docs/img/musica.png" alt="Eavely tocando música" width="440">
+<img src="docs/img/mascote.png" alt="Eavely: mascote, slot de Arquivos e player mini" width="440">
 
 </div>
 
@@ -34,7 +34,9 @@
 | 🔔 **Avisos do sistema** | Volume, brilho (só em notebook), bateria, Wi-Fi, fones e Caps Lock aparecem (desligados por padrão; ligue em *Configurações → Avisos do sistema*) como pequenos overlays na ilha. |
 | 🖥️ **Compacto de PC** | Hora e, rotativamente, CPU, RAM, GPU e rede, sem abrir nada. Em PC sem bateria mostra o ícone de rede (Wi-Fi com barras de sinal ou cabeada). |
 | 🔘 **Mini notch** | Com uma janela maximizada, a ilha vira uma linha fina que só reage quando o cursor encosta nela. |
-| 👀 **Olhos / pet** | A ilha ociosa pisca e dorme. Detalhe pequeno, mas dá vida. |
+| 🙂 **Mascote** (nova 1ª aba) | Um rosto expressivo que pisca, segue o mouse e reage: música tocando, arrastar arquivo, cliques (irritado, raiva, furioso), noite, bateria baixa e tempo parado (sonolento, sono, entediado, preocupado, choro). Personalidade padrão *Calmo* (também *Travesso* e *Dramático*). Ao lado, **2 slots configuráveis**: Arquivos, Player mini, Tarefas, Timer, Relógio ou Métricas do PC. |
+| 📐 **Tamanho do notch** | Pequeno, Padrão ou Grande, aplicado na hora (*Configurações → Mascote e início*), com o tamanho do mascote também configurável. |
+| 👀 **Olhos / mascote no compacto** | Em *Aparência recolhida* você escolhe Bateria e hora, Olhos ou Mascote (no tamanho Pequeno, só os olhos). |
 | 💤 **~0% de CPU parado** | Em repouso o app não desenha nada: 0,000 s de CPU em 30 s de teste (medido na v0.1.9). |
 | ⚡ **Desempenho ajustável** | Presets Máxima fluidez, Equilibrado e Economia, taxa de quadros, animações e efeitos. |
 | 🎮 **Esconde em tela cheia** | Jogo ou vídeo em tela cheia: a ilha some sozinha. |
@@ -42,6 +44,11 @@
 | 🔒 **Dados locais** | Tarefas, Shelf e configurações ficam no seu PC. Sem conta, sem telemetria. |
 
 ## 🖼️ Capturas
+
+<p align="center">
+<img src="docs/img/mascote-humores.png" alt="Humores do mascote: curioso, irritado, sonolento e chorando" width="640"><br>
+<sub>O mascote reage ao que acontece (curioso ao arrastar arquivo, irritado com cliques, sonolento à noite, triste/chorando se maltratado)</sub>
+</p>
 
 <table>
 <tr>
@@ -72,7 +79,7 @@
 ## 📦 Instalação
 
 1. Baixe o arquivo mais recente em **[Releases](https://github.com/LimaEdu-7x/eavely/releases/latest)**.
-2. Escolha um formato: **`Eavely-Setup.exe`** (instalador NSIS, instala só para o seu usuário) ou **`Eavely.exe`** (portátil, basta dar dois cliques). `Eavely.exe` tem ~1,1 MB (1.098.752 bytes) e `Eavely-Setup.exe` ~680 KB (696.580 bytes) na v0.1.12. O instalador mostra um resumo de privacidade antes de instalar.
+2. Escolha um formato: **`Eavely-Setup.exe`** (instalador NSIS, instala só para o seu usuário) ou **`Eavely.exe`** (portátil, basta dar dois cliques). `Eavely.exe` tem ~1,2 MB (1.223.168 bytes) e `Eavely-Setup.exe` ~729 KB (746.297 bytes) na v0.2.0. O instalador mostra um resumo de privacidade antes de instalar.
 3. O ícone aparece na bandeja. Pelo menu dele você abre as Configurações e sai do app.
 
 ### ⚠️ Aviso do Windows (SmartScreen / Smart App Control)
@@ -95,7 +102,7 @@ Dá para mudar os três em *Configurações → Atalhos*. É exigido Ctrl, Alt o
 
 ## ⚙️ Configurações
 
-Janela com barra lateral e cartões agrupados: **Geral**, **Ilha e aparência** (tamanho, abrir por hover ou clique, tempo para recolher, comportamento do mini notch, velocidade da animação, compacto de PC), **Música e letras**, **Tarefas**, **Pomodoro**, **Shelf**, **Avisos do sistema**, **Atalhos**, **Desempenho** e **Sobre**.
+Janela com barra lateral e cartões agrupados: **Geral**, **Ilha e aparência** (tamanho, abrir por hover ou clique, tempo para recolher, comportamento do mini notch, velocidade da animação, compacto de PC), **Música e letras**, **Mascote e início** (personalidade, página inicial, slots, tamanhos), **Tarefas**, **Pomodoro**, **Shelf**, **Avisos do sistema**, **Atalhos**, **Desempenho** e **Sobre**.
 
 A página **Desempenho** tem presets (**Máxima fluidez**, **Equilibrado**, **Economia**; mexer em um controle vira "personalizado"), taxa de quadros **Auto/60/30**, nível das animações, rolagem das letras (**suave** ou **por linha**, que poupa CPU), efeitos da capa, equalizador e a opção de respeitar as animações do Windows.
 
@@ -117,7 +124,7 @@ Os números de RAM do projeto são **memória privada** do processo (`PrivateMem
 | Pico de memória privada, ilha aberta e animando | ~50 MB |
 | Working set parado (não é a medida honesta) | ~36 MB |
 
-CPU parado: **0,000 s em 30 s** (~0%). Medido na v0.1.9 (exe de release; ainda não remedido na v0.1.11), em uma máquina só (Windows 11); em outras pode variar. Método e dados em [docs/perf/RESULTADOS.md](docs/perf/RESULTADOS.md).
+CPU parado: **0,000 s em 30 s** (~0%). Medido na v0.1.9 (exe de release; não remedido desde a v0.1.9), em uma máquina só (Windows 11); em outras pode variar. Método e dados em [docs/perf/RESULTADOS.md](docs/perf/RESULTADOS.md).
 
 ## Compilar do código
 

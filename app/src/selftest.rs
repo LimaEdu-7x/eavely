@@ -67,7 +67,7 @@ pub fn tick(a: &mut App) {
     STEP.store(i + 1, Relaxed);
     match st {
         Do::Force(s) => { mark(name); a.force = Some(*s); a.evaluate_pub(); }
-        Do::Page(p) => { mark(name); a.go_page(*p); }
+        Do::Page(p) => { mark(name); let t = if *p == a.page { (*p + 1) % crate::pages::N_PAGES } else { *p }; a.go_page(t); } // a pagina inicial depende do contexto (musica tocando abre no player): nunca 'trocar' para a mesma
         Do::Finish => finish(),
     }
 }

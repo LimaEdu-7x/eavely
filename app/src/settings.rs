@@ -22,7 +22,7 @@ pub struct Settings {
     pub online_lyrics: bool, // buscar letras no lrclib.net (envia titulo, artista e album)
     pub start_with_windows: bool, pub show_trace: bool, pub show_live: bool, pub hide_during_event: bool,
     pub monitor: String, // "cursor" | "primary" | "mN" (N = indice)
-    pub trigger_zone_px: u32, pub collapsed_look: String, // "clock" | "eyes"
+    pub trigger_zone_px: u32, pub collapsed_look: String, // "clock" | "eyes" | "mascot"
     pub show_lyric_line: bool, pub live_mode: String, // "compact" | "expanded"
     pub timer: TimerCfg, pub hotkeys: Hotkeys, pub overlays: Overlays,
     /// respeitar 'Efeitos de animacao' do Windows (desligado la = sem animacao aqui). Padrao: NAO respeitar (as molas sao parte do produto); ligue para acessibilidade.
@@ -42,6 +42,10 @@ pub struct Settings {
     pub leave_delay_ms: u32,
     /// brilho atras do arquivo arrastado no Shelf (Economia desliga)
     pub shelf_glow: bool,
+    /// v0.2.0 'Mascote e inicio': personalidade (calmo|travesso|dramatico), pagina inicial (last|mascot|music), widgets dos 2 slots da pagina Mascote
+    pub personality: String, pub initial_page: String, pub slot_top: String, pub slot_bottom: String,
+    /// v0.2.0 Etapa 4: tamanho do notch (small 80 % | standard 100 % | large 120 %), tamanho do mascote (auto segue o notch | large | small), olhos seguem o mouse
+    pub size_preset: String, pub mascot_size: String, pub mascot_gaze: bool,
     /// mini notch (janela maximizada): false = so ao encostar na forma (folga 1 px); true = pequena folga (6 px)
     pub mini_near: bool,
     pub perf_preset: String, pub fps_cap: String, pub anim_quality: String, pub lyrics_scroll: String, pub fx_level: String, pub viz_level: String,
@@ -52,7 +56,7 @@ impl Default for Settings {
         ui_scale: "auto".into(), minimal_island: false, open_mode: "hover".into(), anim_speed: "normal".into(), cover_spin: true, cover_gradient: true, lyric_bar: true,
         shelf_start_empty: false, shelf_thumbs: true, hide_fullscreen: true, tasks_done_last: true, tasks_overdue_red: true,
         pc_state: true, pc_cpu: true, pc_ram: true, pc_gpu: true, pc_net: true, pc_slots: 1, pc_rotate: 5,
-        leave_delay_ms: 1000, shelf_glow: true, mini_near: false, perf_preset: "balanced".into(), fps_cap: "auto".into(), anim_quality: "smooth".into(), lyrics_scroll: "smooth".into(), fx_level: "on".into(), viz_level: "reduced".into() } }
+        leave_delay_ms: 1000, shelf_glow: true, size_preset: "standard".into(), mascot_size: "auto".into(), mascot_gaze: true, personality: "calmo".into(), initial_page: "last".into(), slot_top: "shelf".into(), slot_bottom: "player".into(), mini_near: false, perf_preset: "balanced".into(), fps_cap: "auto".into(), anim_quality: "smooth".into(), lyrics_scroll: "smooth".into(), fx_level: "on".into(), viz_level: "reduced".into() } }
 }
 impl Settings {
     /// Presets de desempenho: sobrescrevem so os controles da secao (e o intervalo do compacto de PC)
@@ -65,13 +69,22 @@ impl Settings {
     fn preset_matches(&self) -> bool { let mut t = self.clone(); t.apply_preset(&self.perf_preset); t.shelf_glow == self.shelf_glow && t.fps_cap == self.fps_cap && t.anim_quality == self.anim_quality && t.lyrics_scroll == self.lyrics_scroll && t.fx_level == self.fx_level && t.viz_level == self.viz_level && t.pc_rotate == self.pc_rotate }
 }
 impl Settings {
+    /// fator k do preset de tamanho do notch (0,8 / 1,0 / 1,2)
+    pub fn size_k(&self) -> f32 { match self.size_preset.as_str() { "small" => 0.8, "large" => 1.2, _ => 1.0 } }
+    /// largura do rosto do mascote na pagina (unidades de projeto): auto 150, grande 172, pequeno 96
+    pub fn mascot_w(&self) -> f32 { match self.mascot_size.as_str() { "large" => 172.0, "small" => 96.0, _ => 150.0 } }
     /// Valores fora do intervalo sao corrigidos ao ler.
     pub fn clamp(&mut self) {
+        if !matches!(self.size_preset.as_str(), "small" | "standard" | "large") { self.size_preset = "standard".into(); }
+        if !matches!(self.mascot_size.as_str(), "auto" | "large" | "small") { self.mascot_size = "auto".into(); }
+        if !matches!(self.personality.as_str(), "calmo" | "travesso" | "dramatico") { self.personality = "calmo".into(); }
+        if !matches!(self.initial_page.as_str(), "last" | "mascot" | "music") { self.initial_page = "last".into(); }
+        for s in [&mut self.slot_top, &mut self.slot_bottom] { if !matches!(s.as_str(), "shelf" | "player" | "tasks" | "timer" | "clock" | "metrics" | "none") { *s = "none".into(); } }
         self.leave_delay_ms = [0u32, 500, 1000, 2000, 3000].into_iter().min_by_key(|v| v.abs_diff(self.leave_delay_ms)).unwrap_or(1000);
         self.trigger_zone_px = match self.trigger_zone_px { 0..=32 => 24, 33..=52 => 40, _ => 64 };
         self.timer.focus_min = self.timer.focus_min.clamp(1, 180); self.timer.short_min = self.timer.short_min.clamp(1, 60);
         self.timer.long_min = self.timer.long_min.clamp(1, 120); self.timer.cycles_to_long = self.timer.cycles_to_long.clamp(2, 8);
-        if self.collapsed_look != "eyes" { self.collapsed_look = "clock".into(); }
+        if !matches!(self.collapsed_look.as_str(), "eyes" | "mascot") { self.collapsed_look = "clock".into(); }
         if self.live_mode != "expanded" { self.live_mode = "compact".into(); }
         if !matches!(self.ui_scale.as_str(), "100" | "115" | "130" | "150") { self.ui_scale = "auto".into(); }
         if self.open_mode != "click" { self.open_mode = "hover".into(); }
@@ -167,6 +180,7 @@ pub fn update(f: impl FnOnce(&mut Settings)) {
     if s.start_with_windows != old.start_with_windows { set_autostart(s.start_with_windows); }
     if s.hotkeys != old.hotkeys { crate::island::reapply_hotkeys(); }
     if s.overlays != old.overlays { crate::overlay::reconfigure(); }
+    if s.size_preset != old.size_preset { crate::island::relayout(); }
     crate::island::wake(); crate::settings_ui::refresh();
 }
 

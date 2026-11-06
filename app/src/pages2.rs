@@ -1,7 +1,7 @@
 // Paginas Pomodoro e Shelf (nativas). Coordenadas da ilha em px logicos, conforme docs/DESIGN-NATIVO.md §4.2 e §4.3.
 use std::time::Instant;
 use windows::{core::{w, HSTRING}, Win32::{UI::{Shell::ShellExecuteW, WindowsAndMessaging::*}}};
-use crate::{gfx::{rgba, Fmt, Rgba}, island::App, pages::{Act, R}, shelf, timer::{self, Mode, Status}};
+use crate::{gfx::{rgba, Fmt, Rgba}, island::{App, St}, pages::{Act, R}, shelf, timer::{self, Mode, Status}};
 
 const TEXT: Rgba = rgba(0xFFFFFF, 1.0);
 const TEXT2: Rgba = rgba(0xFFFFFF, 0.64);
@@ -74,10 +74,10 @@ pub fn pomodoro(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32) {
 /// excluir: encolhe 250 ms ease-in + vizinhos deslizam 250 ms (a partir de 50%), limpar tudo: voa ao botao 300 ms (cascata 30 ms), vazio entra 300 ms.
 const SHRINK_MS: f32 = 250.0; const SLIDE_MS: f32 = 250.0; const FLY_MS: f32 = 300.0; const FLY_STAGGER_MS: u64 = 30; const GRAD_DECAY_MS: f32 = 1000.0;
 const SEL_BLUE: Rgba = rgba(0x7CC4FF, 1.0);
-fn since(t: Instant, now: Instant, ms: f32) -> f32 { if now < t { 0.0 } else { ((now - t).as_secs_f32() * 1000.0 / ms).min(1.0) } }
+pub(crate) fn since(t: Instant, now: Instant, ms: f32) -> f32 { if now < t { 0.0 } else { ((now - t).as_secs_f32() * 1000.0 / ms).min(1.0) } }
 fn ease_in(x: f32) -> f32 { x * x }
 /// "Selecionar"/"Limpar tudo" (cabecalho com itens) so aparecem com a lista nao vazia; saem em fade (200 ms) durante a cascata de limpar tudo
-fn ellip(a: &App, s: &str, f: Fmt, maxw: f32) -> String {
+pub(crate) fn ellip(a: &App, s: &str, f: Fmt, maxw: f32) -> String {
     if a.gfx.measure(s, f) <= maxw { return s.to_string(); }
     let mut v: Vec<char> = s.chars().collect();
     while v.len() > 1 { v.pop(); let t: String = v.iter().collect::<String>() + "…"; if a.gfx.measure(&t, f) <= maxw { return t; } }
@@ -97,7 +97,7 @@ fn name2(a: &App, s: &str, f: Fmt, maxw: f32) -> (String, String) {
 }
 /// arte do card (miniatura/icone do shell, ou icone generico) centrada em (cx, cy) com escala k: a MESMA no card parado e na saida (excluir/limpar),
 /// senao o icone trocava para outro durante a animacao
-fn card_art(a: &mut App, it: &shelf::ShelfItem, cx: f32, cy: f32, k: f32) {
+pub(crate) fn card_art(a: &mut App, it: &shelf::ShelfItem, cx: f32, cy: f32, k: f32) {
     let th = if crate::settings::flag(crate::settings::F_THUMBS) { shelf::thumb(&it.id, &it.path) } else { None };
     if let Some(t) = th { let key = { use std::hash::{Hash, Hasher}; let mut h = std::collections::hash_map::DefaultHasher::new(); it.id.hash(&mut h); h.finish() };
         if t.icon { a.gfx.thumb(key, &t.px, t.w, t.h, cx - 16.0 * k, cy - 31.0 * k, 32.0 * k, 32.0 * k, 0.0, 1.0); } // icone real do shell (tipo do arquivo/pasta)
@@ -127,7 +127,8 @@ pub fn shelf_bg(a: &mut App, now: Instant) {
     }
 }
 
-pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
+/// exclusoes concluidas e recarga da lista (compartilhado pela pagina Arquivos e pelo slot da pagina Mascote)
+pub fn shelf_tick(a: &mut App, now: Instant) {
     // exclusoes concluidas: remove so a REFERENCIA do Shelf (shelf.json); nunca toca nos arquivos em disco
     let slide_end = |s: &Instant| *s + std::time::Duration::from_millis((SHRINK_MS * 0.5 + SLIDE_MS) as u64);
     let fend = |s: &Instant| *s + std::time::Duration::from_millis(FLY_MS as u64);
@@ -144,11 +145,16 @@ pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
         for it in &a.p.shelf { if !a.p.shelf_ids.contains(&it.id) && a.p.shelf_n_known() { a.p.shelf_new.push((it.id.clone(), now)); } }
         a.p.shelf_ids = a.p.shelf.iter().map(|i| i.id.clone()).collect(); a.p.shelf_new.retain(|(_, s)| s.elapsed().as_millis() < 400);
     }
+}
+pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
+    shelf_tick(a, now);
     let n = a.p.shelf.len();
     if n == 0 && a.p.shelf_n > 0 { a.p.empty_at = Some(now); a.p.select = false; a.p.sel.clear(); a.p.shelf_sx = 0.0; }
     if n > 0 && a.p.shelf_n == 0 { a.p.items_at = Some(now); }
     a.p.shelf_n = n;
-    let max_sx = (n as f32 * 66.0 - 330.0).max(0.0); a.p.shelf_sx = a.p.shelf_sx.clamp(0.0, max_sx);
+    let max_sx = (n as f32 * 66.0 - 330.0).max(0.0);
+    if a.p.pan.is_none() { if let Some(sc) = &a.p.shelf_sc { a.p.shelf_sx = sc.val(now); } } // rolagem com inercia (roda/arrasto)
+    a.p.shelf_sx = a.p.shelf_sx.clamp(0.0, max_sx);
     // arrasto
     if a.drag_over { if a.p.drag_t.is_none() { a.p.drag_t = Some(now); a.p.drag_end = None; } } else if a.p.drag_t.take().is_some() { a.p.drag_end = Some(now); }
     let enter = a.p.drag_t.map_or(0.0, |t| crate::island::ease(since(t, now, 150.0)));      // caixa -> modo "solte" (150 ms)
@@ -160,7 +166,8 @@ pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
     if n > 0 && btn_a > 0.01 {
         a.gfx.layer(btn_a);
         let sel_on = a.p.select; let sel = Act::ShelfSelect;
-        let rb = if sel_on { R { x: 74.0, y: 7.0, w: 74.0, h: 20.0 } } else { R { x: 68.0, y: 7.0, w: 68.0, h: 20.0 } };
+        let tx = 24.0 + a.gfx.measure("Arquivos", Fmt::Title) + 10.0; // depois do titulo (nunca por cima dele, em nenhum tamanho)
+        let rb = if sel_on { R { x: tx, y: 7.0, w: 74.0, h: 20.0 } } else { R { x: tx, y: 7.0, w: 68.0, h: 20.0 } };
         let hv = a.hover == Some(sel); a.gfx.rrect(rb.x, rb.y, rb.w, rb.h, 10.0, if sel_on { rgba(0x7CC4FF, 0.20) } else if hv { SURFACE_H } else { SURFACE });
         let lb = if sel_on { "Concluído" } else { "Selecionar" }; let lw = a.gfx.measure(lb, Fmt::Small);
         a.gfx.text(lb, Fmt::Small, rb.x + (rb.w - lw) / 2.0, rb.y + 0.5, lw + 4.0, 16.0, if sel_on { SEL_BLUE } else { TEXT }, false); hits.push((R { x: rb.x + off, ..rb }, sel));
@@ -189,16 +196,17 @@ pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
         if n == 0 { return; }
     }
     // ---- cards ----
-    a.gfx.clip(16.0, 30.0, 388.0, 86.0);
+    a.gfx.clip(22.0, 30.0, 376.0, 86.0); // 22..398: as setas de pagina (3..17 e 403..417) ficam livres
     let items = a.p.shelf.clone(); let sx = a.p.shelf_sx;
     let mut flying: Vec<(f32, f32, f32, shelf::ShelfItem)> = Vec::new();
     let mut tip: Option<String> = None; // nome completo do card sob o mouse (legenda embaixo)
     // posicao deslizada: cada exclusao (shrink) anterior empurra os vizinhos 66 px
+    hits.push((R { x: 22.0 + off, y: 30.0, w: 376.0, h: 86.0 }, Act::ShelfPan)); // fundo da fileira: arrastar rola; clicar limpa a selecao (os cards vem depois e tem prioridade)
     let slide = |a: &App, upto: usize, items: &[shelf::ShelfItem]| -> f32 {
         let mut s = 0.0; for p in items.iter().take(upto) { if let Some(d) = a.p.shelf_del.iter().find(|e| e.2 && e.0 == p.id) { let t = since(d.1 + std::time::Duration::from_millis((SHRINK_MS * 0.5) as u64), now, SLIDE_MS); s -= 66.0 * crate::island::ease(t); } } s };
     for (i, it) in items.iter().enumerate() {
         let x = 45.0 + i as f32 * 66.0 + slide(a, i, &items) - sx; let y = 36.0;
-        if x > 404.0 || x + 58.0 < 16.0 { continue; }
+        if x > 398.0 || x + 58.0 < 22.0 { continue; }
         let del = a.p.shelf_del.iter().find(|e| e.0 == it.id).cloned();
         if let Some((_, st0, single)) = del {
             if !single { flying.push((x, y, since(st0, now, FLY_MS), it.clone())); continue; }
@@ -212,30 +220,30 @@ pub fn shelf(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
         let (cx, cy) = (x + 29.0, y + 37.0); let sc = 0.8 + 0.2 * born;
         let mat = if born < 1.0 { a.gfx.layer(born); Some(a.gfx.scale_about(cx, cy, sc)) } else { None };
         let act = Act::ShelfOpen(i as u32); let rm = Act::ShelfRemove(i as u32);
-        let hov = a.hover == Some(act) || a.hover == Some(rm); let on = a.p.select && a.p.sel.contains(&i);
+        let hov = a.hover == Some(act) || a.hover == Some(rm); let on = a.p.sel.contains(&i); let sel_mode = a.p.select;
         if hov && crate::settings::flag(crate::settings::F_SHELF_GLOW) { a.gfx.vignette(x + 29.0, y + 37.0, 52.0, (0.45, 0.52, 1.0, 0.30)); } // brilho atras do item sob o mouse
         a.gfx.rrect(x, y, 58.0, 74.0, 10.0, if hov || on { SURFACE_H } else { SURFACE });
         card_art(a, it, x + 29.0, y + 37.0, 1.0);
-        // nome em ate 2 linhas (reticencias no meio, extensao visivel); nome inteiro na legenda ao passar o mouse
-        let (l1, l2) = name2(a, &it.name, Fmt::Small, 52.0);
-        let w1 = a.gfx.measure(&l1, Fmt::Small); a.gfx.text(&l1, Fmt::Small, x + 4.0 + (50.0 - w1) / 2.0, y + 38.0, w1 + 4.0, 12.0, TEXT, false);
-        if !l2.is_empty() { let w2 = a.gfx.measure(&l2, Fmt::Small); a.gfx.text(&l2, Fmt::Small, x + 4.0 + (50.0 - w2) / 2.0, y + 49.0, w2 + 4.0, 12.0, TEXT, false); if hov { tip = Some(it.name.clone()); } }
-        let sz = if it.is_dir { "pasta".to_string() } else { it.size_bytes.map(human_pt).unwrap_or_else(|| "—".into()) }; let sw = a.gfx.measure(&sz, Fmt::Tiny);
-        a.gfx.text(&sz, Fmt::Tiny, x + 4.0 + (50.0 - sw) / 2.0, y + 63.0, sw + 4.0, 10.0, TEXT3, false);
-        hits.push((R { x: x + off, y, w: 58.0, h: 74.0 }, act));
-        if a.p.select {
-            if on { a.gfx.rrect_stroke(x + 0.75, y + 0.75, 56.5, 72.5, 9.25, 1.5, SEL_BLUE); a.gfx.circle(x + 13.0, y + 13.0, 8.0, SEL_BLUE); a.gfx.icon("check", x + 7.5, y + 7.5, 11.0, rgba(0x06223A, 1.0), false); }
-            else { a.gfx.ring(x + 13.0, y + 13.0, 7.25, 1.5, TEXT3); }
-        } else if hov {
+        // nome em UMA linha: inicio do nome + reticencias + extensao (Relatori….pdf); o nome inteiro aparece na legenda ao passar o mouse
+        let (nm, cut) = fit_name(a, &it.name, Fmt::Small, 52.0);
+        let w1 = a.gfx.measure(&nm, Fmt::Small); a.gfx.text(&nm, Fmt::Small, x + 29.0 - w1 / 2.0, y + 42.0, w1 + 4.0, 12.0, TEXT, false);
+        if cut && hov { tip = Some(it.name.clone()); }
+        let sz = if it.is_dir { "pasta".to_string() } else { it.size_bytes.map(human_pt).unwrap_or_else(|| "—".into()) }; let sz = ellip(a, &sz, Fmt::Tiny, 52.0); let sw = a.gfx.measure(&sz, Fmt::Tiny);
+        a.gfx.text(&sz, Fmt::Tiny, x + 29.0 - sw / 2.0, y + 58.0, sw + 4.0, 10.0, TEXT3, false);
+        let (hx0, hx1) = (x.max(22.0), (x + 58.0).min(398.0)); if hx1 - hx0 > 6.0 { hits.push((R { x: hx0 + off, y, w: hx1 - hx0, h: 74.0 }, act)); } // so a parte visivel responde
+        if on { a.gfx.rrect_stroke(x + 0.75, y + 0.75, 56.5, 72.5, 9.25, 1.5, SEL_BLUE); a.gfx.circle(x + 13.0, y + 13.0, 8.0, SEL_BLUE); a.gfx.icon("check", x + 7.5, y + 7.5, 11.0, rgba(0x06223A, 1.0), false); }
+        else if sel_mode { a.gfx.ring(x + 13.0, y + 13.0, 7.25, 1.5, TEXT3); }
+        else if hov {
             a.gfx.circle(x + 50.5, y + 11.5, 7.5, if a.hover == Some(rm) { rgba(0xFFFFFF, 0.34) } else { rgba(0xFFFFFF, 0.22) }); a.gfx.icon("x", x + 46.0, y + 7.0, 9.0, TEXT, false);
-            hits.push((R { x: x + 39.0 + off, y: y - 2.0, w: 24.0, h: 24.0 }, rm));
+            if x + 39.0 >= 22.0 && x + 63.0 <= 398.0 { hits.push((R { x: x + 39.0 + off, y: y - 2.0, w: 24.0, h: 24.0 }, rm)); }
         }
         if let Some(m) = mat { a.gfx.set_matrix(m); a.gfx.unlayer(); }
     }
     // degrade na borda direita: indica rolagem horizontal
-    if max_sx - sx > 1.0 { a.gfx.grad(352.0, 36.0, 30.0, 74.0, true, &[(0.0, rgba(0x000000, 0.0)), (1.0, rgba(0x000000, 1.0))], 1.0); }
+    if max_sx - sx > 1.0 { a.gfx.grad(350.0, 36.0, 48.0, 74.0, true, &[(0.0, rgba(0x000000, 0.0)), (1.0, rgba(0x000000, 1.0))], 1.0); }
+    if sx > 1.0 { a.gfx.grad(22.0, 36.0, 48.0, 74.0, true, &[(0.0, rgba(0x000000, 1.0)), (1.0, rgba(0x000000, 0.0))], 1.0); } // borda esquerda: ha o que rolar para tras
     a.gfx.unclip();
-    if let Some(full) = tip { let s = ellip(a, &full, Fmt::Small, 360.0); let w = a.gfx.measure(&s, Fmt::Small); a.gfx.text(&s, Fmt::Small, 210.0 - w / 2.0, 118.0, w + 4.0, 14.0, TEXT2, false); }
+    if let Some(full) = tip { let s = ellip(a, &full, Fmt::Small, 360.0); let w = a.gfx.measure(&s, Fmt::Small); a.gfx.text(&s, Fmt::Small, 210.0 - w / 2.0, 112.5, w + 4.0, 14.0, TEXT2, false); }
     // limpar tudo: cards encolhem e voam ao botao (destino ~ 320,4), escalonados de 30 ms (sem recorte)
     for (x, y, t, fit) in flying {
         let e = ease_in(t); let (cx, cy) = (x + 29.0 + (320.0 - x - 29.0) * e, y + 37.0 + (4.0 - y - 37.0) * e);
@@ -270,15 +278,73 @@ pub fn click(a: &mut App, act: Act) {
                 for (k, it) in a.p.shelf.clone().iter().enumerate() { if !a.p.shelf_del.iter().any(|e| e.0 == it.id) { a.p.shelf_del.push((it.id.clone(), now + std::time::Duration::from_millis(FLY_STAGGER_MS * k as u64), false)); } }
             } }
         Act::ShelfRemove(i) => { if let Some(it) = a.p.shelf.get(i as usize) { if !a.p.shelf_del.iter().any(|e| e.0 == it.id) { a.p.shelf_del.push((it.id.clone(), Instant::now(), true)); } } }
-        Act::ShelfOpen(i) if a.p.select => { let i = i as usize; if let Some(p) = a.p.sel.iter().position(|x| *x == i) { a.p.sel.remove(p); } else { a.p.sel.push(i); } }
-        Act::ShelfOpen(i) => { if let Some(it) = a.p.shelf.get(i as usize) { unsafe { ShellExecuteW(None, w!("open"), &HSTRING::from(it.path.as_str()), None, None, SW_SHOWNORMAL); } } }
+        Act::ShelfOpen(i) => { let i = i as usize; let (ctrl, shift) = mods();
+            if shift { // intervalo a partir da ancora (Ctrl junto soma ao que ja esta selecionado)
+                sel_range(&mut a.p.sel, a.p.sel_anchor, i, ctrl); if a.p.sel_anchor.is_none() { a.p.sel_anchor = Some(i); }
+            } else if ctrl || a.p.select { if let Some(p) = a.p.sel.iter().position(|x| *x == i) { a.p.sel.remove(p); } else { a.p.sel.push(i); } a.p.sel_anchor = Some(i); }
+            else { a.p.sel.clear(); a.p.sel_anchor = None; if let Some(it) = a.p.shelf.get(i) { unsafe { ShellExecuteW(None, w!("open"), &HSTRING::from(it.path.as_str()), None, None, SW_SHOWNORMAL); } } } }
         _ => {}
+    }
+}
+
+/// Shift+clique: seleciona de `anchor` (ou do proprio item) ate `i`; sem Ctrl troca a selecao, com Ctrl soma
+pub(crate) fn sel_range(sel: &mut Vec<usize>, anchor: Option<usize>, i: usize, ctrl: bool) {
+    let an = anchor.unwrap_or(i); if !ctrl { sel.clear(); } for j in an.min(i)..=an.max(i) { if !sel.contains(&j) { sel.push(j); } }
+}
+#[cfg(test)]
+mod tests {
+    use super::sel_range;
+    #[test] fn shift_seleciona_intervalo_nos_dois_sentidos_e_ctrl_soma() {
+        let mut s = vec![]; sel_range(&mut s, Some(2), 5, false); assert_eq!(s, [2, 3, 4, 5]);
+        sel_range(&mut s, Some(5), 1, false); assert_eq!(s, [1, 2, 3, 4, 5], "sentido inverso, troca a selecao");
+        let mut s = vec![0]; sel_range(&mut s, Some(3), 4, true); assert_eq!(s, [0, 3, 4], "Ctrl+Shift soma");
+        let mut s = vec![]; sel_range(&mut s, None, 2, false); assert_eq!(s, [2], "sem ancora: so o item");
+    }
+}
+/// so no harness interno (devtools): teclas modificadoras simuladas (bit0 Ctrl, bit1 Shift), sem entrada de sistema
+#[cfg(feature = "devtools")] pub static MODS_TEST: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+fn mods() -> (bool, bool) { #[cfg(feature = "devtools")] { let m = MODS_TEST.load(std::sync::atomic::Ordering::Relaxed); if m != 0 { return (m & 1 != 0, m & 2 != 0); } }
+    use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_CONTROL, VK_SHIFT}; unsafe { (GetAsyncKeyState(VK_CONTROL.0 as i32) < 0, GetAsyncKeyState(VK_SHIFT.0 as i32) < 0) } }
+/// a Shelf (pagina Arquivos ou o slot Arquivos da pagina Mascote) esta na tela?
+pub fn shelf_visible(a: &App) -> bool { a.state == St::Open && (a.page == crate::pages::P_SHELF || (a.page == crate::pages::P_MASCOT && { let c = crate::settings::get(); c.slot_top == "shelf" || c.slot_bottom == "shelf" })) }
+/// nome em UMA linha: inicio + reticencias + extensao (`Relatori….pdf`); devolve se foi cortado (para a legenda com o nome completo)
+pub(crate) fn fit_name(a: &App, s: &str, f: Fmt, maxw: f32) -> (String, bool) {
+    if a.gfx.measure(s, f) <= maxw { return (s.to_string(), false); }
+    let (stem, ext) = match s.rfind('.') { Some(i) if i > 0 && s.len() - i <= 6 => (&s[..i], &s[i..]), _ => (s, "") };
+    let sv: Vec<char> = stem.chars().collect(); let mut n = sv.len();
+    while n > 1 { n -= 1; let t = format!("{}…{}", sv[..n].iter().collect::<String>(), ext); if a.gfx.measure(&t, f) <= maxw { return (t, true); } }
+    (ellip(a, s, f, maxw), true)
+}
+/// progresso (0..1) da saida animada do item (lixeira), se estiver saindo
+pub(crate) fn del_progress(a: &App, id: &str, now: Instant) -> Option<f32> { a.p.shelf_del.iter().find(|e| e.0 == id).map(|e| since(e.1, now, FLY_MS)) }
+/// ids a arrastar: o card sob o mouse ou, se ele esta entre varios selecionados, todos os selecionados (ordem da lista)
+pub fn drag_ids(a: &App, i: usize) -> Vec<String> {
+    if a.p.sel.len() > 1 && a.p.sel.contains(&i) { let mut v = a.p.sel.clone(); v.sort_unstable(); v.dedup(); v.into_iter().filter_map(|j| a.p.shelf.get(j).map(|it| it.id.clone())).collect() }
+    else { a.p.shelf.get(i).map(|it| vec![it.id.clone()]).unwrap_or_default() }
+}
+/// tira da Shelf (so a REFERENCIA; o arquivo em disco nunca e tocado) com a animacao da lixeira, igual a Limpar tudo
+pub fn remove_idx(a: &mut App, mut idx: Vec<usize>) {
+    idx.sort_unstable(); idx.dedup(); let now = Instant::now();
+    for (k, i) in idx.iter().enumerate() { if let Some(it) = a.p.shelf.get(*i) { if !a.p.shelf_del.iter().any(|e| e.0 == it.id) { a.p.shelf_del.push((it.id.clone(), now + std::time::Duration::from_millis(FLY_STAGGER_MS * k as u64), false)); } } }
+    a.p.sel.clear(); a.p.sel_anchor = None; a.p.select = false; a.dirty = true;
+}
+/// botao do meio / Delete: se o card esta entre os selecionados, tira todos; senao so ele
+pub fn remove_with_sel(a: &mut App, i: usize) { let v = if a.p.sel.contains(&i) { a.p.sel.clone() } else { vec![i] }; remove_idx(a, v); }
+/// teclas da Shelf: Delete tira os selecionados (ou o card sob o mouse), Ctrl+A seleciona todos, Esc limpa
+fn shelf_key(a: &mut App, vk: u32) -> bool {
+    if !shelf_visible(a) { return false; }
+    match vk {
+        0x2E => { if a.p.kb_click && !a.p.sel.is_empty() { let v = a.p.sel.clone(); remove_idx(a, v); true } else { false } } // so com selecao criada por clique (foco vem do clique, nunca do hover)
+        0x41 if mods().0 => { a.p.sel = (0..a.p.shelf.len()).collect(); a.p.sel_anchor = Some(0); a.dirty = true; true }
+        0x1B if !a.p.sel.is_empty() || a.p.select => { a.p.sel.clear(); a.p.sel_anchor = None; a.p.select = false; a.dirty = true; true }
+        _ => false,
     }
 }
 
 /// Teclado da edicao MM:SS (digitos entram da direita, como relogio de cozinha).
 pub fn key(a: &mut App, vk: u32, ch: Option<char>) {
     if crate::tasks::key(a, vk, ch) { return; }
+    if a.p.edit.is_none() && ch.is_none() && shelf_key(a, vk) { return; }
     let Some(buf) = a.p.edit.as_mut() else { return };
     match (vk, ch) {
         (0x1B, _) => a.p.edit = None, // Esc

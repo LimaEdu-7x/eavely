@@ -16,17 +16,17 @@ const ACCENT2: Rgba = rgba(0xFFB86B, 1.0);
 const OK: Rgba = rgba(0x7BE0A4, 1.0);
 const DANGER: Rgba = rgba(0xFF6B6B, 1.0);
 /// ordem das paginas: 0 Musica, 1 Arquivos (Shelf), 2 Pomodoro, 3 Tarefas
-pub const PAGE_COL: [Rgba; 4] = [rgba(0xB69CFF, 1.0), rgba(0xFFC857, 1.0), rgba(0xFF7A66, 1.0), rgba(0x5EE0B0, 1.0)];
-pub const P_SHELF: usize = 1;
-pub const P_POMO: usize = 2;
-const PAGE_NAMES: [&str; 4] = ["Música", "Shelf", "Pomodoro", "Tarefas"];
-const PAGE_ICONS: [&str; 4] = ["music", "inbox", "timer", "list-checks"];
+/// ordem das abas (v0.2.0): Mascote, Musica, Arquivos, Pomodoro, Tarefas
+pub const P_MASCOT: usize = 0; pub const P_MUSIC: usize = 1; pub const P_SHELF: usize = 2; pub const P_POMO: usize = 3; pub const P_TASKS: usize = 4; pub const N_PAGES: usize = 5;
+pub const PAGE_COL: [Rgba; N_PAGES] = [rgba(0x7CC4FF, 1.0), rgba(0xB69CFF, 1.0), rgba(0xFFC857, 1.0), rgba(0xFF7A66, 1.0), rgba(0x5EE0B0, 1.0)];
+const PAGE_NAMES: [&str; N_PAGES] = ["Mascote", "Música", "Arquivos", "Pomodoro", "Tarefas"];
+const PAGE_ICONS: [&str; N_PAGES] = ["smile", "music", "inbox", "timer", "list-checks"];
 
 #[derive(Clone, Copy)] pub struct R { pub x: f32, pub y: f32, pub w: f32, pub h: f32 }
 impl R { pub fn has(&self, px: f32, py: f32) -> bool { px >= self.x && px < self.x + self.w && py >= self.y && py < self.y + self.h } }
-const fn r(x: f32, y: f32, w: f32, h: f32) -> R { R { x, y, w, h } }
+pub(crate) const fn r(x: f32, y: f32, w: f32, h: f32) -> R { R { x, y, w, h } }
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub enum Act { TaskToday, TaskToggle(u32), TaskRemove(u32), TaskPick(u32), TaskCal, TaskMonth(i8), TaskDay(u32), VolSlider, ShelfSelect, TaskAdd, TaskEdit, Prev, Play, Next, Seek(R2), LyricSeek(u32), Lyrics, Volume, Page(u8), Arrow(i8), Settings, TimerMode(u8), TimerPlay, TimerReset, TimerEdit, ShelfClear, ShelfRemove(u32), ShelfOpen(u32), ShelfDragStart(u32), Live(u8), None }
+pub enum Act { Mascot, TaskToday, TaskToggle(u32), TaskRemove(u32), TaskPick(u32), TaskCal, TaskMonth(i8), TaskDay(u32), VolSlider, ShelfSelect, ShelfPan, TaskAdd, TaskEdit, Prev, Play, Next, Seek(R2), LyricSeek(u32), Lyrics, Volume, Page(u8), Arrow(i8), Settings, TimerMode(u8), TimerPlay, TimerReset, TimerEdit, ShelfClear, ShelfRemove(u32), ShelfOpen(u32), ShelfDragStart(u32), Live(u8), None }
 #[derive(Clone, Copy, PartialEq, Debug)] pub struct R2(pub i32, pub i32); // faixa x da barra de seek (x, largura) em decimos de px
 
 // ---- estado das paginas ----
@@ -53,9 +53,13 @@ pub struct PageState {
     pub spin: Option<Spin>, pub shown_title: String, pub shown_sub: String, pub lyr_user: Option<(Instant, f32)>, pub lyr_key_bar: String, pub lyr_prev_soft: bool, pub lyr_cur_soft: bool, pub lyr_key: String, pub lyr_idx: i64, pub lyr_prev: String, pub lyr_t: Option<Instant>, pub scroll: Option<Tw>,
     pub eq_t0: Option<Instant>, pub batt: (u8, bool), pub batt_t: Option<Instant>, pub last_wheel: Option<Instant>,
     pub tasks: Vec<crate::tasks::Task>, pub task_gen: u64, pub task_input: Option<String>, pub task_edit_id: Option<u64>, pub eye_move: Option<Instant>, pub blink_t: Option<Instant>, pub eye_x: Option<Tw>, pub eye_y: Option<Tw>, pub vol_muted: bool, pub pc_t0: Option<Instant>, pub pc_g: usize, pub pc_prev: usize, pub pc_chg: Option<Instant>, pub shelf_del: Vec<(String, Instant, bool)>, pub dots_at: Option<(Instant, usize)>, pub empty_at: Option<Instant>, pub shelf_n: usize, pub items_at: Option<Instant>, pub drag_end: Option<Instant>, pub shelf_new: Vec<(String, Instant)>, pub shelf_ids: Vec<String>, pub shelf_sx: f32, pub shelf_hover: Option<u32>, pub drag_t: Option<Instant>, pub task_edit_mode: bool, pub task_focus: Option<u64>, pub task_cal: bool, pub task_date: Option<(i32, u32, u32)>, pub task_month: (i32, u32), pub task_scroll: usize,
+    pub mascot: crate::mascot::Mascot, pub mascot_over: bool, // pagina Mascote
     pub ov_cur: &'static str, pub ov_prev: &'static str, pub ov_v: Option<Tw>, pub ov_ic: Option<Tw>, // overlay: icone atual/anterior (crossfade) e valor animado
     pub vol: f32, pub vol_t: Option<Instant>, pub vol_drag: bool, pub select: bool, pub sel: Vec<usize>, pub edit: Option<String>, pub shelf: Vec<crate::shelf::ShelfItem>, pub shelf_gen: u64, pub lyr_cur: String, pub drag_from: Option<(u32, f32, f32)>,
+    pub kb_click: bool, pub kb_shelf_only: bool, pub sel_anchor: Option<usize>, pub shelf_sc: Option<Tw>, pub pan: Option<Pan>, pub slot_tip: Option<(String, f32, f32)>, // multi-selecao, rolagem com inercia, legenda do nome completo nos slots
 }
+/// arrasto da fileira de arquivos (rolagem com o mouse): ponto inicial, rolagem inicial, ultimo ponto/instante e velocidade (px/s)
+pub struct Pan { pub x0: f32, pub sx0: f32, pub lx: f32, pub lt: Instant, pub v: f32, pub moved: bool }
 
 #[derive(Default)] struct LyrSlot { key: String, state: u8, synced: bool, instrumental: bool, lines: Vec<Line> } // state: 0 nada, 1 carregando, 2 pronto, 3 sem letra
 static LYR: Mutex<LyrSlot> = Mutex::new(LyrSlot { key: String::new(), state: 0, synced: false, instrumental: false, lines: Vec::new() });
@@ -69,9 +73,9 @@ fn ui_save(k: &str, v: serde_json::Value) {
     let mut j = ui_load(); if !j.is_object() { j = serde_json::json!({}); }
     j[k] = v; crate::store::write_atomic(&ui_path(), j.to_string().as_bytes());
 }
-pub fn load_page() -> usize { ui_load()["page"].as_u64().unwrap_or(0).min(3) as usize }
+pub fn load_page() -> usize { ui_load()["page5"].as_u64().unwrap_or(P_MASCOT as u64).min(N_PAGES as u64 - 1) as usize } // chave nova: a ordem das paginas mudou
 pub fn load_split() -> bool { ui_load()["lyricsSplit"].as_bool().unwrap_or(false) }
-pub fn save_page(p: usize) { ui_save("page", p.into()); } // chave nova: a ordem das paginas mudou
+pub fn save_page(p: usize) { ui_save("page5", p.into()); } // chave nova: a ordem das paginas mudou
 pub fn show_line() -> bool { crate::settings::get().show_trace }
 
 // ---- compacto de PC ----
@@ -99,7 +103,7 @@ pub fn pc_sample() {
 
 // ---- consultas ----
 pub fn is_playing() -> bool { media::view().status == "playing" }
-fn timer_running() -> bool { timer::timer_get().map(|t| t.status == timer::Status::Running).unwrap_or(false) }
+pub(crate) fn timer_running() -> bool { timer::timer_get().map(|t| t.status == timer::Status::Running).unwrap_or(false) }
 pub fn is_live() -> bool { is_playing() || timer_running() }
 static LIVE_EXP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 pub fn live_expanded() -> bool { LIVE_EXP.load(std::sync::atomic::Ordering::Relaxed) }
@@ -131,10 +135,10 @@ pub fn live_width() -> f32 { if is_playing() && timer_running() { 190.0 } else {
 pub fn eq_anim() -> bool { is_playing() && !crate::island::reduced_motion() }
 pub fn open_anim(a: &App, _now: Instant) -> bool { eq_anim() && a.state == St::Open }
 pub fn on_open(a: &mut App) {
-    a.p.batt_t = None;
+    a.p.batt_t = None; a.p.mascot.touched(Instant::now());
     // pagina inicial: arrastando arquivo = Shelf (ja tratado pelo arrasto); tocando musica = player; senao a ultima pagina escolhida pelo usuario
     if a.drag_over { return; }
-    let want = if is_playing() && crate::settings::get().show_live { 0 } else { load_page() };
+    let want = if is_playing() && crate::settings::get().show_live { P_MUSIC } else { match crate::settings::get().initial_page.as_str() { "mascot" => P_MASCOT, "music" => P_MUSIC, _ => load_page() } };
     if a.page != want { a.prev_page = a.page; a.page = want; a.page_t = crate::island::Spring::new(1.0); a.p.dots_at = None; } // troca seca: a ilha ainda esta abrindo
 }
 
@@ -143,7 +147,7 @@ pub fn on_wake(a: &mut App) {
     let v = media::view();
     { // troca de faixa com a ilha aberta na Musica: inicia o giro (guarda capa/cor/titulo antigos)
         let key = format!("{}|{}", v.title, v.artist);
-        if crate::settings::flag(crate::settings::F_SPIN) && !a.p.lyr_key.is_empty() && key != a.p.lyr_key && !v.title.is_empty() && a.state == St::Open && a.page == 0 && !crate::island::reduced_motion() && a.p.spin.as_ref().is_none_or(|s| s.t.elapsed().as_millis() > 640) {
+        if crate::settings::flag(crate::settings::F_SPIN) && !a.p.lyr_key.is_empty() && key != a.p.lyr_key && !v.title.is_empty() && a.state == St::Open && a.page == P_MUSIC && !crate::island::reduced_motion() && a.p.spin.as_ref().is_none_or(|s| s.t.elapsed().as_millis() > 640) {
             a.p.spin = Some(Spin { t: Instant::now(), cover: a.p.cover.clone(), tint: a.p.tint, title: a.p.shown_title.clone(), sub: a.p.shown_sub.clone() });
         }
     }
@@ -193,7 +197,7 @@ fn hsl(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
     (r + m, g + m, b + m)
 }
 
-fn fmt_t(ms: u64) -> String { let s = ms / 1000; format!("{:02}:{:02}", s / 60, s % 60) }
+pub(crate) fn fmt_t(ms: u64) -> String { let s = ms / 1000; format!("{:02}:{:02}", s / 60, s % 60) }
 fn lyric_idx(l: &LyrSlot, pos: u64) -> i64 { if !l.synced || l.lines.is_empty() { return -1; } l.lines.partition_point(|x| x.time_ms <= pos) as i64 - 1 }
 
 // ---- desenho ----
@@ -202,9 +206,12 @@ pub fn draw(a: &mut App, now: Instant, w: f32, h: f32, rad: f32, hits: &mut Vec<
     // corpo: preto (traco: 85% + borda inferior)
     a.gfx.rrect(0.0, -rad, w, h + rad, rad, (0.0, 0.0, 0.0, 1.0));
     // flares: 6 px recolhido -> 18 px aberto (largura total 457 = 420 + 2x18, medido internamente)
-    if h > 3.0 { a.gfx.flares(w, (6.0 + (crate::island::OPEN_FLARE - 6.0) * ((h - 30.0) / (crate::island::OPEN_H - 30.0)).clamp(0.0, 1.0)).min(h * 0.75), (0.0, 0.0, 0.0, 1.0)); }
+    if h > 3.0 { a.gfx.flares(w, (crate::layout::compact_flare() + (crate::layout::open_flare() - crate::layout::compact_flare()) * ((h - crate::layout::compact_h()) / (crate::layout::open_h() - crate::layout::compact_h())).clamp(0.0, 1.0)).min(h * 0.75), (0.0, 0.0, 0.0, 1.0)); }
     if st == St::Line || h < 6.0 { return; } // mini notch: so a forma
-    let open_f = ((h - 30.0) / (crate::island::OPEN_H - 30.0)).clamp(0.0, 1.0);
+    // dai em diante o conteudo e desenhado em UNIDADES DE PROJETO (420 de largura aberta) sob a escala k do preset de tamanho; a forma acima e em px reais
+    let k = crate::layout::k(); let ix = (crate::layout::win_w() - w) / 2.0; a.gfx.set_t(ix, a.ty.pos.min(0.0), k);
+    let (w, h, rad) = (w / k, h / k, rad / k);
+    let open_f = ((h - 30.0) / (140.0 - 30.0)).clamp(0.0, 1.0);
     let ao = ((open_f - 0.4) / 0.6).clamp(0.0, 1.0); // conteudo do aberto: entra depois da forma abrir ~40%
     let ap = if st == St::Over { ((h - 8.0) / 30.0).clamp(0.0, 1.0) } else if st == St::Live && live_expanded() { ((h - 8.0) / 20.0).clamp(0.0, 1.0) } else if st == St::Live && lyric_bar() { ((h - 8.0) / 20.0).clamp(0.0, 1.0) } else { ((h - 8.0) / 20.0).clamp(0.0, 1.0) * (1.0 - (h - 30.0) / 30.0).clamp(0.0, 1.0) }; // peek/ao vivo
     let t_s = a.p.eq_t0.get_or_insert(now).elapsed().as_secs_f32();
@@ -213,7 +220,7 @@ pub fn draw(a: &mut App, now: Instant, w: f32, h: f32, rad: f32, hits: &mut Vec<
     if ao > 0.01 {
         a.gfx.rclip(w, h, rad);
         // gradiente da cor da capa (so Musica)
-        if a.page == 0 && crate::settings::flag(crate::settings::F_GRAD) { if let Some((tr, tg, tb)) = cur_tint(a, now) { a.gfx.vgrad(0.0, 0.0, w, h, (tr, tg, tb, 0.55), 0.35, ao); } }
+        if a.page == P_MUSIC && crate::settings::flag(crate::settings::F_GRAD) { if let Some((tr, tg, tb)) = cur_tint(a, now) { a.gfx.vgrad(0.0, 0.0, w, h, (tr, tg, tb, 0.55), 0.35, ao); } }
         a.gfx.layer(ao);
         draw_open(a, now, w, h, t_s, hits);
         a.gfx.unlayer();
@@ -267,12 +274,12 @@ fn draw_live_expanded(a: &mut App, w: f32, t: f32) {
         a.gfx.text(&v.title, Fmt::BodyStrong, 54.0, 7.0, 190.0, 18.0, TEXT, false);
         let l = if crate::settings::flag(crate::settings::F_LYRBAR) { lyric_line(a, Instant::now()) } else { None }.unwrap_or_else(|| v.artist.clone()); // 'letras no recolhido' desligado: o ao vivo mostra o artista
         a.gfx.text(&l, Fmt::Body, 54.0, 26.0, 190.0, 16.0, TEXT2, false);
-        eq_bars(a, w - 48.0, 19.0, is_playing(), t, PAGE_COL[0]); // margens iguais de 10 px (QA5 C8)
+        eq_bars(a, w - 48.0, 19.0, is_playing(), t, PAGE_COL[P_MUSIC]); // margens iguais de 10 px (QA5 C8)
         a.gfx.icon("eye-off", w - 26.0, 18.0, 16.0, TEXT3, false); // ocultar durante o evento (clique: N2/Configuracoes)
-        if timer_running() { a.gfx.circle(w - 13.0, 12.0, 3.0, PAGE_COL[2]); }
+        if timer_running() { a.gfx.circle(w - 13.0, 12.0, 3.0, PAGE_COL[P_POMO]); }
     } else if timer_running() {
         let tm = timer::timer_get().unwrap();
-        a.gfx.ring(26.0, 26.0, 13.0, 3.0, SURFACE_H); a.gfx.arc(26.0, 26.0, 13.0, 3.0, tm.remaining_sec as f32 / tm.total_sec.max(1) as f32, PAGE_COL[2]);
+        a.gfx.ring(26.0, 26.0, 13.0, 3.0, SURFACE_H); a.gfx.arc(26.0, 26.0, 13.0, 3.0, tm.remaining_sec as f32 / tm.total_sec.max(1) as f32, PAGE_COL[P_POMO]);
         a.gfx.text(&format!("{:02}:{:02}", tm.remaining_sec / 60, tm.remaining_sec % 60), Fmt::ClockLive, 52.0, 8.0, 120.0, 18.0, TEXT, false);
         let base = match tm.mode { timer::Mode::Focus => "Foco", timer::Mode::Short => "Pausa curta", timer::Mode::Long => "Pausa longa" };
         a.gfx.text(&if tm.cycle > 0 { format!("{base} · ciclo {}", tm.cycle) } else { base.to_string() }, Fmt::Small, 52.0, 28.0, 140.0, 14.0, TEXT2, false);
@@ -338,8 +345,8 @@ fn draw_peek_pc(a: &mut App, w: f32, t: f32, now: Instant) {
     a.gfx.text(&hm, Fmt::ClockLive, x, 5.0, cw + 4.0, 20.0, TEXT, false); x += cw + 8.0;
     if sn.mic || sn.cam { a.gfx.circle(x + 3.0, 15.0, 3.0, if sn.mic { ACCENT2 } else { OK }); x += 12.0; } // ponto: laranja = microfone, verde = camera em uso
     if crate::settings::flag(crate::settings::F_PC_STATE) {
-        if timer_running() { if let Ok(tm) = timer::timer_get() { a.gfx.icon("timer", x, 9.0, 12.0, PAGE_COL[2], false); a.gfx.text(&format!("{:02}:{:02}", tm.remaining_sec / 60, tm.remaining_sec % 60), Fmt::Small, x + 16.0, 8.0, 40.0, 14.0, TEXT, false); } }
-        else if is_playing() { eq_bars(a, x + 2.0, 8.0, true, t, PAGE_COL[0]); }
+        if timer_running() { if let Ok(tm) = timer::timer_get() { a.gfx.icon("timer", x, 9.0, 12.0, PAGE_COL[P_POMO], false); a.gfx.text(&format!("{:02}:{:02}", tm.remaining_sec / 60, tm.remaining_sec % 60), Fmt::Small, x + 16.0, 8.0, 40.0, 14.0, TEXT, false); } }
+        else if is_playing() { eq_bars(a, x + 2.0, 8.0, true, t, PAGE_COL[P_MUSIC]); }
     }
     // dados rotativos: grupos de `slots` itens, troca a cada PC_ROT s com deslize horizontal (300 ms)
     let ml = pc_metrics(); if ml.is_empty() { return; }
@@ -360,7 +367,7 @@ fn pc_item(a: &mut App, m: crate::metrics::Metric, s: &crate::metrics::Snap, x: 
     let bar = |a: &mut App, pct: f32, col: Rgba| { let col = if pct >= 90.0 { DANGER } else if pct >= 75.0 { ACCENT2 } else { col }; a.gfx.rrect(x, 24.0, PC_SLOT_W - 8.0, 2.0, 1.0, SURFACE_H); a.gfx.rrect(x, 24.0, (PC_SLOT_W - 8.0) * (pct / 100.0).clamp(0.0, 1.0), 2.0, 1.0, col); };
     match m {
         Metric::Cpu | Metric::Ram | Metric::Gpu => {
-            let (lbl, v, col) = match m { Metric::Cpu => ("CPU", Some(s.cpu), PAGE_COL[0]), Metric::Ram => ("RAM", Some(s.ram), rgba(0x7CC4FF, 1.0)), _ => ("GPU", s.gpu, rgba(0xFF9F6B, 1.0)) };
+            let (lbl, v, col) = match m { Metric::Cpu => ("CPU", Some(s.cpu), PAGE_COL[P_MUSIC]), Metric::Ram => ("RAM", Some(s.ram), rgba(0x7CC4FF, 1.0)), _ => ("GPU", s.gpu, rgba(0xFF9F6B, 1.0)) };
             a.gfx.text(lbl, Fmt::Small, x, 4.0, 28.0, 14.0, TEXT3, false);
             let txt = v.map_or("—".to_string(), |v| format!("{:.0}%", v)); a.gfx.text(&txt, Fmt::BodyStrong, x + 28.0, 3.0, 34.0, 16.0, TEXT, false);
             bar(a, v.unwrap_or(0.0), col);
@@ -372,8 +379,10 @@ fn pc_item(a: &mut App, m: crate::metrics::Metric, s: &crate::metrics::Snap, x: 
     }
 }
 
+fn h_peek() -> f32 { 30.0 }
 fn draw_peek_live(a: &mut App, w: f32, t: f32) {
     if a.state == St::Peek && crate::settings::get().collapsed_look == "eyes" { return draw_eyes(a, w, Instant::now()); }
+    if a.state == St::Peek && crate::settings::get().collapsed_look == "mascot" { return draw_peek_mascot(a, w, h_peek(), Instant::now()); }
     if a.state == St::Peek && pc_mode() { return draw_peek_pc(a, w, t, Instant::now()); }
     let (hm, _) = clock_str(); let (pc, ch) = battery(a);
     let bx = 14.0; let _ = (pc, ch);
@@ -383,15 +392,15 @@ fn draw_peek_live(a: &mut App, w: f32, t: f32) {
     if a.state == St::Live || is_live() && w > 160.0 {
         let (pl, tm) = (is_playing(), timer_running());
         let mut x = w - 14.0 - 13.0;
-        if pl { eq_bars(a, x, 8.0, true, t, PAGE_COL[0]); x -= 22.0; }
-        if tm { a.gfx.icon("timer", x - 3.0, 7.0, 16.0, PAGE_COL[2], false); }
+        if pl { eq_bars(a, x, 8.0, true, t, PAGE_COL[P_MUSIC]); x -= 22.0; }
+        if tm { a.gfx.icon("timer", x - 3.0, 7.0, 16.0, PAGE_COL[P_POMO], false); }
     }
 }
 
 fn draw_open(a: &mut App, now: Instant, w: f32, h: f32, t: f32, hits: &mut Vec<(R, Act)>) {
     let dx = (w - 420.0) / 2.0; // layout normal fica centrado enquanto a largura anima
     // split segue o ESTADO (nao a largura: a mola da largura passa de 420 ao abrir e mostrava a letra por baixo do player)
-    a.split_t.go(now, if a.split && a.page == 0 { 1.0 } else { 0.0 }, 240.0); let split_f = a.split_t.val(now).clamp(0.0, 1.0);
+    a.split_t.go(now, if a.split && a.page == P_MUSIC { 1.0 } else { 0.0 }, 240.0); let split_f = a.split_t.val(now).clamp(0.0, 1.0);
     let pv = a.page_t.pos; let busy = a.page_t.busy(now); let slide = crate::island::PAGE_SLIDE_PX * a.dir;
     let (pa, pb) = (if busy { 1.0 - pv.clamp(0.0, 1.0) } else { 0.0 }, if busy { pv.clamp(0.0, 1.0) } else { 1.0 });
     let prev = a.prev_page;
@@ -400,23 +409,61 @@ fn draw_open(a: &mut App, now: Instant, w: f32, h: f32, t: f32, hits: &mut Vec<(
     chrome(a, now, w, h, dx, split_f, t, hits);
 }
 
+/// contexto do mascote: musica, arrasto, noite (23h-6h), bateria baixa (notebook fora da tomada e <= 20 %)
+fn mascot_ctx<'a>(a: &App, mouse: Option<(f32, f32)>, personality: &'a str, calm: bool) -> crate::mascot::Ctx<'a> {
+    let h = unsafe { GetLocalTime() }.wHour; let low = has_battery() && { let (pc, ch) = rest_battery(); !ch && pc <= 20 };
+    crate::mascot::Ctx { playing: is_playing(), dragging: a.drag_over, mouse, personality, calm_fx: calm, night: h >= 23 || h < 6, low_batt: low }
+}
+/// Compacto (peek) com mascote: rosto espiando (k >= 1) ou so olhos (< 150 px reais). Usa o MESMO estado/humor da pagina; so pede quadros ao piscar/morfar.
+fn draw_peek_mascot(a: &mut App, w: f32, h: f32, now: Instant) {
+    let cfg = crate::settings::get(); let calm = !crate::island::overlay_simple();
+    let ctx = mascot_ctx(a, None, &cfg.personality, calm);
+    let (pose, gaze) = a.p.mascot.step(&ctx, now);
+    crate::mascot::draw_peek(a, &pose, gaze, w, h, crate::layout::k() < 0.999);
+    if let Some(ms) = a.p.mascot.wake_ms(now) { unsafe { SetTimer(Some(a.hwnd), crate::island::T_MASCOT, ms.max(15), None); } }
+}
+/// Pagina Mascote (v0.2.0): rosto a esquerda (150 px, reage ao mouse e a cliques), 2 slots configuraveis a direita (padrao: Arquivos em cima, Player mini embaixo)
+fn mascot_page(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
+    let cfg = crate::settings::get(); a.p.slot_tip = None;
+    for (w, rc) in crate::slots::layout(&cfg.slot_top, &cfg.slot_bottom) { crate::slots::draw_slot(a, w, rc, hits, off, now); }
+    if let Some((txt, cx, ty)) = a.p.slot_tip.take() { // legenda com o nome completo (por cima dos slots)
+        let s = crate::pages2::ellip(a, &txt, Fmt::Small, 176.0); let tw = a.gfx.measure(&s, Fmt::Small); let bw = tw + 14.0; let bx = (cx - bw / 2.0).clamp(208.0, 394.0 - bw);
+        a.gfx.rrect(bx, ty, bw, 17.0, 8.5, rgba(0x000000, 0.94)); a.gfx.rrect_stroke(bx + 0.5, ty + 0.5, bw - 1.0, 16.0, 8.0, 1.0, rgba(0xFFFFFF, 0.16)); a.gfx.text(&s, Fmt::Small, bx + 7.0, ty + 1.5, tw + 4.0, 14.0, TEXT, false);
+    }
+    let over = a.class & 3 == 2;
+    let mouse = if over { let (cx, cy) = a.cursor_local(); Some((cx - 104.0, cy - 68.0)) } else { None };
+    let calm = !crate::island::overlay_simple();
+    let mouse = if cfg.mascot_gaze { mouse } else { None };
+    let ctx = mascot_ctx(a, mouse, &cfg.personality, calm);
+    let (pose, gaze) = a.p.mascot.step(&ctx, now);
+    let t = (a.p.mascot.age_ms(now) as f32) / 1000.0;
+    let breath = if calm { 1.0 + 0.0125 * (1.0 - (std::f32::consts::TAU * t / 3.2).cos()) } else { 1.0 }; // respiracao 3,2 s (some em Economia)
+    let amp = crate::mascot::rig().personalities.get(cfg.personality.as_str()).map_or(0.5, |p| p.amplitude);
+    let shake = if a.p.mascot.raging() && calm { amp * 2.0 * (std::f32::consts::TAU * 18.0 * t).sin() } else { 0.0 };
+    let fw = cfg.mascot_w().min(160.0); let (fx, fy) = (104.0 - fw / 2.0, 68.0 - fw * 0.3); // rosto centrado na metade esquerda (centro 104, 68)
+    crate::mascot::draw(a, &pose, gaze, fx, fy, fw, breath, shake, t);
+    hits.push((r(fx + off, fy, fw, fw * 0.62), Act::Mascot));
+    if let Some(ms) = a.p.mascot.wake_ms(now) { unsafe { SetTimer(Some(a.hwnd), crate::island::T_MASCOT, ms.max(15), None); } } // piscar/reavaliar: um timer so
+}
+
 fn page_layer(a: &mut App, now: Instant, page: usize, dx: f32, alpha: f32, off: f32, split_f: f32, t: f32, w: f32, hits: &mut Vec<(R, Act)>) {
     if alpha < 0.01 { return; }
     a.gfx.layer(alpha);
     match page {
-        0 => {
-            if split_f < 0.99 { a.gfx.layer(1.0 - split_f); a.gfx.set_t(origin(a, w) + dx + off, 0.0, 1.0); music_normal(a, now, t, hits, dx + off); a.gfx.unlayer(); }
-            if split_f > 0.01 { a.gfx.layer(split_f); a.gfx.set_t(origin(a, w), 0.0, 1.0); music_split(a, now, hits); a.gfx.unlayer(); }
+        P_MASCOT => { a.gfx.set_t(origin(a, w) + (dx + off) * crate::layout::k(), 0.0, crate::layout::k()); mascot_page(a, hits, dx + off, now); }
+        P_MUSIC => {
+            if split_f < 0.99 { a.gfx.layer(1.0 - split_f); a.gfx.set_t(origin(a, w) + (dx + off) * crate::layout::k(), 0.0, crate::layout::k()); music_normal(a, now, t, hits, dx + off); a.gfx.unlayer(); }
+            if split_f > 0.01 { a.gfx.layer(split_f); a.gfx.set_t(origin(a, w), 0.0, crate::layout::k()); music_split(a, now, hits); a.gfx.unlayer(); }
         }
-        1 => { a.gfx.set_t(origin(a, w) + dx + off, 0.0, 1.0); crate::pages2::shelf_bg(a, now); header(a, "Shelf", 1, t, now); shelf(a, hits, dx + off, now); }
-        2 => { a.gfx.set_t(origin(a, w) + dx + off, 0.0, 1.0); header(a, "Pomodoro", 2, t, now); pomodoro(a, hits, dx + off, now); }
-        _ => { a.gfx.set_t(origin(a, w) + dx + off, 0.0, 1.0); header(a, "Tarefas", 3, t, now); tarefas(a, hits, dx + off); }
+        P_SHELF => { a.gfx.set_t(origin(a, w) + (dx + off) * crate::layout::k(), 0.0, crate::layout::k()); crate::pages2::shelf_bg(a, now); header(a, "Arquivos", P_SHELF, t, now); shelf(a, hits, dx + off, now); }
+        P_POMO => { a.gfx.set_t(origin(a, w) + (dx + off) * crate::layout::k(), 0.0, crate::layout::k()); header(a, "Pomodoro", P_POMO, t, now); pomodoro(a, hits, dx + off, now); }
+        _ => { a.gfx.set_t(origin(a, w) + (dx + off) * crate::layout::k(), 0.0, crate::layout::k()); header(a, "Tarefas", P_TASKS, t, now); tarefas(a, hits, dx + off); }
     }
-    a.gfx.set_t(origin(a, w), 0.0, 1.0);
+    a.gfx.set_t(origin(a, w), 0.0, crate::layout::k());
     a.gfx.unlayer();
 }
 /// origem x (px logicos da janela) da ilha atual
-fn origin(_a: &App, w: f32) -> f32 { (crate::island::WIN_W - w) / 2.0 }
+fn origin(_a: &App, w: f32) -> f32 { (crate::layout::win_w() - w * crate::layout::k()) / 2.0 } // `w` em unidades de projeto
 
 fn header(a: &mut App, title: &str, page: usize, t: f32, now: Instant) {
     // Shelf: o cabecalho sobe 4 px (excecao documentada, DESIGN-NATIVO 14.1) para caber a caixa de 96
@@ -425,7 +472,7 @@ fn header(a: &mut App, title: &str, page: usize, t: f32, now: Instant) {
     // Shelf com itens: os botoes ocupam o lugar de data/hora/bateria; some/volta em fade (0,3 s)
     let ha = if page == P_SHELF { crate::pages2::shelf_header_alpha(a, now) } else { 1.0 };
     if ha > 0.01 {
-        a.gfx.layer(ha); a.gfx.set_t((crate::island::WIN_W - 420.0) / 2.0, up, 1.0);
+        a.gfx.layer(ha); let k = crate::layout::k(); a.gfx.set_t((crate::layout::win_w() - 420.0 * k) / 2.0, up * k, k);
         let (hm, date) = clock_str(); let (pc, ch) = battery(a);
         // grupo bateria · data · hora alinhado a direita, 8 px entre itens; termina em x=372 (o indicador ao vivo fica em 382..404; com timer+musica cede 18 px)
         let edge = 372.0 - if is_playing() && timer_running() { 18.0 } else { 0.0 };
@@ -433,26 +480,26 @@ fn header(a: &mut App, title: &str, page: usize, t: f32, now: Instant) {
         a.gfx.text(&hm, Fmt::BodyStrong, edge - wh - 2.0, 14.0, wh + 4.0, 16.0, TEXT, true);
         a.gfx.text(&date, Fmt::Body, edge - wh - 8.0 - wd - 2.0, 14.0, wd + 4.0, 16.0, TEXT2, true);
         let _ = (pc, ch); status_icon(a, edge - wh - 8.0 - wd - 8.0 - 16.0, 14.0, 16.0);
-        a.gfx.set_t((crate::island::WIN_W - 420.0) / 2.0, 0.0, 1.0); a.gfx.unlayer();
+        a.gfx.set_t((crate::layout::win_w() - 420.0 * k) / 2.0, 0.0, k); a.gfx.unlayer();
     }
     live_indicator(a, t);
 }
 fn live_indicator(a: &mut App, t: f32) {
     let (pl, tm) = (is_playing(), timer_running());
     let mut x = 404.0 - 13.0;
-    if pl { eq_bars(a, x, 12.0, true, t, PAGE_COL[0]); x -= 20.0; }
-    if tm { a.gfx.icon("timer", x - 1.0, 12.0, 14.0, PAGE_COL[2], false); }
+    if pl { eq_bars(a, x, 12.0, true, t, PAGE_COL[P_MUSIC]); x -= 20.0; }
+    if tm { a.gfx.icon("timer", x - 1.0, 12.0, 14.0, PAGE_COL[P_POMO], false); }
 }
 
-fn hov(a: &App, act: Act) -> bool { a.hover == Some(act) }
-fn button_bg(a: &mut App, hits: &mut Vec<(R, Act)>, rect: R, act: Act, off: f32, radius: f32) {
+pub(crate) fn hov(a: &App, act: Act) -> bool { a.hover == Some(act) }
+pub(crate) fn button_bg(a: &mut App, hits: &mut Vec<(R, Act)>, rect: R, act: Act, off: f32, radius: f32) {
     let pressed = a.pressed == Some(act);
     if hov(a, act) || pressed { a.gfx.rrect(rect.x, rect.y, rect.w, rect.h, radius, if pressed { rgba(0xFFFFFF, 0.20) } else { SURFACE_H }); }
     hits.push((R { x: rect.x + off, ..rect }, act));
 }
 
 /// capa com o giro de troca de faixa (so a largura encolhe/volta; leve perda de altura = perspectiva)
-fn draw_cover(a: &mut App, now: Instant, x: f32, y: f32, size: f32, r: f32, stroke: bool) {
+pub(crate) fn draw_cover(a: &mut App, now: Instant, x: f32, y: f32, size: f32, r: f32, stroke: bool) {
     let ms = spin_ms(a, now);
     let (cover, sx) = match (ms, a.p.spin.as_ref()) { (Some(m), Some(s)) => { let (k, new) = spin_scale(m); (if new { a.p.cover.clone() } else { s.cover.clone() }, k) } _ => (a.p.cover.clone(), 1.0) };
     let m = if sx < 0.999 { Some(a.gfx.scale_xy(x + size / 2.0, y + size / 2.0, sx, 1.0 - 0.07 * (1.0 - sx))) } else { None };
@@ -519,7 +566,7 @@ fn music_normal(a: &mut App, now: Instant, t: f32, hits: &mut Vec<(R, Act)>, off
 }
 
 /// posicao mostrada: otimista por 400 ms apos o seek
-fn ui_pos(a: &mut App, v: &media::View, now: Instant) -> u64 {
+pub(crate) fn ui_pos(a: &mut App, v: &media::View, now: Instant) -> u64 {
     if let Some((p, t0)) = a.seek_opt {
         let el = (now - t0).as_millis() as u64;
         if a.seek_drag { return p; }
@@ -606,40 +653,39 @@ fn tarefas(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32) { crate::tasks::draw
 
 /// setas, pontos, dock
 fn chrome(a: &mut App, now: Instant, w: f32, _h: f32, dx: f32, split_f: f32, _t: f32, hits: &mut Vec<(R, Act)>) {
-    a.gfx.set_t(origin(a, w) + dx, 0.0, 1.0);
+    a.gfx.set_t(origin(a, w) + dx * crate::layout::k(), 0.0, crate::layout::k());
     let dock_f = a.dock_t.val(now).clamp(0.0, 1.0);
     if split_f < 0.5 {
         let al = 1.0 - split_f * 2.0;
         a.gfx.layer(al);
-        for (x, ic, d) in [(3.0f32, "chevron-left", -1i8), (399.0, "chevron-right", 1)] {
+        for (x, ic, d) in [(3.0f32, "chevron-left", -1i8), (399.0, "chevron-right", 1)] { // '< >' Lucide (ISC), sem borda nem fundo: cinza claro e mais claro no hover
             let act = Act::Arrow(d);
-            a.gfx.circle(x + 9.0, 75.0, 9.0, if hov(a, act) { SURFACE_H } else { SURFACE });
-            a.gfx.icon(ic, x + 3.0, 69.0, 12.0, TEXT2, false);
-            hits.push((r(x + dx, 66.0, 18.0, 18.0), act));
+            let hv = hov(a, act); a.gfx.icon(ic, x + 2.0, 68.0, 14.0, if hv { rgba(0xFFFFFF, 0.92) } else { rgba(0xFFFFFF, 0.40) }, false);
+            hits.push((r(x + dx - 1.0, 62.0, 20.0, 26.0), act));
         }
-        if dock_f < 0.99 && !(a.page == 3 && a.p.task_cal) { a.gfx.layer(1.0 - dock_f);
+        if dock_f < 0.99 && !(a.page == P_TASKS && a.p.task_cal) { a.gfx.layer(1.0 - dock_f);
             // pontos: 4 px, ativo = pilula 15x4, espacamento 8,5 px. Na troca a pilula antiga encolhe e a nova cresce (~0,23 s), sem gota
             let tt = a.p.dots_at.map_or(1.0, |(t0, _)| ((now - t0).as_secs_f32() / 0.23).min(1.0)); let from = a.p.dots_at.map_or(a.page, |d| d.1); let e = crate::island::ease(tt);
-            let wd: Vec<f32> = (0..4).map(|i| { let wgt = if tt >= 1.0 { (i == a.page) as u8 as f32 } else if i == a.page { e } else if i == from { 1.0 - e } else { 0.0 }; 4.0 + 11.0 * wgt }).collect();
-            let gap = 8.5; let total: f32 = wd.iter().sum::<f32>() + 3.0 * gap; let mut x = 210.0 - total / 2.0; 
-            for i in 0..4 { let act_on = i == a.page; a.gfx.rrect(x, 131.0, wd[i], 4.0, 2.0, if act_on { (1.0, 1.0, 1.0, 1.0) } else { (1.0, 1.0, 1.0, 0.55) }); x += wd[i] + gap; }
+            let wd: Vec<f32> = (0..N_PAGES).map(|i| { let wgt = if tt >= 1.0 { (i == a.page) as u8 as f32 } else if i == a.page { e } else if i == from { 1.0 - e } else { 0.0 }; 4.0 + 11.0 * wgt }).collect();
+            let gap = 8.5; let total: f32 = wd.iter().sum::<f32>() + (N_PAGES as f32 - 1.0) * gap; let mut x = 210.0 - total / 2.0; 
+            for i in 0..N_PAGES { let act_on = i == a.page; a.gfx.rrect(x, 129.0 + crate::layout::pad(), wd[i], 4.0, 2.0, if act_on { (1.0, 1.0, 1.0, 1.0) } else { (1.0, 1.0, 1.0, 0.55) }); x += wd[i] + gap; }
             a.gfx.unlayer(); }
         a.gfx.unlayer();
     }
     if dock_f > 0.01 {
         a.gfx.layer(dock_f);
-        let y0 = 136.0; let x0 = 114.0;
-        for i in 0..4usize {
+        let pd = crate::layout::pad(); let y0 = 136.0 + pd; let x0 = 96.0;
+        for i in 0..N_PAGES {
             let rect = r(x0 + 36.0 * i as f32, y0, 36.0, 28.0); let on = a.page == i; let act = Act::Page(i as u8);
-            if on { a.gfx.rrect(rect.x + 2.0, 139.0, 32.0, 22.0, 9.0, (PAGE_COL[i].0, PAGE_COL[i].1, PAGE_COL[i].2, 0.16)); }
+            if on { a.gfx.rrect(rect.x + 2.0, 139.0 + pd, 32.0, 22.0, 9.0, (PAGE_COL[i].0, PAGE_COL[i].1, PAGE_COL[i].2, 0.16)); }
             let ic = if on { PAGE_COL[i] } else if hov(a, act) { TEXT } else { TEXT2 };
-            a.gfx.icon(PAGE_ICONS[i], rect.x + 10.0, 142.0, 16.0, ic, false);
+            a.gfx.icon(PAGE_ICONS[i], rect.x + 10.0, 142.0 + pd, 16.0, ic, false);
             hits.push((R { x: rect.x + dx, ..rect }, act));
         }
-        a.gfx.line(x0 + 144.0 + 6.0, 144.0, x0 + 144.0 + 6.0, 156.0, 1.0, LINE_C);
-        let sr = r(x0 + 156.0, y0, 36.0, 28.0);
+        a.gfx.line(x0 + 180.0 + 6.0, 144.0 + pd, x0 + 180.0 + 6.0, 156.0 + pd, 1.0, LINE_C);
+        let sr = r(x0 + 192.0, y0, 36.0, 28.0);
         let ic = if hov(a, Act::Settings) { TEXT } else { TEXT2 };
-        a.gfx.icon("settings", sr.x + 10.0, 142.0, 16.0, ic, false);
+        a.gfx.icon("settings", sr.x + 10.0, 142.0 + pd, 16.0, ic, false);
         hits.push((R { x: sr.x + dx, ..sr }, Act::Settings));
         a.gfx.unlayer();
     }
@@ -650,12 +696,13 @@ fn chrome(a: &mut App, now: Instant, w: f32, _h: f32, dx: f32, split_f: f32, _t:
 pub fn mouse(a: &mut App, m: u32, wp: WPARAM, lp: LPARAM) {
     if m == WM_LBUTTONDOWN && a.state != St::Open && crate::settings::flag(crate::settings::F_CLICK) { a.click_open = true; a.evaluate_pub(); return; } // modo 'Clique': o primeiro clique no notch abre
     let s = a.gfx.scale; let (cx, cy) = ((lp.0 & 0xFFFF) as i16 as f32 / s, ((lp.0 >> 16) & 0xFFFF) as i16 as f32 / s);
-    let w = a.tw.val(Instant::now()); let (x, y) = (cx - (crate::island::WIN_W - w) / 2.0, cy);
+    let w = a.tw.val(Instant::now()); let kk = crate::layout::k(); let (x, y) = ((cx - (crate::layout::win_w() - w) / 2.0) / kk, cy / kk); // coordenadas de projeto
     let hit = a.hits.iter().rev().find(|(rc, _)| rc.has(x, y)).map(|(rc, act)| (*rc, *act));
     match m {
         WM_MOUSEMOVE => {
             let nh = hit.map(|h| h.1);
             if nh != a.hover { a.hover = nh; a.dirty = true; }
+            if a.page == P_MASCOT { a.dirty = true; } // o olhar do mascote segue o mouse (evento, nao polling)
             if matches!(nh, Some(Act::Volume) | Some(Act::VolSlider)) && !a.p.vol_drag { // hover no volume: mostra o slider (some ~0,8 s depois de sair)
                 let was_open = a.p.vol_t.is_some_and(|t| t.elapsed().as_millis() < 1500);
                 if !was_open { let app = media::current().app_name.unwrap_or_default(); a.p.vol = crate::vol::app_get(&app); a.p.vol_muted = a.p.vol <= 0.001; }
@@ -663,10 +710,16 @@ pub fn mouse(a: &mut App, m: u32, wp: WPARAM, lp: LPARAM) {
                 unsafe { SetTimer(Some(a.hwnd), crate::island::T_VOL, 900, None); } // um quadro quando o prazo vence (parado nao ha quadros)
             }
             if let Some((i, x0, y0)) = a.p.drag_from { if (x - x0).abs() + (y - y0).abs() > 6.0 && LBUTTON_DOWN_NOW() {
-                // arrastar o card para fora: DoDragDrop (so copia) numa thread propria; o clique nao abre o arquivo
+                // arrastar o card para fora: DoDragDrop (so copia) numa thread propria; o clique nao abre o arquivo. Item selecionado arrasta TODOS os selecionados
                 a.p.drag_from = None; a.pressed = None;
-                if let Some(it) = a.p.shelf.get(i as usize) { crate::log(&format!("arrastar card {i} -> {:?}", crate::shelf::start_drag(&it.id.clone()))); }
+                let ids = crate::pages2::drag_ids(a, i as usize);
+                if !ids.is_empty() { crate::log(&format!("arrastar {} item(ns) -> {:?}", ids.len(), crate::shelf::start_drag(&ids))); }
             } }
+            if a.p.pan.is_some() { // rolagem da fileira com o mouse (inercia ao soltar)
+                if LBUTTON_DOWN_NOW() { let n = a.p.shelf.len() as f32; let mx = (n * 66.0 - 330.0).max(0.0); let now = Instant::now();
+                    if let Some(p) = a.p.pan.as_mut() { let sx = (p.sx0 - (x - p.x0)).clamp(0.0, mx); let dt = (now - p.lt).as_secs_f32().max(0.001); if dt > 0.004 { p.v = 0.6 * p.v + 0.4 * (-(x - p.lx) / dt); p.lx = x; p.lt = now; } if (x - p.x0).abs() > 4.0 { p.moved = true; } if p.moved { a.p.shelf_sx = sx; a.p.shelf_sc = None; a.pressed = None; a.dirty = true; } } }
+                else { a.p.pan = None; }
+            }
             if a.p.vol_drag { if let Some((rc, _)) = a.hits.iter().find(|(_, ac)| *ac == Act::VolSlider).copied() { vol_to(a, x, rc); } }
             if a.seek_drag { if let Some((rc, Act::Seek(_))) = a.hits.iter().find(|(_, ac)| matches!(ac, Act::Seek(_))).copied() { seek_to(a, x, rc, false); } }
             unsafe { let mut t = TRACKMOUSEEVENT { cbSize: size_of::<TRACKMOUSEEVENT>() as u32, dwFlags: TME_LEAVE, hwndTrack: a.hwnd, dwHoverTime: 0 }; let _ = TrackMouseEvent(&mut t); }
@@ -678,26 +731,35 @@ pub fn mouse(a: &mut App, m: u32, wp: WPARAM, lp: LPARAM) {
                 a.pressed = Some(act); a.dirty = true;
                 if act == Act::VolSlider { a.p.vol_drag = true; vol_to(a, x, rc); }
                 if let Act::ShelfOpen(i) = act { if !a.p.select { a.p.drag_from = Some((i, x, y)); } }
+                if act == Act::ShelfPan && a.p.shelf.len() > 5 { a.p.pan = Some(Pan { x0: x, sx0: a.p.shelf_sx, lx: x, lt: Instant::now(), v: 0.0, moved: false }); }
                 if let Act::Seek(_) = act { a.seek_drag = true; seek_to(a, x, rc, false); }
             }
+            // clicar fora dos arquivos limpa a selecao (no modo Selecionar ela fica ate Concluido)
+            if !a.p.select && !a.p.sel.is_empty() && !matches!(hit.map(|h| h.1), Some(Act::ShelfOpen(_)) | Some(Act::ShelfRemove(_)) | Some(Act::ShelfPan) | Some(Act::ShelfClear) | Some(Act::ShelfSelect)) { a.p.sel.clear(); a.p.sel_anchor = None; a.dirty = true; }
         }
+        WM_MBUTTONUP => { if let Some((_, Act::ShelfOpen(i))) = hit { crate::pages2::remove_with_sel(a, i as usize); a.dirty = true; } } // botao do meio: tira da Shelf (so a referencia)
         WM_LBUTTONUP => {
             let was = a.pressed.take(); a.dirty = true; a.p.drag_from = None;
+            if let Some(p) = a.p.pan.take() { if p.moved { // soltou arrastando a fileira: segue com a velocidade e desacelera
+                let n = a.p.shelf.len() as f32; let mx = (n * 66.0 - 330.0).max(0.0); let now = Instant::now(); let to = (a.p.shelf_sx + (p.v * 0.28).clamp(-400.0, 400.0)).clamp(0.0, mx);
+                let mut sc = Tw::new(a.p.shelf_sx); sc.go(now, to, 520.0); a.p.shelf_sc = Some(sc); return; } }
             if a.p.vol_drag { a.p.vol_drag = false; a.p.vol_t = Some(Instant::now()); return; }
             if a.seek_drag { a.seek_drag = false; if let Some((rc, _)) = a.hits.iter().find(|(_, ac)| matches!(ac, Act::Seek(_))).copied() { seek_to(a, x, rc, true); } return; }
             if let (Some(p), Some((_, act))) = (was, hit) { if p == act { click(a, act); } }
         }
         WM_MOUSEWHEEL => {
             let d = ((wp.0 >> 16) & 0xFFFF) as i16;
-            if a.page == 3 && a.p.tasks.len() > 3 && x > 222.0 && x < 396.0 && y > 40.0 && y < 118.0 { // roda sobre a lista de tarefas: rola a lista
+            if a.page == P_TASKS && a.p.tasks.len() > 3 && x > 222.0 && x < 396.0 && y > 40.0 && y < 118.0 { // roda sobre a lista de tarefas: rola a lista
                 let n = a.p.tasks.len(); if d < 0 { a.p.task_scroll = (a.p.task_scroll + 1).min(n - 3); } else { a.p.task_scroll = a.p.task_scroll.saturating_sub(1); } a.dirty = true; return;
             }
-            if a.split && a.page == 0 && x >= 262.0 && x <= 512.0 && y >= 10.0 && y <= 126.0 && { let l = lyr(); l.state == 2 && l.synced && !l.lines.is_empty() } {
+            if a.split && a.page == P_MUSIC && x >= 262.0 && x <= 512.0 && y >= 10.0 && y <= 126.0 && { let l = lyr(); l.state == 2 && l.synced && !l.lines.is_empty() } {
                 let n = lyr().lines.len() as f32; let cur = { let v = media::view(); lyric_idx(&lyr(), v.pos_ms).max(0) as f32 };
                 let c = match a.p.lyr_user { Some((t, c)) if t.elapsed().as_millis() < 3000 => c, _ => cur };
                 a.p.lyr_user = Some((Instant::now(), (c + if d < 0 { 1.0 } else { -1.0 }).clamp(0.0, n - 1.0))); a.dirty = true; return;
             }
-            if a.page == P_SHELF && a.p.shelf.len() > 5 && y > 30.0 && y < 118.0 { let mx = (a.p.shelf.len() as f32 * 66.0 - 330.0).max(0.0); a.p.shelf_sx = (a.p.shelf_sx + if d < 0 { 66.0 } else { -66.0 }).clamp(0.0, mx); a.dirty = true; return; }
+            if a.page == P_SHELF && a.p.shelf.len() > 5 && y > 30.0 && y < 118.0 { // roda: um card por nocao, com mola suave (alvo acumula)
+                let mx = (a.p.shelf.len() as f32 * 66.0 - 330.0).max(0.0); let now = Instant::now(); let cur = a.p.shelf_sc.as_ref().map_or(a.p.shelf_sx, |t| t.target());
+                let to = (cur + if d < 0 { 66.0 } else { -66.0 }).clamp(0.0, mx); let mut sc = a.p.shelf_sc.take().unwrap_or_else(|| Tw::new(a.p.shelf_sx)); sc.go(now, to, 340.0); a.p.shelf_sc = Some(sc); a.dirty = true; return; }
             if a.p.last_wheel.is_none_or(|t| t.elapsed().as_millis() > 380) { a.p.last_wheel = Some(Instant::now()); step_page(a, if d < 0 { 1 } else { -1 }); }
         }
         _ => {}
@@ -706,7 +768,7 @@ pub fn mouse(a: &mut App, m: u32, wp: WPARAM, lp: LPARAM) {
 fn vol_to(a: &mut App, x: f32, rc: R) {
     let f = ((x - (rc.x + 6.0)) / 65.0).clamp(0.0, 1.0); a.p.vol = f; a.p.vol_t = Some(Instant::now()); crate::vol::app_set(&media::current().app_name.unwrap_or_default(), f); a.p.vol_muted = false; a.dirty = true;
 }
-fn step_page(a: &mut App, d: i32) { let p = (a.page as i32 + d).rem_euclid(4) as usize; a.go_page_dir(p, if d > 0 { 1.0 } else { -1.0 }); }
+fn step_page(a: &mut App, d: i32) { let p = (a.page as i32 + d).rem_euclid(N_PAGES as i32) as usize; a.go_page_dir(p, if d > 0 { 1.0 } else { -1.0 }); }
 fn seek_to(a: &mut App, x: f32, rc: R, commit: bool) {
     let v = media::view(); let f = ((x - rc.x) / rc.w).clamp(0.0, 1.0); let ms = (f * v.dur_ms as f32) as u64;
     a.seek_opt = Some((ms, Instant::now())); a.dirty = true;
@@ -723,13 +785,16 @@ fn click(a: &mut App, act: Act) {
             let ms = { let l = lyr(); l.lines.get(j as usize).map(|x| x.time_ms) };
             if let Some(ms) = ms { a.seek_opt = Some((ms, Instant::now())); a.p.lyr_user = None; a.dirty = true; crate::log(&format!("seek por linha -> {ms} ms ({:?})", media::media_seek(ms))); } }
         Act::Lyrics => { a.split = !a.split; ui_save("lyricsSplit", a.split.into()); let now = Instant::now(); a.retarget(now, 240.0); }
+        Act::Mascot => { a.p.mascot.on_click(Instant::now()); a.dirty = true; }
         Act::Page(p) => a.go_page(p as usize),
         Act::Settings => crate::settings_ui::open(),
         Act::Arrow(d) => step_page(a, d as i32),
         Act::TaskToday | Act::TaskAdd | Act::TaskEdit | Act::TaskToggle(_) | Act::TaskRemove(_) | Act::TaskPick(_) | Act::TaskCal | Act::TaskMonth(_) | Act::TaskDay(_) => crate::tasks::click(a, act),
+        Act::ShelfPan => { if !a.p.select { a.p.sel.clear(); a.p.sel_anchor = None; } }
         Act::ShelfSelect | Act::TimerMode(_) | Act::TimerPlay | Act::TimerReset | Act::TimerEdit | Act::ShelfClear | Act::ShelfRemove(_) | Act::ShelfOpen(_) | Act::ShelfDragStart(_) => crate::pages2::click(a, act),
         _ => {}
     }
+    if matches!(act, Act::ShelfOpen(_)) { a.p.kb_click = !a.p.sel.is_empty(); } // o teclado da Shelf nasce do clique que selecionou
     a.dirty = true;
 }
 
