@@ -467,15 +467,15 @@ pub fn set_attention(kind: u8) { ATTENTION.store(kind, Relaxed); }
 
 /// Dados do app lidos a cada quadro (sem alocar). `timer`: 0 parado, 1 rodando, 2 pausado, 3 concluido.
 #[derive(Clone, Copy, Default)]
-pub struct Ctx { pub playing: bool, pub track: u64, pub charging: Option<bool>, pub low_batt: bool, pub night: bool, pub timer: u8, pub cycle: u32, pub shelf_adds: u32, pub pointer: Option<(f32, f32)>, pub reduced: bool }
+pub struct Ctx { pub playing: bool, pub track: u64, pub charging: Option<bool>, pub batt_pct: u8, pub night: bool, pub timer: u8, pub cycle: u32, pub shelf_adds: u32, pub pointer: Option<(f32, f32)>, pub reduced: bool }
 /// Estado logico do Eavy: detecta as bordas (tocar/pausar, faixa, plugar, timer, Shelf, erro...) e decide o estado de base. So avanca com a pagina/compacto visivel;
 /// ao reabrir depois de uma pausa (> 1,5 s) ressincroniza com o estado ATUAL e descarta gestos vencidos.
 pub struct Mascot {
     pub e: Eavy, last: Option<Instant>, born: Instant, init: bool, prev: Ctx, key: u64, cand: (u64, Instant), last_ptr: Option<(f32, f32)>, pub touch: Instant,
-    asleep: bool, yawned: bool, pending: Option<&'static str>, clicks: Vec<Instant>, tap_at: Option<Instant>, errors: u32, notifs: u32, last_greet: Option<Instant>, reduced: bool, sleep_lock: bool, pinned: bool,
+    asleep: bool, yawned: bool, pending: Option<&'static str>, clicks: Vec<Instant>, tap_at: Option<Instant>, errors: u32, notifs: u32, last_greet: Option<Instant>, reduced: bool, sleep_lock: bool, pinned: bool, low: bool,
 }
 impl Default for Mascot { fn default() -> Self { Mascot { e: Eavy::new(), last: None, born: Instant::now(), init: false, prev: Ctx::default(), key: 0, cand: (0, Instant::now()), last_ptr: None, touch: Instant::now(), asleep: false, yawned: false,
-    pending: None, clicks: Vec::new(), tap_at: None, errors: 0, notifs: 0, last_greet: None, reduced: false, sleep_lock: false, pinned: false } } }
+    pending: None, clicks: Vec::new(), tap_at: None, errors: 0, notifs: 0, last_greet: None, reduced: false, sleep_lock: false, pinned: false, low: false } } }
 const FAR_PX: f32 = 150.0; const YAWN_S: f32 = 60.0; const SLEEP_S: f32 = 120.0; const TRACK_DEBOUNCE: Duration = Duration::from_millis(300);
 impl Mascot {
     pub fn age_ms(&self, now: Instant) -> u128 { now.duration_since(self.born).as_millis() }
@@ -497,7 +497,7 @@ impl Mascot {
     pub fn raging(&self) -> bool { false }
     fn want(&self, c: &Ctx) -> &'static str {
         match ATTENTION.load(Relaxed) { 1 => return "approval", 2 => return "pergunta", 3 => return "busca", _ => {} }
-        if c.low_batt { "bateria-baixa" } else if c.timer == 1 { "pomodoro-inicio" } else if c.playing { "danca" } else if c.charging == Some(true) { "carregando-ativo" } else if self.asleep { "sono" } else { "idle-pisca" }
+        if self.low { "bateria-baixa" } else if c.timer == 1 { "pomodoro-inicio" } else if c.playing { "danca" } else if c.charging == Some(true) { "carregando-ativo" } else if self.asleep { "sono" } else { "idle-pisca" }
     }
     fn resync(&mut self, c: &Ctx, now: Instant, greet: bool) {
         self.prev = *c; self.key = c.track; self.cand = (c.track, now); self.errors = ERRORS.load(Relaxed); self.notifs = NOTIFS.load(Relaxed); self.clicks.clear(); self.tap_at = None; self.pending = None;
@@ -506,10 +506,12 @@ impl Mascot {
     /// atualiza gatilhos e avanca o motor (chamado por quadro desenhado)
     pub fn step(&mut self, c: &Ctx, now: Instant) {
         if self.pinned { return; }
+        // bateria baixa com histerese: entra <= 20 % fora da tomada; sai >= 25 % ou ao plugar (batt_pct 0 = desconhecido)
+        if c.charging == Some(true) || c.batt_pct >= 25 { self.low = false; } else if c.charging == Some(false) && c.batt_pct > 0 && c.batt_pct <= 20 { self.low = true; }
         let gap = self.last.map(|t| now.duration_since(t));
         let dt = gap.map_or(1.0 / 30.0, |g| g.as_secs_f32()); self.last = Some(now); self.reduced = c.reduced;
         self.e.ctx_musica = c.playing;
-        if !self.init || gap.is_some_and(|g| g > Duration::from_millis(1500) && !self.e.sleeping()) {
+        if !self.init || gap.is_some_and(|g| g > Duration::from_millis(1500)) {
             let greet = self.last_greet.is_none_or(|t| now.duration_since(t) > Duration::from_secs(60)); self.init = true; self.resync(c, now, greet);
         } else {
             let p = self.prev; let mut act = false;
@@ -529,7 +531,7 @@ impl Mascot {
             if act && !self.sleep_lock { self.touched(now); }
             if let Some(t) = self.tap_at { if now.duration_since(t) >= Duration::from_millis(300) { self.tap_at = None; self.e.play("clique-tapa"); } }
             // ocioso: 60 s bocejo (uma vez), 120 s com o mouse longe (ou noite) dorme
-            let idle = now.duration_since(self.touch).as_secs_f32(); let calm = !c.playing && c.timer != 1 && !c.low_batt && c.charging != Some(true);
+            let idle = now.duration_since(self.touch).as_secs_f32(); let calm = !c.playing && c.timer != 1 && !self.low && c.charging != Some(true);
             if calm && !self.sleep_lock {
                 if idle >= YAWN_S && !self.yawned && !self.asleep { self.yawned = true; self.e.play("bocejo"); }
                 if !self.asleep && ((idle >= SLEEP_S && !near) || (c.night && idle >= 20.0)) { self.asleep = true; }
@@ -538,7 +540,8 @@ impl Mascot {
         }
         // estado de base: depois de um gesto volta ao estado ATUAL (danca se musica, carregando-ativo se plugado...), nao a idle
         if !self.e.gesture_running() { let w = self.want(c); if self.e.base_id() != w { self.e.play(w); } }
-        self.e.step(dt);
+        // tempo real: a 4 fps (dormindo/reduzido) o passo de 0,25 s vira subpassos de <= 50 ms (gestos na velocidade certa)
+        let n = (dt / 0.05).ceil().clamp(1.0, 30.0) as u32; for _ in 0..n { self.e.step(dt / n as f32); }
     }
 }
 
@@ -579,11 +582,17 @@ mod tests {
         steps(&mut m, &c, &mut t, 2.0); assert!(m.e.gesture_running(), "bocejo aos 60 s"); steps(&mut m, &c, &mut t, 62.0); assert!(m.e.sleeping(), "sono aos 120 s com mouse longe");
         c.pointer = Some((40.0, 0.0)); steps(&mut m, &c, &mut t, 0.3); assert!(!m.e.sleeping(), "mouse perto acorda");
         let mut m = Mascot::default(); let mut t = Instant::now(); let c = Ctx { track: 1, pointer: Some((10.0, 0.0)), ..Default::default() }; steps(&mut m, &c, &mut t, 130.0); assert!(!m.e.sleeping(), "mouse perto nao dorme"); }
+    #[test] fn dormindo_e_oculto_ressincroniza_sem_gesto_velho() {
+        let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, pointer: Some((400.0, 0.0)), ..Default::default() }; steps(&mut m, &c, &mut t, 125.0); assert!(m.e.sleeping());
+        c.shelf_adds = 3; t += Duration::from_secs(40); m.step(&c, t); assert!(!m.e.gesture_running() || m.e.fx.as_ref().map(|f| rig().def(f.d)["id"].as_str()) == Some(Some("saudacao")), "sem engolir velho"); }
+    #[test] fn passo_de_4_fps_usa_tempo_real() {
+        let run = |fps: f32| { let mut m = Mascot::default(); let mut t = Instant::now(); let c = Ctx { track: 1, ..Default::default() }; m.step(&c, t); m.e.play("engolir"); let step = Duration::from_secs_f32(1.0 / fps); for _ in 0..(fps * 1.5) as u32 { t += step; m.step(&c, t); } m.e.fx.as_ref().map_or(-1.0, |f| f.t) };
+        let (a, b) = (run(30.0), run(4.0)); assert!((a - b).abs() < 0.3, "{a} {b}"); }
     #[test] fn cliques_tapa_e_tonto() {
         let mut m = Mascot::default(); let mut t = Instant::now(); let c = Ctx { track: 1, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
         m.on_click(t); steps(&mut m, &c, &mut t, 0.1); assert!(!m.e.gesture_running(), "espera 300 ms: {:?}", m.e.fx.as_ref().map(|f| rig().def(f.d)["id"].as_str())); steps(&mut m, &c, &mut t, 0.4); assert!(m.e.gesture_running(), "tapa");
         steps(&mut m, &c, &mut t, 2.0); for _ in 0..3 { m.on_click(t); t += Duration::from_millis(200); } assert!(m.e.gesture_running()); }
     #[test] fn erro_real_e_bateria_baixa() {
         let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
-        m.error(); steps(&mut m, &c, &mut t, 0.2); assert!(m.e.gesture_running()); /* report_error usa contador global: nao chamado aqui para nao afetar testes paralelos */ c.low_batt = true; steps(&mut m, &c, &mut t, 3.0); assert_eq!(m.e.base_id(), "bateria-baixa"); }
+        m.error(); steps(&mut m, &c, &mut t, 0.2); assert!(m.e.gesture_running()); /* report_error usa contador global: nao chamado aqui para nao afetar testes paralelos */ c.charging = Some(false); c.batt_pct = 18; steps(&mut m, &c, &mut t, 3.0); assert_eq!(m.e.base_id(), "bateria-baixa"); c.batt_pct = 22; steps(&mut m, &c, &mut t, 3.0); assert_eq!(m.e.base_id(), "bateria-baixa", "histerese: 22 % ainda baixa"); c.batt_pct = 25; steps(&mut m, &c, &mut t, 3.0); assert_eq!(m.e.base_id(), "idle-pisca"); }
 }
