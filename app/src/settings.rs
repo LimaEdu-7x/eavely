@@ -45,7 +45,7 @@ pub struct Settings {
     /// v0.2.0 'Mascote e inicio': personalidade (calmo|travesso|dramatico), pagina inicial (last|mascot|music), widgets dos 2 slots da pagina Mascote
     pub personality: String, pub initial_page: String, pub slot_top: String, pub slot_bottom: String,
     /// v0.2.0 Etapa 4: tamanho do notch (small 80 % | standard 100 % | large 120 %), tamanho do mascote (auto segue o notch | large | small), olhos seguem o mouse
-    pub size_preset: String, pub mascot_size: String, pub mascot_gaze: bool,
+    pub size_preset: String, pub mascot_size: String, pub mascot_gaze: bool, pub eavy_mini: bool,
     /// mini notch (janela maximizada): false = so ao encostar na forma (folga 1 px); true = pequena folga (6 px)
     pub mini_near: bool,
     pub perf_preset: String, pub fps_cap: String, pub anim_quality: String, pub lyrics_scroll: String, pub fx_level: String, pub viz_level: String,
@@ -56,7 +56,7 @@ impl Default for Settings {
         ui_scale: "auto".into(), minimal_island: false, open_mode: "hover".into(), anim_speed: "normal".into(), cover_spin: true, cover_gradient: true, lyric_bar: true,
         shelf_start_empty: false, shelf_thumbs: true, hide_fullscreen: true, tasks_done_last: true, tasks_overdue_red: true,
         pc_state: true, pc_cpu: true, pc_ram: true, pc_gpu: true, pc_net: true, pc_slots: 1, pc_rotate: 5,
-        leave_delay_ms: 1000, shelf_glow: true, size_preset: "standard".into(), mascot_size: "auto".into(), mascot_gaze: true, personality: "calmo".into(), initial_page: "last".into(), slot_top: "shelf".into(), slot_bottom: "player".into(), mini_near: false, perf_preset: "balanced".into(), fps_cap: "auto".into(), anim_quality: "smooth".into(), lyrics_scroll: "smooth".into(), fx_level: "on".into(), viz_level: "reduced".into() } }
+        leave_delay_ms: 1000, shelf_glow: true, size_preset: "standard".into(), mascot_size: "auto".into(), mascot_gaze: true, eavy_mini: true, personality: "calmo".into(), initial_page: "last".into(), slot_top: "shelf".into(), slot_bottom: "player".into(), mini_near: false, perf_preset: "balanced".into(), fps_cap: "auto".into(), anim_quality: "smooth".into(), lyrics_scroll: "smooth".into(), fx_level: "on".into(), viz_level: "reduced".into() } }
 }
 impl Settings {
     /// Presets de desempenho: sobrescrevem so os controles da secao (e o intervalo do compacto de PC)

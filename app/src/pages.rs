@@ -380,12 +380,24 @@ fn pc_item(a: &mut App, m: crate::metrics::Metric, s: &crate::metrics::Snap, x: 
 }
 
 fn h_peek() -> f32 { 30.0 }
+/// mini Eavy ao lado do relogio na ilha recolhida (so no peek de relogio/bateria; foco na area de trabalho ou janela nao maximizada = o app esta em Peek)
+pub fn peek_mini_on(a: &App) -> bool { a.state == St::Peek && crate::settings::get().eavy_mini && crate::settings::get().collapsed_look == "clock" && !pc_mode() }
+/// entra/sai com a propria mola da forma da ilha (largura mini -> peek): escala e opacidade; 10 fps parado, 30 fps so em gesto; fora do peek nao desenha nem pede quadros
+fn draw_mini_eavy(a: &mut App, w: f32) {
+    let f = ((a.tw.pos - crate::layout::mini_w()) / (peek_w() - crate::layout::mini_w()).max(1.0)).clamp(0.0, 1.0); if f < 0.02 { return; }
+    let cfg = crate::settings::get(); let now = Instant::now(); a.p.mascot.mini = true;
+    let ctx = mascot_ctx(a, (210.0, h_peek() / 2.0), cfg.mascot_gaze); a.p.mascot.step(&ctx, now);
+    let l = 22.0 * f; let m0 = a.gfx.get_matrix(); a.gfx.layer(f);
+    a.p.mascot.e.draw(&a.gfx, w / 2.0 - 8.0, h_peek() / 2.0 + l * 0.33, l, true); a.gfx.unlayer(); a.gfx.set_matrix(m0);
+    if let Some(ms) = a.p.mascot.wake_ms(now) { unsafe { SetTimer(Some(a.hwnd), crate::island::T_MASCOT, ms.max(15), None); } }
+}
 fn draw_peek_live(a: &mut App, w: f32, t: f32) {
     if a.state == St::Peek && crate::settings::get().collapsed_look == "eyes" { return draw_eyes(a, w, Instant::now()); }
     if a.state == St::Peek && crate::settings::get().collapsed_look == "mascot" { return draw_peek_mascot(a, w, h_peek(), Instant::now()); }
     if a.state == St::Peek && pc_mode() { return draw_peek_pc(a, w, t, Instant::now()); }
     let (hm, _) = clock_str(); let (pc, ch) = battery(a);
     let bx = 14.0; let _ = (pc, ch);
+    if peek_mini_on(a) { draw_mini_eavy(a, w); } else { a.p.mascot.mini = false; }
     status_icon(a, bx, 7.0, 16.0);
     if a.state == St::Peek { a.gfx.text(&hm, Fmt::ClockLive, w - 14.0 - 64.0, 5.0, 64.0, 20.0, TEXT, true); } // peek: hora a direita (mock 22)
     else { a.gfx.text(&hm, Fmt::ClockLive, 40.0, 5.0, 56.0, 20.0, TEXT, false); }
@@ -418,14 +430,25 @@ fn mascot_ctx(a: &mut App, center: (f32, f32), gaze: bool) -> crate::mascot::Ctx
     crate::mascot::Ctx { playing, track, charging: if bat { Some(ch) } else { None }, batt_pct: if bat { pc.max(1) } else { 0 }, night: h >= 23 || h < 6, timer: tm, cycle: cyc,
         shelf_adds: crate::shelf::ADDS.load(std::sync::atomic::Ordering::Relaxed), pointer: if gaze { Some(a.cursor_px_from(center.0, center.1)) } else { None }, reduced: crate::island::overlay_simple() }
 }
+/// balao de fala do Eavy (estilo do corpo: areia, contorno suave, rabinho para baixo), centrado em cx com o topo em y
+fn speech_balloon(a: &mut App, txt: &str, cx: f32, y: f32, al: f32) { let s = crate::pages2::ellip(a, txt, Fmt::Small, 190.0); balloon_draw(&a.gfx, &s, cx, y, al); }
+pub fn balloon_draw(g: &crate::gfx::Gfx, s: &str, cx: f32, y: f32, al: f32) {
+    let tw = g.measure(s, Fmt::Small); let (bw, bh) = (tw + 20.0, 22.0); let bx = (cx - bw / 2.0).clamp(4.0, 204.0 - bw);
+    let ink = (0.078, 0.071, 0.102, al); let body = (0.961, 0.945, 0.914, 0.97 * al);
+    g.rrect(bx, y, bw, bh, 11.0, (0.0, 0.0, 0.0, 0.25 * al)); g.rrect(bx, y - 1.0, bw, bh, 11.0, body);
+    g.path(&[crate::gfx::Seg::M(cx - 5.0, y + bh - 1.5), crate::gfx::Seg::L(cx, y + bh + 5.0), crate::gfx::Seg::L(cx + 5.0, y + bh - 1.5), crate::gfx::Seg::Z], Some(body), None);
+    g.text(s, Fmt::Small, bx + 10.0, y + 3.0, tw + 6.0, 14.0, ink, false);
+}
 /// Compacto (peek) com o Eavy: so o corpo/rosto (sem cenario); corpo de 26 u de projeto (21/26/31 px reais conforme o preset)
 fn draw_peek_mascot(a: &mut App, w: f32, h: f32, now: Instant) {
+    a.p.mascot.mini = false;
     let cfg = crate::settings::get(); let ctx = mascot_ctx(a, (210.0, h / 2.0), cfg.mascot_gaze);
     a.p.mascot.step(&ctx, now); let l = 26.0; a.p.mascot.e.draw(&a.gfx, w / 2.0, h / 2.0 + l * 0.35, l, true);
     if let Some(ms) = a.p.mascot.wake_ms(now) { unsafe { SetTimer(Some(a.hwnd), crate::island::T_MASCOT, ms.max(15), None); } }
 }
 /// Pagina Mascote (v0.2.0): rosto a esquerda (150 px, reage ao mouse e a cliques), 2 slots configuraveis a direita (padrao: Arquivos em cima, Player mini embaixo)
 fn mascot_page(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
+    a.p.mascot.mini = false;
     let cfg = crate::settings::get(); a.p.slot_tip = None;
     for (w, rc) in crate::slots::layout(&cfg.slot_top, &cfg.slot_bottom) { crate::slots::draw_slot(a, w, rc, hits, off, now); }
     if let Some((txt, cx, ty)) = a.p.slot_tip.take() { // legenda com o nome completo (por cima dos slots)
@@ -437,6 +460,7 @@ fn mascot_page(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
     let l = 72.0 * cfg.mascot_w() / 150.0; // corpo de 72 u (x k = 58/72/86 px); o tamanho do mascote escala sobre isso
     a.p.mascot.e.draw(&a.gfx, cx, cy + l * 0.35 + 8.0, l, false);
     hits.push((r(cx - l * 0.55 + off, cy - l * 0.4, l * 1.1, l * 0.9), Act::Mascot));
+    if let Some((txt, al)) = a.p.mascot.balloon(now) { speech_balloon(a, txt, cx, 10.0, al); }
     if let Some(ms) = a.p.mascot.wake_ms(now) { unsafe { SetTimer(Some(a.hwnd), crate::island::T_MASCOT, ms.max(15), None); } } // dormindo: 4 fps por um timer so
 }
 
@@ -723,6 +747,7 @@ pub fn mouse(a: &mut App, m: u32, wp: WPARAM, lp: LPARAM) {
             crate::log(&format!("clique em ({x:.0},{y:.0}) -> {:?} | hits={}", hit.map(|h| h.1), a.hits.len()));
             if let Some((rc, act)) = hit {
                 a.pressed = Some(act); a.dirty = true;
+                if act == Act::Mascot { a.p.mascot.on_click(Instant::now()); }
                 if act == Act::VolSlider { a.p.vol_drag = true; vol_to(a, x, rc); }
                 if let Act::ShelfOpen(i) = act { if !a.p.select { a.p.drag_from = Some((i, x, y)); } }
                 if act == Act::ShelfPan && a.p.shelf.len() > 5 { a.p.pan = Some(Pan { x0: x, sx0: a.p.shelf_sx, lx: x, lt: Instant::now(), v: 0.0, moved: false }); }
@@ -779,7 +804,7 @@ fn click(a: &mut App, act: Act) {
             let ms = { let l = lyr(); l.lines.get(j as usize).map(|x| x.time_ms) };
             if let Some(ms) = ms { a.seek_opt = Some((ms, Instant::now())); a.p.lyr_user = None; a.dirty = true; crate::log(&format!("seek por linha -> {ms} ms ({:?})", media::media_seek(ms))); } }
         Act::Lyrics => { a.split = !a.split; ui_save("lyricsSplit", a.split.into()); let now = Instant::now(); a.retarget(now, 240.0); }
-        Act::Mascot => { a.p.mascot.on_click(Instant::now()); a.dirty = true; }
+        Act::Mascot => { a.dirty = true; } // o clique do Eavy ja foi tratado no mouse-down
         Act::Page(p) => a.go_page(p as usize),
         Act::Settings => crate::settings_ui::open(),
         Act::Arrow(d) => step_page(a, d as i32),
