@@ -412,8 +412,10 @@ fn draw_open(a: &mut App, now: Instant, w: f32, h: f32, t: f32, hits: &mut Vec<(
 /// contexto do Eavy: o que o app sabe agora (sem alocar); cursor global em px relativo ao centro do mascote
 fn mascot_ctx(a: &mut App, center: (f32, f32), gaze: bool) -> crate::mascot::Ctx {
     let (playing, track) = crate::media::quick(); let (cyc, tm) = timer::timer_get().map(|t| (t.cycle, match t.status { timer::Status::Running => 1, timer::Status::Paused => 2, timer::Status::Done => 3, _ => 0 })).unwrap_or((0, 0));
-    let bat = has_battery(); let (pc, ch) = if bat { battery(a) } else { (100, true) }; let h = unsafe { GetLocalTime() }.wHour;
-    crate::mascot::Ctx { playing, track, charging: if bat { Some(ch) } else { None }, low_batt: bat && !ch && pc <= 20, night: h >= 23 || h < 6, timer: tm, cycle: cyc,
+    // hora e bateria so 1x por segundo (nao por quadro)
+    thread_local! { static SLOW: std::cell::Cell<Option<(Instant, u16, u8, bool)>> = const { std::cell::Cell::new(None) }; }
+    let bat = has_battery(); let (h, pc, ch) = match SLOW.get() { Some((t, h, pc, ch)) if t.elapsed().as_millis() < 1000 => (h, pc, ch), _ => { let (pc, ch) = if bat { battery(a) } else { (100, true) }; let h = unsafe { GetLocalTime() }.wHour; SLOW.set(Some((Instant::now(), h, pc, ch))); (h, pc, ch) } };
+    crate::mascot::Ctx { playing, track, charging: if bat { Some(ch) } else { None }, batt_pct: if bat { pc.max(1) } else { 0 }, night: h >= 23 || h < 6, timer: tm, cycle: cyc,
         shelf_adds: crate::shelf::ADDS.load(std::sync::atomic::Ordering::Relaxed), pointer: if gaze { Some(a.cursor_px_from(center.0, center.1)) } else { None }, reduced: crate::island::overlay_simple() }
 }
 /// Compacto (peek) com o Eavy: so o corpo/rosto (sem cenario); corpo de 26 u de projeto (21/26/31 px reais conforme o preset)
