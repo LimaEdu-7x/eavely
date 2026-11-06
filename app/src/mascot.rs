@@ -472,20 +472,23 @@ pub struct Ctx { pub playing: bool, pub track: u64, pub charging: Option<bool>, 
 /// ao reabrir depois de uma pausa (> 1,5 s) ressincroniza com o estado ATUAL e descarta gestos vencidos.
 pub struct Mascot {
     pub e: Eavy, last: Option<Instant>, born: Instant, init: bool, prev: Ctx, key: u64, cand: (u64, Instant), last_ptr: Option<(f32, f32)>, pub touch: Instant,
-    asleep: bool, yawned: bool, pending: Option<&'static str>, clicks: Vec<Instant>, tap_at: Option<Instant>, errors: u32, notifs: u32, last_greet: Option<Instant>, reduced: bool, sleep_lock: bool,
+    asleep: bool, yawned: bool, pending: Option<&'static str>, clicks: Vec<Instant>, tap_at: Option<Instant>, errors: u32, notifs: u32, last_greet: Option<Instant>, reduced: bool, sleep_lock: bool, pinned: bool,
 }
 impl Default for Mascot { fn default() -> Self { Mascot { e: Eavy::new(), last: None, born: Instant::now(), init: false, prev: Ctx::default(), key: 0, cand: (0, Instant::now()), last_ptr: None, touch: Instant::now(), asleep: false, yawned: false,
-    pending: None, clicks: Vec::new(), tap_at: None, errors: 0, notifs: 0, last_greet: None, reduced: false, sleep_lock: false } } }
+    pending: None, clicks: Vec::new(), tap_at: None, errors: 0, notifs: 0, last_greet: None, reduced: false, sleep_lock: false, pinned: false } } }
 const FAR_PX: f32 = 150.0; const YAWN_S: f32 = 60.0; const SLEEP_S: f32 = 120.0; const TRACK_DEBOUNCE: Duration = Duration::from_millis(300);
 impl Mascot {
     pub fn age_ms(&self, now: Instant) -> u128 { now.duration_since(self.born).as_millis() }
-    pub fn touched(&mut self, now: Instant) { self.touch = now; self.asleep = false; self.yawned = false; }
+    pub fn touched(&mut self, now: Instant) { self.touch = now; if !self.sleep_lock { self.asleep = false; } self.yawned = false; }
     /// clique no mascote: 1 clique = tapa (apos 300 ms, para distinguir duplo-clique); 3 em 1,7 s = tonto
     pub fn on_click(&mut self, now: Instant) {
         self.touched(now); self.clicks.retain(|t| now.duration_since(*t) < Duration::from_millis(1700)); self.clicks.push(now);
         if self.clicks.len() >= 3 { self.clicks.clear(); self.tap_at = None; self.e.play("tonto"); } else { self.tap_at = Some(now); }
     }
     pub fn error(&mut self) { self.e.play("erro"); }
+    /// captura/teste: toca `id`, avanca `ms` e congela (o app nao reaplica o estado de base nem avanca)
+    pub fn seek(&mut self, id: &str, ms: u32) { self.e.seek(id, ms); self.pinned = true; }
+    pub fn unpin(&mut self) { self.pinned = false; self.e.unfreeze(); }
     /// teste/captura: dorme (ignora atividade)
     pub fn bench_sleep(&mut self) { self.asleep = true; self.sleep_lock = true; self.e.unfreeze(); }
     /// quadros continuos so acordado e sem animacoes reduzidas; dormindo ou reduzido = so o timer de 250 ms (4 fps)
@@ -502,6 +505,7 @@ impl Mascot {
     }
     /// atualiza gatilhos e avanca o motor (chamado por quadro desenhado)
     pub fn step(&mut self, c: &Ctx, now: Instant) {
+        if self.pinned { return; }
         let gap = self.last.map(|t| now.duration_since(t));
         let dt = gap.map_or(1.0 / 30.0, |g| g.as_secs_f32()); self.last = Some(now); self.reduced = c.reduced;
         self.e.ctx_musica = c.playing;

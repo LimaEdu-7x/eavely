@@ -132,17 +132,17 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
         93 => { crate::settings::update(|s| { s.size_preset = "large".into(); s.mascot_size = "auto".into(); }); open(a, 0, false, false); "94-tamanho-grande-mascote" }
         94 => { open(a, 1, false, false); "95-tamanho-grande-musica" }
         95 => { crate::settings::update(|s| { s.size_preset = base_preset(); s.mascot_size = "auto".into(); }); open(a, 0, false, false); "skip" }
-        96 => { crate::media::fake_none(); open(a, 0, false, false); a.p.mascot.e.seek("idle-pisca", 800); "96-eavy-idle" }
-        97 => { a.p.mascot.e.seek("danca", 1300); "97-eavy-danca-globo-toca-discos" }
-        98 => { a.p.mascot.e.seek("troca-faixa", 1500); "98-eavy-troca-faixa" }
-        99 => { a.p.mascot.e.seek("carregando", 2700); "99-eavy-carregando-eletrico" }
-        100 => { a.p.mascot.e.seek("engolir", 1250); "100-eavy-engolir" }
-        101 => { a.p.mascot.e.seek("pomodoro-inicio", 800); "101-eavy-pomodoro-jornal" }
-        102 => { a.p.mascot.e.seek("idle-pisca", 500); crate::settings::update(|s| s.collapsed_look = "mascot".into()); a.force = Some(St::Peek); "102-eavy-compacto" }
+        96 => { crate::media::fake_none(); open(a, 0, false, false); a.p.mascot.seek("idle-pisca", 800); "96-eavy-idle" }
+        97 => { a.p.mascot.seek("danca", 1300); "97-eavy-danca-globo-toca-discos" }
+        98 => { a.p.mascot.seek("troca-faixa", 1500); "98-eavy-troca-faixa" }
+        99 => { a.p.mascot.seek("carregando", 2700); "99-eavy-carregando-eletrico" }
+        100 => { a.p.mascot.seek("engolir", 1250); "100-eavy-engolir" }
+        101 => { a.p.mascot.seek("pomodoro-inicio", 800); "101-eavy-pomodoro-jornal" }
+        102 => { a.p.mascot.seek("idle-pisca", 500); crate::settings::update(|s| s.collapsed_look = "mascot".into()); a.force = Some(St::Peek); "102-eavy-compacto" }
         103 => { crate::settings::update(|s| s.size_preset = "small".into()); "103-eavy-compacto-pequeno" }
-        104 => { a.p.mascot.e.seek("erro", 1100); "104-eavy-erro-chave" }
-        105 => { crate::settings::update(|s| { s.size_preset = "large".into(); }); a.p.mascot.e.seek("pomodoro-fim", 1000); "105-eavy-compacto-grande" }
-        106 => { a.p.mascot.e.seek("idle-pisca", 100); crate::settings::update(|s| { s.size_preset = base_preset(); s.collapsed_look = "clock".into(); }); "skip" }
+        104 => { a.p.mascot.seek("erro", 1100); "104-eavy-erro-chave" }
+        105 => { crate::settings::update(|s| { s.size_preset = "large".into(); }); a.p.mascot.seek("pomodoro-fim", 1000); "105-eavy-compacto-grande" }
+        106 => { a.p.mascot.seek("idle-pisca", 100); crate::settings::update(|s| { s.size_preset = base_preset(); s.collapsed_look = "clock".into(); }); "skip" }
         107 => { crate::settings::update(|s| s.open_mode = "click".into()); a.mx[0] = true; a.force = None; a.class = 0; "skip" }
         108 => { a.class = 2; "108-linha-encosta-faixa-desce" }
         109 => { a.class = 0; a.mx[0] = false; a.force = None; crate::settings::update(|s| s.open_mode = "hover".into()); "skip" }
@@ -197,6 +197,18 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
             a.p.sel.clear(); setm(1); click(a, 45.0 + 29.0, 73.0, WM_LBUTTONDOWN, WM_LBUTTONUP); setm(0); a.sync_kb(); chk("foco: Ctrl+clique no card pega o teclado", a.kb_prev.is_some() && a.p.kb_click); "skip" }
         147 => { a.class = 0; a.sync_kb(); chk("foco: mouse fora da ilha com selecao solta o teclado e nao volta so com hover", a.kb_prev.is_none() && !a.p.kb_click); a.class = 2; a.sync_kb(); chk("foco: voltar o mouse NAO re-pega o teclado", a.kb_prev.is_none());
             a.p.kb_click = true; a.sync_kb(); a.force = Some(St::Peek); a.evaluate_pub(); chk("foco: saiu de Open -> solta o teclado e limpa a selecao", a.kb_prev.is_none() && a.p.sel.is_empty() && !a.p.kb_click); a.force = None; crate::shelf::clear_native(); a.p.shelf = Vec::new(); "skip" }
+        148 => { open(a, 0, false, false); "skip" }
+        149 => { let (frames, bad, worst) = eavy_sweep(a); chk(&format!("Eavy: {frames} quadros das 22 reacoes, 1 boca/2 olhos/<=2 maos por quadro (violacoes: {bad}; pior caso: {worst})"), bad == 0 && frames > 2000); "skip" }
+        150 => { crate::media::fake_none(); open(a, 0, false, false); a.p.mascot.seek("sono", 1500); "150-eavy-sono" }
+        151 => { a.p.mascot.seek("bocejo", 700); "151-eavy-bocejo" }
+        152 => { a.p.mascot.seek("bateria-baixa", 1000); "152-eavy-bateria-baixa" }
+        153 => { a.p.mascot.seek("notificacao", 700); "153-eavy-notificacao" }
+        154 => { a.p.mascot.seek("approval", 800); "154-eavy-approval" }
+        155 => { a.p.mascot.seek("pergunta", 800); "155-eavy-pergunta" }
+        156 => { a.p.mascot.seek("busca", 800); "156-eavy-busca" }
+        157 => { a.p.mascot.seek("saudacao", 600); "157-eavy-saudacao" }
+        158 => { a.p.mascot.seek("orgulho", 700); "158-eavy-orgulho" }
+        159 => { a.p.mascot.seek("tonto", 500); "159-eavy-tonto" }
         85 => { crate::settings::update(|s| { s.slot_top = "shelf".into(); s.slot_bottom = "player".into(); }); "skip" }
         70 => { crate::settings::update(|s| { s.pc_cpu = true; s.pc_ram = true; s.pc_gpu = true; s.pc_state = true; }); "skip" }
         _ => return None,
@@ -208,19 +220,19 @@ pub fn step(a: &mut App) {
     let dir = std::env::var("EAVELY_SHOTS").ok();
     if i == 0 { if let Some(f) = std::env::var("EAVELY_BENCH_FROM").ok().and_then(|v| v.parse::<u32>().ok()) { if let Ok(p) = std::env::var("EAVELY_PRESET") { crate::settings::update(|s| s.size_preset = p); } STEP.store(f * 2, Relaxed); return; } } // roteiro parcial (EAVELY_BENCH_FROM / EAVELY_BENCH_TO)
     if i == 0 { if let Ok(p) = std::env::var("EAVELY_PRESET") { crate::settings::update(|s| s.size_preset = p); } } // tamanho do notch para a rodada de capturas (small|standard|large)
-    if i < 300 {
-        if i % 2 == 0 { let k = i / 2; let to = std::env::var("EAVELY_BENCH_TO").ok().and_then(|v| v.parse::<u32>().ok()).unwrap_or(u32::MAX); match if k > to { None } else { scenario(a, k) } { Some(n) => { crate::log(&format!("BENCH cenario {n}")); flog_mark(n); NAME.with(|c| *c.borrow_mut() = n); } None => { STEP.store(300, Relaxed); } } a.evaluate_pub(); }
+    if i < 400 {
+        if i % 2 == 0 { let k = i / 2; let to = std::env::var("EAVELY_BENCH_TO").ok().and_then(|v| v.parse::<u32>().ok()).unwrap_or(u32::MAX); match if k > to { None } else { scenario(a, k) } { Some(n) => { crate::log(&format!("BENCH cenario {n}")); flog_mark(n); NAME.with(|c| *c.borrow_mut() = n); } None => { STEP.store(400, Relaxed); } } a.evaluate_pub(); }
         else if let Some(d) = dir { let n = NAME.with(|c| *c.borrow()); if n.contains("eavy") { eavy_dump(a, &format!("{d}/{n}-mascote.bmp")); } if n == "skip" { } else if a.fs.iter().any(|f| *f) { crate::log("screenshot ignorado: ha janela em tela cheia (nao capturo outros apps)"); } else { unsafe { shot(a, &format!("{d}/{n}.bmp")); } } }
         return;
     }
     // EAVELY_BENCH_HOLD_MS: deixa o ultimo cenario parado (ilha como ficou) por N ms antes de sair; serve para medir CPU/RAM do mascote
     if let Some(ms) = std::env::var("EAVELY_BENCH_HOLD_MS").ok().and_then(|v| v.parse::<u64>().ok()) {
         static T0: std::sync::OnceLock<Instant> = std::sync::OnceLock::new(); let t0 = *T0.get_or_init(Instant::now);
-        if i == 300 { unsafe { SetTimer(Some(a.hwnd), 4, 450, None); } a.p.mascot.e.unfreeze(); crate::log("BENCH HOLD inicio"); }
+        if i == 400 { unsafe { SetTimer(Some(a.hwnd), 4, 450, None); } a.p.mascot.unpin(); if std::env::var_os("EAVELY_BENCH_SLEEP").is_some() { a.p.mascot.bench_sleep(); } crate::log("BENCH HOLD inicio"); }
         if t0.elapsed().as_millis() < ms as u128 { return; } crate::log("BENCH HOLD fim"); if std::env::var_os("EAVELY_BENCH_EXIT").is_some() { crate::fast_exit(0); } return;
     }
     // fase de benchmark: abre/fecha repetidamente (animacao de forma + conteudo)
-    let k = i - 300;
+    let k = i - 400;
     if k == 0 { unsafe { SetTimer(Some(a.hwnd), 4, 450, None); } crate::timer::ui(|t, _| t.reset()); a.page = 1; a.prev_page = 1; a.split = false; a.dock = false; a.dock_t = crate::island::Tw::new(0.0); }
     if k < 40 {
         flog_mark(&format!("k={k} {}", ["abrir", "dock", "fechar", "ao-vivo"][(k % 4) as usize])); match k % 4 { 0 => a.force = Some(St::Open), 1 => { a.dock = true; a.dock_t.go(Instant::now(), 1.0, 200.0); a.retarget(Instant::now(), 200.0); } 2 => { a.dock = false; a.dock_t.go(Instant::now(), 0.0, 200.0); a.force = Some(St::Peek); } _ => a.force = Some(St::Live) }
@@ -284,4 +296,15 @@ fn eavy_dump(a: &mut App, path: &str) {
     out.extend_from_slice(&40u32.to_le_bytes()); out.extend_from_slice(&(w as i32).to_le_bytes()); out.extend_from_slice(&(h as i32).to_le_bytes()); out.extend_from_slice(&1u16.to_le_bytes()); out.extend_from_slice(&24u16.to_le_bytes()); out.extend_from_slice(&[0; 24]);
     for y in (0..h as usize).rev() { let mut r = Vec::with_capacity(row); for x in 0..w as usize { let i = (y * w as usize + x) * 4; r.extend_from_slice(&px[i..i + 3]); } r.resize(row, 0); out.extend_from_slice(&r); }
     let _ = std::fs::write(path, out); crate::log(&format!("eavy_dump {path}"));
+}
+
+/// varre as 22 reacoes quadro a quadro (30 fps, 8 s cada) desenhando fora da tela e confere: exatamente 2 olhos, 1 boca e no maximo 2 maos por quadro (equivalente ao audit.py do pacote)
+fn eavy_sweep(a: &mut App) -> (u32, u32, String) {
+    let ids = crate::mascot::rig().ids(); let (mut frames, mut bad, mut worst) = (0u32, 0u32, String::new());
+    let _ = a.gfx.offscreen(208, 136, |g| {
+        for id in &ids { let mut e = crate::mascot::Eavy::new(); e.ctx_musica = true; e.play(id);
+            for _ in 0..240 { e.step(1.0 / 30.0); g.set_matrix(windows_numerics::Matrix3x2::scale(1.0, 1.0)); e.draw(g, 104.0, 90.0, 72.0, false); frames += 1;
+                if e.n_eyes != 2 || e.n_mouths != 1 || e.n_hands > 2 { bad += 1; if worst.is_empty() { worst = format!("{id}: {} olhos, {} bocas, {} maos", e.n_eyes, e.n_mouths, e.n_hands); } } } }
+    });
+    (frames, bad, worst)
 }
