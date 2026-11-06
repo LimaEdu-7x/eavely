@@ -238,7 +238,7 @@ pub fn request(job: Job, done: fn(&str, Option<Lyrics>)) {
 }
 
 fn fail() -> Option<Lyrics> {
-    crate::log("lrclib: falha/timeout, nova tentativa em 5 min");
+    crate::log("lrclib: falha/timeout, nova tentativa em 5 min"); crate::mascot::report_error();
     *NO_NET_UNTIL.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now() + RETRY_AFTER);
     None
 }

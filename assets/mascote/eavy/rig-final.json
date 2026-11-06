@@ -1,7 +1,7 @@
 {
  "versao": "final",
  "nome_trabalho": "Eavy",
- "doc": "Rig do mascote v3 (desenho vetorial proprio, SVG viewBox -30 -38 160 160; corpo em 0..100 x 6..86). Sem arquivos/sprites/sons do Mochi. Tempos em ms; oy/ox em fracao de H=90/W=100; angulos em rad; sx/sy/es multiplicadores.",
+ "doc": "Rig do mascote v3 (desenho vetorial proprio, SVG viewBox -30 -38 160 160; corpo em 0..100 x 6..86). Sem arquivos, sprites ou sons de terceiros. Tempos em ms; oy/ox em fracao de H=90/W=100; angulos em rad; sx/sy/es multiplicadores.",
  "forma": {
   "corpo_path": "M50 6 C70 6 85 17 91 38 C97 60 89 86 50 86 C11 86 3 60 9 38 C15 17 30 6 50 6Z",
   "ancora_squash": [
@@ -184,7 +184,6 @@
    "nome": "Piscar e olhar o mouse",
    "tipo": "estado",
    "gatilho_eavely": "Ilha em repouso / ocioso",
-   "ref": "idle",
    "estado": {
     "eye": "open",
     "blush": 0.12,
@@ -205,7 +204,7 @@
    "cor": {
     "hex": null,
     "origem": null,
-    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+    "nota": "sem cor (emotes e gestos nao tingem)"
    },
    "objeto": "Sem objeto"
   },
@@ -214,7 +213,6 @@
    "nome": "Aceno de saudação",
    "tipo": "gesto",
    "gatilho_eavely": "Abrir a ilha (1a vez no dia ou hover)",
-   "ref": "greet",
    "dur": 1950,
    "notas": "Maos sobem 250 ms (out), aceno 0,45-1,55 s a 1,2 Hz, maos descem 200 ms; piscadas aos 550 e 1500 ms; olho feliz no fim.",
    "sb": [
@@ -289,7 +287,7 @@
    "cor": {
     "hex": null,
     "origem": null,
-    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+    "nota": "sem cor (emotes e gestos nao tingem)"
    },
    "objeto": "Sem objeto: acena com as mãozinhas",
    "boca": [
@@ -306,7 +304,6 @@
    "nome": "Dança no ritmo",
    "tipo": "estado",
    "gatilho_eavely": "Música começa a tocar (SMTC)",
-   "ref": "dance",
    "estado": {
     "dance": 1,
     "eye": "open",
@@ -341,7 +338,6 @@
    ],
    "cor": {
     "hex": "#4f9bf0",
-    "origem": "coucou",
     "nota": "working (azul) = musica/timer rodando"
    },
    "objeto": "Globo de discoteca (desce do teto) + toca-discos ao fundo"
@@ -351,7 +347,6 @@
    "nome": "Para de dançar e olha em volta",
    "tipo": "gesto",
    "gatilho_eavely": "Música pausa",
-   "ref": "dance->idle",
    "dur": 1800,
    "notas": "A dança desfaz em 0,5 s; olha esquerda, direita e volta ao centro (seguir-alvo kLook).",
    "sb": [
@@ -384,7 +379,7 @@
    "cor": {
     "hex": null,
     "origem": null,
-    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+    "nota": "sem cor (emotes e gestos nao tingem)"
    },
    "objeto": "Globo e toca-discos saem de cena"
   },
@@ -393,7 +388,6 @@
    "nome": "Piscadela na troca de faixa",
    "tipo": "gesto",
    "gatilho_eavely": "Música troca de faixa",
-   "ref": "wink",
    "dur": 4600,
    "notas": "Olha o toca-discos, ergue a agulha, tira o vinil, põe outro, agulha desce (3,2 s). Espera ~1,4 s; se a música continua (ctx.musica), o globo desce do teto (1,4 s, back) e ele dança; se pausou, volta ao idle.",
    "sb": [
@@ -453,7 +447,7 @@
    "cor": {
     "hex": null,
     "origem": null,
-    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+    "nota": "sem cor (emotes e gestos nao tingem)"
    },
    "objeto": "Troca o vinil no toca-discos; se a música segue, o globo desce e ele dança",
    "boca": [
@@ -621,7 +615,6 @@
    "nome": "Concentrado",
    "tipo": "estado",
    "gatilho_eavely": "Pomodoro/timer inicia",
-   "ref": "thinking",
    "estado": {
     "eye": "open",
     "tint": "#8a63ec",
@@ -663,7 +656,6 @@
    ],
    "cor": {
     "hex": "#8a63ec",
-    "origem": "coucou",
     "nota": "thinking (roxo)"
    },
    "objeto": "Jornal aberto (abaixa de vez em quando e espia)"
@@ -673,7 +665,6 @@
    "nome": "Rolinho de vitória",
    "tipo": "gesto",
    "gatilho_eavely": "Pomodoro/timer termina",
-   "ref": "finished",
    "dur": 2800,
    "notas": "Roll 0->2pi em 950 ms inOut; faiscas aos 500 ms; salto curto ao pousar; olho feliz e rubor; verde-menta ate 2,8 s, depois idle.",
    "sb": [
@@ -758,7 +749,6 @@
    "then": "idle-pisca",
    "cor": {
     "hex": "#1fbf84",
-    "origem": "coucou",
     "nota": "finished (verde)"
    },
    "objeto": "Troféu no chão + confete",
@@ -784,7 +774,6 @@
    "nome": "Orgulhoso",
    "tipo": "gesto",
    "gatilho_eavely": "Meta cumprida (ciclos de pomodoro, tarefas)",
-   "ref": "proud",
    "dur": 1800,
    "notas": "5 estrelas escalonadas a cada 140 ms; tilt -.14 (220 ms out, mantem, 280 ms inOut); rubor .7; peito aberto sy 1,05.",
    "sb": [
@@ -866,7 +855,7 @@
    "cor": {
     "hex": null,
     "origem": null,
-    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+    "nota": "sem cor (emotes e gestos nao tingem)"
    },
    "objeto": "Medalha pequena embaixo, saindo do corpo",
    "boca": [
@@ -897,7 +886,6 @@
    "nome": "Engole o arquivo",
    "tipo": "gesto",
    "gatilho_eavely": "Arquivo solto na Shelf",
-   "ref": "gulp",
    "dur": 3700,
    "notas": "Pasta cai ao lado (450 ms); mão vai até ela (0,5-1,0 s), leva à boca (1,0-1,5 s); boca abre em 1,3 s; entra e some (1,5-1,8 s); bochecha estufa, mastiga de olho fechado (1,95-2,7 s); engole (squash) e fica satisfeito (sorriso, olho feliz).",
    "sb": [
@@ -1034,7 +1022,7 @@
    "cor": {
     "hex": null,
     "origem": null,
-    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+    "nota": "sem cor (emotes e gestos nao tingem)"
    },
    "objeto": "Pasta cai ao lado, ele pega e engole (bochecha estufa)",
    "boca": [
@@ -1174,7 +1162,6 @@
    "nome": "Cansado e suando",
    "tipo": "estado",
    "gatilho_eavely": "Bateria baixa",
-   "ref": "ratelimit",
    "estado": {
     "eye": "tired",
     "tint": "#f0953f",
@@ -1213,7 +1200,6 @@
    ],
    "cor": {
     "hex": "#f0953f",
-    "origem": "coucou",
     "nota": "ratelimit (laranja)"
    },
    "objeto": "Bateria vertical com a última barra vermelha piscando"
@@ -1223,7 +1209,6 @@
    "nome": "Eletrizante",
    "tipo": "gesto",
    "gatilho_eavely": "Carregador conectado",
-   "ref": "NOVO (nota do Edu)",
    "dur": 5650,
    "notas": "Passinhos (hops, balanço, mãos balançando) até a parede em 1,5 s (inOut); pega o plug (0,7 s); encosta (1,75 s: faísca), empurra (0,35 s, out): os pinos somem no encaixe; eletrizante 2,1-3,7 s; puxa o plug, volta andando 1,4 s. O cabo sai do corpo, tem catenária e balança com mola (rigidez 38, amortecimento 4,5).",
    "sb": [
@@ -1590,7 +1575,6 @@
    "nome": "Carregando (sustentado)",
    "tipo": "estado",
    "gatilho_eavely": "Carregador conectado (apos o gesto)",
-   "ref": "NOVO",
    "estado": {
     "eye": "wide",
     "tint": "#ffe45c",
@@ -1626,7 +1610,6 @@
    "nome": "Susto e pula",
    "tipo": "gesto",
    "gatilho_eavely": "Notificação nova",
-   "ref": "surprised",
    "dur": 1800,
    "notas": "oy -.3 (140 out + 380 back); olhos es 1,25 (120 out, 500 inOut); '!' sobe aos 100 ms. Se exige acao -> estado 'approval' (laranja, pula, '!' fixo).",
    "sb": [
@@ -1690,7 +1673,7 @@
    "cor": {
     "hex": null,
     "origem": null,
-    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+    "nota": "sem cor (emotes e gestos nao tingem)"
    },
    "objeto": "Sininho na frente, balançando",
    "boca": [
@@ -1715,7 +1698,6 @@
    "nome": "Pede ação (notificação importante)",
    "tipo": "estado",
    "gatilho_eavely": "Notificação que exige ação",
-   "ref": "approval",
    "estado": {
     "eye": "wide",
     "tint": "#f2a93a",
@@ -1760,7 +1742,6 @@
    "extra": true,
    "cor": {
     "hex": "#f2a93a",
-    "origem": "coucou",
     "nota": "approval (ambar)"
    },
    "objeto": "Sininho (pede ação)"
@@ -1770,7 +1751,6 @@
    "nome": "Cabeça inclinada",
    "tipo": "estado",
    "gatilho_eavely": "Lembrete que pede resposta",
-   "ref": "question",
    "estado": {
     "eye": "open",
     "tint": "#3fc0d6",
@@ -1798,7 +1778,6 @@
    ],
    "cor": {
     "hex": "#3fc0d6",
-    "origem": "coucou",
     "nota": "question (ciano)"
    },
    "objeto": "Cartaz com ? fincado no chão"
@@ -1808,7 +1787,6 @@
    "nome": "Balança a cabeça",
    "tipo": "gesto",
    "gatilho_eavely": "Falha (nao achou a faixa, erro de app)",
-   "ref": "error",
    "dur": 2200,
    "notas": "Chave inglesa cai do alto girando (0,45 s, easeIn), bate na cabeça (squash 70 ms, olhos fecham, 4 estrelinhas), quica para a direita (0,3 s), cai e crava no chão (poeira, balanço amortecido) na mesma posição de antes; fumacinha, tom vermelho e sacudida vêm depois da batida.",
    "sb": [
@@ -1924,7 +1902,6 @@
    "then": "idle-pisca",
    "cor": {
     "hex": "#e4585f",
-    "origem": "coucou",
     "nota": "error (vermelho)"
    },
    "objeto": "Chave inglesa no chão + fumacinha",
@@ -2082,7 +2059,6 @@
    "nome": "Boceja",
    "tipo": "gesto",
    "gatilho_eavely": "Ficando ocioso (~60 s)",
-   "ref": "yawn",
    "dur": 1800,
    "notas": "sy 1,12 / sx .94 (500 ms inOut); boca abre aos 350 ms; olho fecha aos 700 ms; 2 'Z' (700 e 1000 ms); volta em 500 ms.",
    "sb": [
@@ -2174,7 +2150,7 @@
    "cor": {
     "hex": null,
     "origem": null,
-    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+    "nota": "sem cor (emotes e gestos nao tingem)"
    },
    "objeto": "Xícara de café no chão com vapor",
    "boca": [
@@ -2198,7 +2174,6 @@
    "nome": "Dormindo",
    "tipo": "estado",
    "gatilho_eavely": "Noite / ocioso longo / pausa",
-   "ref": "sleeping",
    "estado": {
     "eye": "closed",
     "tint": "#8fa3c8",
@@ -2243,7 +2218,6 @@
    ],
    "cor": {
     "hex": "#8fa3c8",
-    "origem": "coucou",
     "nota": "sleeping (cinza-azul)"
    },
    "objeto": "Touca de dormir"
@@ -2253,7 +2227,6 @@
    "nome": "Reage ao clique",
    "tipo": "gesto",
    "gatilho_eavely": "Clicar no mascote (espera 300 ms p/ distinguir duplo-clique)",
-   "ref": "slap",
    "dur": 800,
    "notas": "Squash 370 ms: sy .78->1,1->1 (70/130/170), sx 1,16->.95->1; olho em linha por .8 s; 3 em 1,7 s = tonto; sem som copiado.",
    "sb": [
@@ -2335,7 +2308,7 @@
    "cor": {
     "hex": null,
     "origem": null,
-    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+    "nota": "sem cor (emotes e gestos nao tingem)"
    },
    "objeto": "Sem objeto",
    "boca": [
@@ -2352,7 +2325,6 @@
    "nome": "Tonto",
    "tipo": "gesto",
    "gatilho_eavely": "3 cliques rápidos no mascote (em 1,7 s)",
-   "ref": "dizzy",
    "dur": 1700,
    "notas": "Roll 2 voltas em 1300 ms inOut; olhos em espiral; rosa; 3 estrelas orbitando a cabeca; balanco final decrescente.",
    "sb": [
@@ -2490,7 +2462,6 @@
    "then": "idle-pisca",
    "cor": {
     "hex": "#ef7fae",
-    "origem": "coucou",
     "nota": "dizzy (rosa)"
    },
    "objeto": "Sem objeto (estrelas girando)",
@@ -2508,7 +2479,6 @@
    "nome": "Olha para o cursor",
    "tipo": "comportamento",
    "gatilho_eavely": "Mouse em qualquer lugar da tela",
-   "ref": "idle",
    "notas": "Nao e um gesto: e o alvo do olhar. Vetor do centro do mascote ao cursor global (GetCursorPos), saturado em 150 px; vertical x .75. Olhos deslocam ate 7 u e 4,5 u; cabeca ox .02W e tilt .04 rad. Esquece o mouse 4 s depois de parar. Dormindo: sem polling. Impede de dormir quando perto (< 150 px).",
    "sb": [
     0,
@@ -2521,7 +2491,7 @@
    "cor": {
     "hex": null,
     "origem": null,
-    "nota": "sem cor (como o Mochi: emotes e gestos nao tingem)"
+    "nota": "sem cor (emotes e gestos nao tingem)"
    },
    "objeto": "Sem objeto"
   },
@@ -2530,7 +2500,6 @@
    "nome": "Procurando",
    "tipo": "estado",
    "gatilho_eavely": "Busca de arquivos (futuro)",
-   "ref": "searching",
    "estado": {
     "eye": "open",
     "tint": "#5b5cf0",
@@ -2581,7 +2550,6 @@
    ],
    "cor": {
     "hex": "#5b5cf0",
-    "origem": "coucou",
     "nota": "searching (indigo)"
    },
    "objeto": "Lupa varrendo"
@@ -2718,6 +2686,6 @@
    "tint_corpo": 1.0,
    "mouth": "#3a3030"
   },
-  "escolha": "Eavy = corpo Areia (forma e ranhuras), esbranquicado; olhos em cápsula vertical e boca fina da ref do Edu; maos e objetos por reacao; cores de estado do Mochi."
+  "escolha": "Eavy = corpo Areia (forma e ranhuras), esbranquicado; olhos em cápsula vertical e boca fina da ref do Edu; maos e objetos por reacao; cores de estado proprias."
  }
 }

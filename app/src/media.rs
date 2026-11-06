@@ -39,6 +39,8 @@ fn live(pos: u64, dur: u64, playing: bool, elapsed_ms: u64) -> u64 {
 
 /// Visao leve (sem o data URL da capa) para o renderer ler a cada quadro.
 pub struct View { pub title: String, pub artist: String, pub status: String, pub pos_ms: u64, pub dur_ms: u64, pub cover_gen: u64 }
+/// (tocando?, hash de titulo+artista) sem clonar strings (usado por quadro pelo mascote)
+pub fn quick() -> (bool, u64) { use std::hash::{Hash, Hasher}; let g = lk(&STATE); match g.as_ref() { Some(i) => { let mut h = std::collections::hash_map::DefaultHasher::new(); i.st.title.hash(&mut h); i.st.artist.hash(&mut h); let k = h.finish(); (i.st.status == "playing", if i.st.title.is_empty() && i.st.artist.is_empty() { 0 } else { k | 1 }) } None => (false, 0) } }
 pub fn view() -> View {
     let g = lk(&STATE);
     let Some(i) = g.as_ref() else { return View { title: String::new(), artist: String::new(), status: "stopped".into(), pos_ms: 0, dur_ms: 0, cover_gen: 0 } };

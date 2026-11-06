@@ -248,9 +248,8 @@ fn page_body(c: &mut Ctx, page: usize) {
             c.group("Tamanho", Ctx::rh(true) * 2.0);
             c.row("Tamanho do notch", Some("80 · 100 · 120 %. Aplica na hora."), true, true, 206.0); c.segmented(S_SIZE, &["Pequeno", "Padrão", "Grande"], match s.size_preset.as_str() { "small" => 0, "large" => 2, _ => 1 }, 56.0); c.y += 56.0;
             c.row("Tamanho do mascote", Some("Automático segue o notch."), false, true, 190.0); c.menu(&drop_label(D_MSIZE), SAct::Drop(D_MSIZE), 56.0); c.y += 56.0;
-            c.group("Mascote", Ctx::rh(true) + 44.0);
-            c.row("Personalidade", Some("Como reage a cliques."), true, true, 190.0); c.menu(&drop_label(D_PERS), SAct::Drop(D_PERS), 56.0); c.y += 56.0;
-            c.tog_row("Olhos seguem o mouse", None, T_GAZE, s.mascot_gaze, false, true);
+            c.group("Mascote", 44.0);
+            c.tog_row("Olhos seguem o mouse", None, T_GAZE, s.mascot_gaze, true, true);
             c.group("Início", Ctx::rh(true));
             c.row("Página inicial", Some("Música tocando abre o player."), true, true, 190.0); c.menu(&drop_label(D_INIT), SAct::Drop(D_INIT), 56.0); c.y += 56.0;
             c.group("Slots da página Mascote", 44.0 * 2.0 + 0.0);

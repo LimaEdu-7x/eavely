@@ -1,7 +1,7 @@
 // Mascote Eavy (v0.3): porte nativo (Direct2D) do motor mascote3.js. Mesma matematica: seguir-alvo k = 1 - base^dt, tweens por chaves [alvo, ms, easing],
 // molas, piscar aleatorio, sprites pixel nitidos. Dados: assets/mascote/eavy/rig-final.json + skin-areia.json (embutidos no exe).
 // 30 fps acordado, 4 fps dormindo (estado `sono`), 0 % com a ilha oculta (o laco so pede quadros com a pagina/compacto visivel).
-use std::{collections::{HashMap, HashSet}, sync::OnceLock, time::Instant};
+use std::{collections::{HashMap, HashSet}, rc::Rc, sync::{atomic::{AtomicU32, AtomicU8, Ordering::Relaxed}, OnceLock}, time::{Duration, Instant}};
 use serde_json::Value;
 use windows_numerics::Matrix3x2;
 use crate::gfx::{Gfx, Rgba, Seg};
@@ -13,13 +13,13 @@ type C3 = [f32; 3];
 // ordem do catalogo `cenario` do rig (a ordem de desenho do JS = ordem de insercao)
 const CENA: [&str; 9] = ["globo", "toca", "parede", "bateria", "sino", "cartaz", "chave", "xicara", "trofeu"];
 
-pub struct Rig { pub v: Value, pub skin: Value, idx: HashMap<String, usize> }
+pub struct Rig { pub v: Value, pub skin: Value, idx: HashMap<String, usize>, body: Vec<Seg> }
 pub fn rig() -> &'static Rig {
     static R: OnceLock<Rig> = OnceLock::new();
     R.get_or_init(|| {
         let v: Value = serde_json::from_str(RIG).unwrap_or(Value::Null); let skin: Value = serde_json::from_str(SKIN).unwrap_or(Value::Null);
         let idx = v["reacoes"].as_array().map(|a| a.iter().enumerate().filter_map(|(i, r)| r["id"].as_str().map(|s| (s.to_string(), i))).collect()).unwrap_or_default();
-        Rig { v, skin, idx }
+        let body = parse_path(skin["corpo"].as_str().unwrap_or("")); Rig { v, skin, idx, body }
     })
 }
 impl Rig {
@@ -58,11 +58,14 @@ fn gr(g: &mut Grid, x: i32, y: i32, w: i32, h: i32, c: u8) { for j in y..y + h {
 fn gp(g: &mut Grid, x: i32, y: i32, c: u8) { gr(g, x, y, 1, 1, c); }
 fn gd(g: &mut Grid, cx: f32, cy: f32, r: f32, c: u8) { for j in 0..g.len() { for i in 0..g[0].len() { if (i as f32 + 0.5 - cx).powi(2) + (j as f32 + 0.5 - cy).powi(2) <= r * r { g[j][i] = c; } } } }
 fn gl(g: &mut Grid, x0: i32, y0: i32, x1: i32, y1: i32, c: u8) { let n = (x1 - x0).abs().max((y1 - y0).abs()).max(1); for k in 0..=n { gp(g, (x0 as f32 + (x1 - x0) as f32 * k as f32 / n as f32).round() as i32, (y0 as f32 + (y1 - y0) as f32 * k as f32 / n as f32).round() as i32, c); } }
-fn chr(o: &Value, k: &str, d: u8) -> u8 { o[k].as_str().and_then(|s| s.bytes().next()).unwrap_or(d) }
-fn sprite_grid(name: &str, fr: i32, ph: f32, o: &Value) -> Option<Grid> {
+/// opcoes de sprite (toca-discos: gravando/braco/rotulo; vinil: rotulo); Copy, serve de chave do cache
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)] pub struct SpO { rec: bool, arm: bool, lab: u8 }
+const SP0: SpO = SpO { rec: true, arm: true, lab: b'O' };
+fn spo(o: &Value, b: SpO) -> SpO { SpO { rec: o["rec"].as_f64().map_or(b.rec, |x| x != 0.0), arm: o["arm"].as_f64().map_or(b.arm, |x| x != 0.0), lab: o["lab"].as_str().and_then(|s| s.bytes().next()).unwrap_or(b.lab) } }
+fn sprite_grid(name: &str, fr: i32, ph: f32, o: &SpO) -> Option<Grid> {
     let ell = |g: &mut Grid, cx: f32, cy: f32, rx: f32, ry: f32, c: u8| { for j in 0..g.len() { for i in 0..g[0].len() { let (dx, dy) = ((i as f32 + 0.5 - cx) / rx, (j as f32 + 0.5 - cy) / ry); if dx * dx + dy * dy <= 1.0 { g[j][i] = c; } } } };
     Some(match name {
-        "toca" => { let rec = fo(&o["rec"], 1.0) != 0.0; let arm = fo(&o["arm"], 1.0) != 0.0; let lab = chr(o, "lab", b'O'); let mut g = mg(22, 15); gr(&mut g, 1, 7, 20, 7, b'G'); gr(&mut g, 1, 7, 20, 1, b'g'); gr(&mut g, 1, 13, 20, 1, b'D');
+        "toca" => { let (rec, arm, lab) = (o.rec, o.arm, o.lab); let mut g = mg(22, 15); gr(&mut g, 1, 7, 20, 7, b'G'); gr(&mut g, 1, 7, 20, 1, b'g'); gr(&mut g, 1, 13, 20, 1, b'D');
             ell(&mut g, 9.5, 6.2, 7.6, 3.1, if rec { b'k' } else { b'D' }); if rec { ell(&mut g, 9.5, 6.2, 2.3, 1.05, lab); }
             if rec && arm { let a = ph * TAU * 4.0; gp(&mut g, (9.5 + a.cos() * 5.2).round() as i32, (6.2 + a.sin() * 2.1).round() as i32, b'G'); } else if !rec { gp(&mut g, 9, 6, b'g'); }
             if arm { gl(&mut g, 19, 3, 13, 6, b'g'); } else { gl(&mut g, 19, 3, 17, 0, b'g'); } gr(&mut g, 18, 2, 3, 3, b'G'); gr(&mut g, 3, 10, 2, 2, b'r'); gr(&mut g, 7, 10, 2, 2, if rec && arm { b'l' } else { b'y' }); g }
@@ -70,7 +73,7 @@ fn sprite_grid(name: &str, fr: i32, ph: f32, o: &Value) -> Option<Grid> {
             for j in 0..20 { for i in 0..16 { if (i as f32 + 0.5 - 8.0).powi(2) + (j as f32 + 0.5 - 13.0).powi(2) <= 36.0 { g[j][i] = [b'w', b'B', b'g', b'C'][(i + j + fr as usize) % 4]; } } }
             gp(&mut g, 5, 9, b'w'); gp(&mut g, 6, 8, b'w'); g }
         "vinil" => { let mut g = mg(14, 14); gd(&mut g, 7.0, 7.0, 6.0, b'k'); for j in 0..14 { for i in 0..14 { let d = (i as f32 + 0.5 - 7.0).hypot(j as f32 + 0.5 - 7.0); if d > 3.6 && d < 4.4 { g[j][i] = b'D'; } } }
-            gd(&mut g, 7.0, 7.0, 2.2, chr(o, "lab", b'O')); let a = ph * TAU * 4.0; gp(&mut g, 7 + (a.cos() * 4.8).round() as i32, 7 + (a.sin() * 4.8).round() as i32, b'G'); g }
+            gd(&mut g, 7.0, 7.0, 2.2, o.lab); let a = ph * TAU * 4.0; gp(&mut g, 7 + (a.cos() * 4.8).round() as i32, 7 + (a.sin() * 4.8).round() as i32, b'G'); g }
         "trofeu" => { let mut g = mg(14, 16); gr(&mut g, 3, 1, 8, 5, b'y'); gr(&mut g, 4, 6, 6, 2, b'y'); gr(&mut g, 5, 8, 4, 1, b'y'); gr(&mut g, 6, 9, 2, 2, b'Y'); gr(&mut g, 4, 11, 6, 2, b'Y');
             for (x, y) in [(2, 2), (1, 3), (2, 4), (11, 2), (12, 3), (11, 4), (7, 3)] { gp(&mut g, x, y, b'Y'); } gr(&mut g, 4, 2, 1, 3, b'q'); g }
         "medalha" => { let mut g = mg(12, 16); gr(&mut g, 2, 1, 3, 3, b'r'); gr(&mut g, 3, 4, 2, 2, b'r'); gp(&mut g, 4, 6, b'r'); gr(&mut g, 7, 1, 3, 3, b'b'); gr(&mut g, 7, 4, 2, 2, b'b'); gp(&mut g, 7, 6, b'b');
@@ -100,24 +103,22 @@ fn sprite_grid(name: &str, fr: i32, ph: f32, o: &Value) -> Option<Grid> {
     })
 }
 /// grade -> corridas horizontais (cor, i, j, comprimento) com contorno 'o' nas bordas, em cache por (nome, quadro, opcoes)
-type Runs = std::sync::Arc<(usize, usize, Vec<(u8, u16, u16, u16)>)>;
-fn sprite_runs(name: &str, tm: f32, o: &Value) -> Option<Runs> {
-    static CACHE: std::sync::Mutex<Option<HashMap<String, Option<Runs>>>> = std::sync::Mutex::new(None);
-    let fr = ((tm * 7.0).floor() as i32).rem_euclid(28); let key = format!("{name}|{fr}|{}", if o.is_null() { String::new() } else { o.to_string() });
-    let mut lk = CACHE.lock().unwrap_or_else(|e| e.into_inner()); let m = lk.get_or_insert_with(HashMap::new);
-    if let Some(r) = m.get(&key) { return r.clone(); }
-    let r = sprite_grid(name, fr, fr as f32 / 28.0, o).map(|g| {
-        let (h, w) = (g.len(), g[0].len()); let mut q = g.clone();
-        for j in 0..h { for i in 0..w { if g[j][i] == b'.' && [(1i32, 0i32), (-1, 0), (0, 1), (0, -1)].iter().any(|(a, b)| { let (x, y) = (i as i32 + a, j as i32 + b); x >= 0 && y >= 0 && (y as usize) < h && (x as usize) < w && g[y as usize][x as usize] != b'.' }) { q[j][i] = b'o'; } } }
-        let mut runs = Vec::new();
-        for j in 0..h { let mut i = 0; while i < w { let c = q[j][i]; if c == b'.' { i += 1; continue; } let s = i; while i < w && q[j][i] == c { i += 1; } runs.push((c, s as u16, j as u16, (i - s) as u16)); } }
-        std::sync::Arc::new((w, h, runs))
-    });
-    if m.len() > 600 { m.clear(); } m.insert(key, r.clone()); r
+type Runs = std::rc::Rc<(usize, usize, Vec<(u8, u16, u16, u16)>)>;
+fn sprite_runs(name: &'static str, tm: f32, o: &SpO) -> Option<Runs> {
+    thread_local! { static CACHE: std::cell::RefCell<HashMap<(&'static str, i32, SpO), Option<Runs>>> = std::cell::RefCell::new(HashMap::new()); }
+    let fr = ((tm * 7.0).floor() as i32).rem_euclid(28); let key = (name, fr, *o);
+    CACHE.with(|c| { let mut m = c.borrow_mut(); if let Some(r) = m.get(&key) { return r.clone(); }
+        let r = sprite_grid(name, fr, fr as f32 / 28.0, o).map(|g| {
+            let (h, w) = (g.len(), g[0].len()); let mut q = g.clone();
+            for j in 0..h { for i in 0..w { if g[j][i] == b'.' && [(1i32, 0i32), (-1, 0), (0, 1), (0, -1)].iter().any(|(a, b)| { let (x, y) = (i as i32 + a, j as i32 + b); x >= 0 && y >= 0 && (y as usize) < h && (x as usize) < w && g[y as usize][x as usize] != b'.' }) { q[j][i] = b'o'; } } }
+            let mut runs = Vec::new();
+            for j in 0..h { let mut i = 0; while i < w { let c = q[j][i]; if c == b'.' { i += 1; continue; } let s = i; while i < w && q[j][i] == c { i += 1; } runs.push((c, s as u16, j as u16, (i - s) as u16)); } }
+            Rc::new((w, h, runs)) });
+        if m.len() > 600 { m.clear(); } m.insert(key, r.clone()); r })
 }
-fn sprite_dim(name: &str, o: &Value) -> (f32, f32) { sprite_runs(name, 0.0, o).map_or((1.0, 1.0), |r| (r.0 as f32, r.1 as f32)) }
+fn sprite_dim(name: &'static str, o: &SpO) -> (f32, f32) { sprite_runs(name, 0.0, o).map_or((1.0, 1.0), |r| (r.0 as f32, r.1 as f32)) }
 /// desenha o sprite centrado na origem atual; u = tamanho do "pixel"; dim escurece (camada de tras)
-fn sprite(g: &Gfx, name: &str, tm: f32, u: f32, o: &Value, dim: f32, a: f32) {
+fn sprite(g: &Gfx, name: &'static str, tm: f32, u: f32, o: &SpO, dim: f32, a: f32) {
     let Some(r) = sprite_runs(name, tm, o) else { return }; let (w, h) = (r.0 as f32, r.1 as f32);
     g.aa(false);
     for &(c, i, j, n) in &r.2 { let p = pal(c); g.rrect((i as f32 - w / 2.0) * u, (j as f32 - h / 2.0) * u, n as f32 * u, u, 0.0, (p[0] * dim, p[1] * dim, p[2] * dim, a)); }
@@ -136,20 +137,20 @@ struct FxRun { d: usize, t: f32, done: HashSet<usize> }
 
 /// Motor do Eavy (equivalente a `class Mascot` do mascote3.js).
 pub struct Eavy {
-    t: f32, dt: f32, s_t: f32, seed: u32, cur: Cur, base: usize, base_id: String, fx: Option<FxRun>, parts: Vec<Part>, timers: HashMap<String, f32>,
+    t: f32, dt: f32, s_t: f32, seed: u32, cur: Cur, base: usize, base_id: &'static str, fx: Option<FxRun>, parts: Vec<Part>, timers: HashMap<(usize, &'static str), f32>,
     dance: f32, blink_v: f32, next_blink: f32, blink_q: Vec<f32>, ptr: Option<(f32, f32)>, ptr_t: f32, badge_s: f32,
     sc: HashMap<&'static str, Scn>, hand: [Hand; 2], cab: (f32, f32), prev_ox_px: f32, read_lift: f32, el_now: f32,
-    tw: Tw, d_roll: f32, dsx: f32, dsy: f32, eye: String, tint_a: f32, badge: Option<String>, face_x: Option<f32>,
+    tw: Tw, d_roll: f32, dsx: f32, dsy: f32, eye: &'static str, tint_a: f32, badge: Option<&'static str>, face_x: Option<f32>,
     frozen: bool, pub ctx_musica: bool, pub n_eyes: u32, pub n_mouths: u32, pub n_hands: u32,
 }
 fn bd(r: f32, dt: f32) -> f32 { 1.0 - r.powf(dt) }
 impl Eavy {
     pub fn new() -> Eavy {
-        let r = rig(); let base = r.idx[r.v["estado_inicial"].as_str().unwrap_or("idle-pisca")];
+        let r = rig(); let base = r.v["estado_inicial"].as_str().and_then(|n| r.idx.get(n)).copied().unwrap_or(0);
         let mut e = Eavy { t: 0.0, dt: 0.033, s_t: 0.0, seed: 7, cur: Cur { gx: 0.0, gy: 0.0, tilt: 0.0, oy: 0.0, ox: 0.0, sx: 1.0, sy: 1.0, blush: 0.12, tint_a: 0.0, tint: [1.0; 3], mc: 0.8, mw: fo(&r.skin["bocaDW"], 5.0), mo: 0.0 },
-            base, base_id: r.def(base)["id"].as_str().unwrap_or("").to_string(), fx: None, parts: Vec::new(), timers: HashMap::new(), dance: 0.0, blink_v: 1.0, next_blink: 0.0, blink_q: Vec::new(), ptr: None, ptr_t: -99.0, badge_s: 0.0,
+            base, base_id: r.def(base)["id"].as_str().unwrap_or(""), fx: None, parts: Vec::new(), timers: HashMap::new(), dance: 0.0, blink_v: 1.0, next_blink: 0.0, blink_q: Vec::new(), ptr: None, ptr_t: -99.0, badge_s: 0.0,
             sc: HashMap::new(), hand: [Hand { x: 2.0, y: 66.0, r: -35.0, v: 0.0 }, Hand { x: 98.0, y: 66.0, r: 35.0, v: 0.0 }], cab: (0.0, 0.0), prev_ox_px: 0.0, read_lift: 0.0, el_now: 0.0,
-            tw: Tw::default(), d_roll: 0.0, dsx: 1.0, dsy: 1.0, eye: "open".into(), tint_a: 0.0, badge: None, face_x: None, frozen: false, ctx_musica: true, n_eyes: 0, n_mouths: 0, n_hands: 0 };
+            tw: Tw::default(), d_roll: 0.0, dsx: 1.0, dsy: 1.0, eye: "open", tint_a: 0.0, badge: None, face_x: None, frozen: false, ctx_musica: true, n_eyes: 0, n_mouths: 0, n_hands: 0 };
         e.next_blink = 1.5 + e.rnd() * 2.0; e
     }
     fn rnd(&mut self) -> f32 { // mulberry32 (igual ao rng() do JS)
@@ -158,7 +159,7 @@ impl Eavy {
     /// teste/captura: toca `id` e avanca `ms` ms em quadros de 1/30 s
     pub fn seek(&mut self, id: &str, ms: u32) { let m = self.ctx_musica; *self = Eavy::new(); self.ctx_musica = m; self.play(id); for _ in 0..(ms as f32 / 33.333).round() as u32 { self.step(1.0 / 30.0); } self.frozen = true; }
     pub fn unfreeze(&mut self) { self.frozen = false; }
-    pub fn base_id(&self) -> &str { &self.base_id }
+    pub fn base_id(&self) -> &'static str { self.base_id }
     pub fn gesture_running(&self) -> bool { self.fx.is_some() }
     pub fn sleeping(&self) -> bool { self.base_id == "sono" }
     /// ponteiro relativo ao centro do mascote, px de tela (esquece em 4 s sem mexer)
@@ -166,12 +167,12 @@ impl Eavy {
     pub fn play(&mut self, id: &str) {
         self.frozen = false;
         let r = rig(); let Some(&i) = r.idx.get(id) else { return }; let d = r.def(i);
-        if !d["estado"].is_null() { self.base = i; self.base_id = id.to_string(); self.fx = None; self.s_t = 0.0; self.blink_q.push(self.t); return; }
-        if let Some(bn) = d["base_now"].as_str() { if let Some(&bi) = r.idx.get(bn) { self.base = bi; self.base_id = bn.to_string(); self.s_t = 0.0; } }
+        if !d["estado"].is_null() { self.base = i; self.base_id = d["id"].as_str().unwrap_or(""); self.fx = None; self.s_t = 0.0; self.blink_q.push(self.t); return; }
+        if let Some(bn) = d["base_now"].as_str() { if let Some(&bi) = r.idx.get(bn) { self.base = bi; self.base_id = r.def(bi)["id"].as_str().unwrap_or(""); self.s_t = 0.0; } }
         self.fx = Some(FxRun { d: i, t: 0.0, done: HashSet::new() });
     }
-    fn timer(&mut self, k: &str, every: f32) -> bool {
-        let dt = self.dt; let v = self.timers.entry(k.to_string()).or_insert(every * 0.6); *v -= dt; if *v <= 0.0 { *v += every; true } else { false } }
+    fn timer(&mut self, k: (usize, &'static str), every: f32) -> bool {
+        let dt = self.dt; let v = self.timers.entry(k).or_insert(every * 0.6); *v -= dt; if *v <= 0.0 { *v += every; true } else { false } }
     fn spawn(&mut self, ty: &str, n: u32, o: &Value) { for i in 0..n { let p = self.mk(ty, i, n, o); self.parts.push(p); } }
     fn mk(&mut self, ty: &str, i: u32, n: u32, o: &Value) -> Part {
         let (fi, fnn) = (i as f32, n as f32); let mid = fi - (fnn - 1.0) / 2.0;
@@ -202,7 +203,7 @@ impl Eavy {
     /// avanca `dt` segundos (equivale a step(dt) do JS)
     pub fn step(&mut self, dt: f32) {
         if self.frozen { return; }
-        let dt = dt.clamp(1e-3, 0.1); let r = rig(); let rg = &r.v; let k = &rg["seguir"];
+        let dt = dt.clamp(1e-3, if self.sleeping() { 0.3 } else { 0.1 }); let r = rig(); let rg = &r.v; let k = &rg["seguir"];
         self.t += dt; self.dt = dt; self.s_t += dt;
         let (k_gen, k_look, k_col) = (bd(f(&k["kGen"]), dt), bd(f(&k["kLook"]), dt), bd(f(&k["kCor"]), dt));
         let base_d: &'static Value = r.def(self.base); let b: &'static Value = &base_d["estado"]; let has_b = !b.is_null();
@@ -229,7 +230,7 @@ impl Eavy {
                 Some("wave") => { let w = (TAU * f(&pr["hz"]) * (el - from) / 1000.0).sin(); tw.tilt += f(&pr["t0"]) + w * f(&pr["t1"]); tw.wave = (13.0 * (el - from) / 1000.0).sin() * 0.35; }
                 Some("chew") => { let ph = (TAU * f(&pr["hz"]) * (el - from) / 1000.0).sin(); tw.mouth = f(&pr["base"]) + f(&pr["amp"]) * ph; tw.cheek = tw.cheek.max(0.85 + 0.15 * ph); }
                 Some("walk") => { let ph = (el - from) / 1000.0 * fo(&pr["hz"], 3.2); let sa = (std::f32::consts::PI * ph).sin().abs(); tw.oy -= sa * 0.035; tw.tilt += (std::f32::consts::PI * ph).sin() * 0.05; tw.sy *= 1.0 - 0.035 * (1.0 - sa); tw.sx *= 1.0 + 0.02 * (1.0 - sa); }
-                Some("electric") => { tw.jit = f(&pr["amp"]) * ((to - el) / 500.0).min(1.0); if self.timer("eb", 0.09) { self.spawn("bolt", 1, &Value::Null); } }
+                Some("electric") => { tw.jit = f(&pr["amp"]) * ((to - el) / 500.0).min(1.0); if self.timer((usize::MAX, "eb"), 0.09) { self.spawn("bolt", 1, &Value::Null); } }
                 _ => {} } } }
             if !d["orbit"].is_null() && el < f(&d["dur"]) { tw.orbit = true; } }
         if let Some(i) = finish { self.fx = None; let d = r.def(i);
@@ -238,10 +239,10 @@ impl Eavy {
         // ---- cenario persistente, maos, itens
         let fx_on = self.fx.is_some(); let _ = fx_on;
         self.el_now = if fx_d.is_some() { el } else { self.s_t };
-        let mut want_on: HashSet<&str> = HashSet::new();
-        for v in [fx_cena_on, if has_b { Some(&b["cena_on"]) } else { None }].into_iter().flatten() { for s in v.as_array().into_iter().flatten() { if let Some(s) = s.as_str() { want_on.insert(s); } } }
+        let mut want_on = [""; 8]; let mut nw = 0usize;
+        for v in [fx_cena_on, if has_b { Some(&b["cena_on"]) } else { None }].into_iter().flatten() { for s in v.as_array().into_iter().flatten() { if let Some(s) = s.as_str() { if nw < 8 { want_on[nw] = s; nw += 1; } } } }
         let cat = &rg["cenario"]; let pp: Option<&'static Value> = fx_par.or(if has_b && !b["cena_par"].is_null() { Some(&b["cena_par"]) } else { None }); let en = self.el_now;
-        for id in CENA { if cat[id].is_null() { continue; } let w = want_on.contains(id); let t = self.t;
+        for id in CENA { if cat[id].is_null() { continue; } let w = want_on[..nw].contains(&id); let t = self.t;
             let s = self.sc.entry(id).or_default(); if w && !s.vis { s.vis = true; s.t0 = t; } if !w { s.vis = false; }
             s.a = clamp(s.a + if w { dt / 0.3 } else { -dt / 0.3 }, 0.0, 1.0); s.par = None;
             if let Some(p) = pp { for pr in p[id].as_array().into_iter().flatten() { if en >= f(&pr[0]) { s.par = Some(&pr[1]); } } }
@@ -266,7 +267,7 @@ impl Eavy {
         if has_b && !b["bounce"].is_null() { t_oy -= (f(&b["bounce"]["w"]) * self.t).sin().abs() * f(&b["bounce"]["a"]); }
         let (mut d_roll, mut dsx, mut dsy) = (0.0f32, 1.0f32, 1.0f32);
         if self.dance > 0.0 { let beat = self.t * f(&rg["danca_bpm"]) / 60.0; let hop = (std::f32::consts::PI * beat).sin().abs(); let land = (1.0 - hop).powi(6); let sw = (std::f32::consts::PI * beat / 2.0).sin(); let a = self.dance;
-            t_oy -= 0.1 * hop * a; t_ox += 0.06 * sw * a; d_roll = 0.1 * sw * a; dsx = 1.0 + 0.045 * land * a; dsy = 1.0 - 0.06 * land * a; if self.timer("note", 1.1) { self.spawn("note", 1, &Value::Null); } }
+            t_oy -= 0.1 * hop * a; t_ox += 0.06 * sw * a; d_roll = 0.1 * sw * a; dsx = 1.0 + 0.045 * land * a; dsy = 1.0 - 0.06 * land * a; if self.timer((usize::MAX - 1, "note"), 1.1) { self.spawn("note", 1, &Value::Null); } }
         let (bl, tc) = match tint_ov { Some((c, a)) => (a, c), None => (dd_tint_a, hex(dd_tint)) };
         let k_m = 1.0 - 0.00002f32.powf(dt); let skin_dw = fo(&r.skin["bocaDW"], 5.0);
         let bb = boca_ov.or(if has_b && !b["boca"].is_null() { Some(&b["boca"]) } else { None });
@@ -287,12 +288,12 @@ impl Eavy {
         self.blink_q.retain(|t0| { let e = (tnow - t0) * 1000.0; if e < 0.0 { return true; } if e < 70.0 { bv = bv.min(1.0 - 0.94 * ease("inOut", e / 70.0)); } else if e < 200.0 { bv = bv.min(0.06 + 0.94 * ease("out", (e - 70.0) / 130.0)); } e < 200.0 });
         self.blink_v = if no_blink { 1.0 } else { bv };
         // emissores do estado
-        if has_b { for e in b["emit"].as_array().into_iter().flatten() { let ty = e["type"].as_str().unwrap_or(""); let key = format!("{}{}", self.base_id, ty);
-            if self.timer(&key, f(&e["every"])) && self.rnd() < fo(&e["p"], 1.0) { self.spawn(ty, e["n"].as_u64().unwrap_or(1) as u32, e); } } }
+        if has_b { for e in b["emit"].as_array().into_iter().flatten() { let ty: &'static str = e["type"].as_str().unwrap_or("");
+            if self.timer((self.base, ty), f(&e["every"])) && self.rnd() < fo(&e["p"], 1.0) { self.spawn(ty, e["n"].as_u64().unwrap_or(1) as u32, e); } } }
         self.parts.retain_mut(|p| { if p.delay > 0.0 { p.delay -= dt; return true; } p.age += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.age < p.life });
-        self.badge = if has_b { b["badge"].as_str().map(String::from) } else { None };
+        self.badge = if has_b { b["badge"].as_str() } else { None };
         self.badge_s += ((if self.badge.is_some() { 1.0 } else { 0.0 }) - self.badge_s) * k_gen;
-        self.tw = tw; self.d_roll = d_roll; self.dsx = dsx; self.dsy = dsy; self.eye = eye.to_string(); self.tint_a = self.cur.tint_a;
+        self.tw = tw; self.d_roll = d_roll; self.dsx = dsx; self.dsy = dsy; self.eye = eye; self.tint_a = self.cur.tint_a;
     }
 
     // ---------------------------------------------------------------- desenho
@@ -322,14 +323,14 @@ impl Eavy {
             let hx = 50.0 + sgn * 49.0; let hy = 64.0 - hv * 40.0 + if *sgn > 0.0 { tw.wave * 8.0 } else { 0.0 } + hd * (TAU * self.t * 1.6 + if *sgn > 0.0 { std::f32::consts::PI } else { 0.0 }).sin() * 7.0; let _ = i;
             g.set_matrix(rot(sgn * 38.0, 0.0, 0.0) * tr(hx, hy) * pm); mitten(g, rgba(bot, a), rgba(sombra, a), 1.1); self.n_hands += 1; }
         g.set_matrix(pm);
-        let body = skin["corpo"].as_str().unwrap_or(""); let segs = parse_path(body);
-        g.path_vgrad(&segs, 22.0, 86.0, rgba(top, 1.0), rgba(bot, 1.0));
+        let segs = &r.body;
+        g.path_vgrad(segs, 22.0, 86.0, rgba(top, 1.0), rgba(bot, 1.0));
         let tcol = mix(acento, c.tint, c.tint_a * 0.6);
         if skin["detalhe"].as_str() == Some("ranhura") { for x in [64.0, 71.0, 78.0] { g.rrect(x, 64.0, 3.0, 13.0, 1.5, rgba(tcol, 0.85)); } }
         let ck = clamp(tw.cheek, 0.0, 1.0); if ck > 0.03 { let (rx, ry) = (3.0 + 5.0 * ck, 2.6 + 4.0 * ck); for cx in [25.0, 75.0] { g.ellipse(cx, 68.0, rx, ry, rgba(corpo, 1.0)); g.path(&ellipse_segs(cx, 68.0, rx, ry), None, Some((0.9, rgba(sombra, 1.0)))); } }
         // olhos (2)
         let es = tw.es; let (gx, gy) = (c.gx, c.gy); let bv = self.blink_v; let ex = [fo(&skin["olhos"]["x"][0], 36.0), fo(&skin["olhos"]["x"][1], 64.0)]; let ey = fo(&skin["olhos"]["y"], 55.0) + gy * 4.5;
-        for (i, s2) in [-1.0f32, 1.0].iter().enumerate() { let far = if s2 * gx < 0.0 { 1.0 - 0.22 * gx.abs() } else { 1.0 }; let mut em = self.eye.as_str(); if em == "wink" { em = if i == 1 { "happy" } else { "open" }; }
+        for (i, s2) in [-1.0f32, 1.0].iter().enumerate() { let far = if s2 * gx < 0.0 { 1.0 - 0.22 * gx.abs() } else { 1.0 }; let mut em: &str = self.eye; if em == "wink" { em = if i == 1 { "happy" } else { "open" }; }
             g.set_matrix(sc(far, 1.0) * tr(ex[i] + gx * 7.0, ey) * pm); self.n_eyes += 1; let ic = rgba(ink, 1.0); let st = Some((2.8, ic));
             match em {
                 "closed" => g.path(&[Seg::M(-5.5, -1.5), Seg::Q(0.0, 4.5, 5.5, -1.5)], None, st), "happy" => g.path(&[Seg::M(-5.5, 2.5), Seg::Q(0.0, -4.0, 5.5, 2.5)], None, st),
@@ -356,20 +357,20 @@ impl Eavy {
         for id in CENA { let sp = &cat[id]; if sp.is_null() { continue; } if (sp["z"].as_str() == Some("f")) != front { continue; }
             let Some(q) = self.sc.get(id) else { continue }; if q.a < 0.01 { continue; }
             let d = fo(&sp["d"], 0.0); let us = fo(&sp["u"], 2.6) * (1.0 - 0.2 * d) * if sp["z"].as_str() == Some("f") { 1.06 } else { 1.0 };
-            let mut par = sp["opts"].clone(); if let (Some(po), Some(pm)) = (q.par, par.as_object_mut()) { if let Some(o) = po.as_object() { for (k, v) in o { pm.insert(k.clone(), v.clone()); } } }
-            let (dw, dh) = sprite_dim(sp["t"].as_str().unwrap_or(""), &par);
+            let mut par = spo(&sp["opts"], SP0); if let Some(po) = q.par { par = spo(po, par); } let sname: &'static str = sp["t"].as_str().unwrap_or("");
+            let (dw, dh) = sprite_dim(sname, &par);
             let mut cy = if sp["base"].is_null() { f(&sp["y"]) } else { f(&sp["base"]) - (dh / 2.0 - 1.0) * us };
             if !sp["desce"].is_null() { cy += (1.0 - ease("back", (t - q.t0) * 1000.0 / f(&sp["desce"]["ms"]))) * f(&sp["desce"]["de"]); }
-            let mut rt = fo(&sp["r"], 0.0); let sh = if par["_shake"].is_null() { &sp["shake"] } else { &par["_shake"] }; if !sh.is_null() { rt += (TAU * f(&sh["hz"]) * t).sin() * f(&sh["amp"]); }
+            let mut rt = fo(&sp["r"], 0.0); let sh = match q.par { Some(p) if !p["_shake"].is_null() => &p["_shake"], _ => &sp["shake"] }; if !sh.is_null() { rt += (TAU * f(&sh["hz"]) * t).sin() * f(&sh["amp"]); }
             let (mut xx, mut a, mut shd) = (f(&sp["x"]), q.a, 1.0f32);
             if let Some(kf) = q.traj.and_then(|v| v.as_array()) { let mut k = 0usize; while k + 2 < kf.len() && el > f(&kf[k + 1][0]) { k += 1; } let (k0, k1) = (&kf[k], &kf[k + 1]);
                 let fct = ease(k1[4].as_str().unwrap_or("lin"), clamp((el - f(&k0[0])) / (f(&k1[0]) - f(&k0[0])).max(1e-3), 0.0, 1.0)); let rv = |v: &Value, d0: f32| if v.is_null() { d0 } else { f(v) };
                 let (x0, x1, y0, y1, r0, r1) = (rv(&k0[1], xx), rv(&k1[1], xx), rv(&k0[2], cy), rv(&k1[2], cy), rv(&k0[3], rt), rv(&k1[3], rt));
                 xx = x0 + (x1 - x0) * fct; cy = y0 + (y1 - y0) * fct; rt = r0 + (r1 - r0) * fct; a = 1.0; shd = clamp(1.0 - (f(&sp["base"]) - (cy + dh / 2.0 * us)) / 130.0, 0.0, 1.0); }
-            if sp["t"].as_str() == Some("parede") { face_x = Some(f(&sp["x"]) + (1.0 - dw / 2.0) * us); }
+            if sname == "parede" { face_x = Some(f(&sp["x"]) + (1.0 - dw / 2.0) * us); }
             if !sp["base"].is_null() { let (rx, ry) = (dw * us * 0.4, dw * us * 0.07); for k in 0..2 { g.ellipse(xx, f(&sp["base"]) + 1.5, rx * (1.0 + 0.3 * (1.0 - k as f32)), ry * (1.0 + 0.4 * (1.0 - k as f32)), (0.0, 0.0, 0.0, 0.2 * a * shd)); } }
             let dim = if !front { if d > 0.35 { 0.66 } else if d > 0.08 { 0.82 } else { 1.0 } } else { 1.0 };
-            g.set_matrix(rot(rt, 0.0, 0.0) * tr(xx, cy) * lm); sprite(g, sp["t"].as_str().unwrap_or(""), t, us, &par, dim, a); g.set_matrix(lm); }
+            g.set_matrix(rot(rt, 0.0, 0.0) * tr(xx, cy) * lm); sprite(g, sname, t, us, &par, dim, a); g.set_matrix(lm); }
         if front { let _ = (ox, oy); } else { self.face_x = face_x.or(self.face_x); }
         g.set_matrix(base);
         if !front && self.face_x.is_some() && self.sc.get("parede").is_none_or(|q| q.a < 0.01) { self.face_x = None; }
@@ -379,7 +380,7 @@ impl Eavy {
     fn items(&mut self, g: &Gfx, ox: f32, _oy: f32, top: C3) {
         let r = rig(); let base_d = r.def(self.base); let fx_d = self.fx.as_ref().map(|x| r.def(x.d)); let el = self.el_now; let t = self.t; let pm = g.get_matrix();
         let items: Option<&Value> = fx_d.and_then(|d| if d["itens"].is_null() { None } else { Some(&d["itens"]) }).or(if base_d["estado"]["itens"].is_null() { None } else { Some(&base_d["estado"]["itens"]) });
-        let mut cable: Option<&Value> = None; let mut plug: Option<(f32, f32, f32, f32)> = None; let mut deferred: Vec<(Matrix3x2, &str, f32, Value, f32)> = Vec::new(); let mut hands_extra: Vec<(Matrix3x2, f32)> = Vec::new();
+        let mut cable: Option<&Value> = None; let mut plug: Option<(f32, f32, f32, f32)> = None; let mut deferred: Vec<(Matrix3x2, &'static str, f32, SpO, f32)> = Vec::new(); let mut hands_extra: Vec<(Matrix3x2, f32)> = Vec::new();
         for it in items.and_then(|v| v.as_array()).into_iter().flatten() {
             if it["t"].as_str() == Some("cabo") { cable = Some(it); continue; }
             let w = &it["win"]; let in_fx = self.fx.is_some() && !w.is_null(); if in_fx && (el < f(&w[0]) || el > f(&w[1])) { continue; }
@@ -387,8 +388,8 @@ impl Eavy {
             if !it["hold"].is_null() { let q = self.hand[if it["hold"]["h"].as_str() == Some("L") { 0 } else { 1 }]; x = q.x + fo(&it["hold"]["dx"], 0.0); y = q.y + fo(&it["hold"]["dy"], 0.0); a *= (q.v * 2.0).min(1.0); }
             else if let Some(p) = it["path"].as_array() { let mut k = 0usize; while k + 2 < p.len() && el > f(&p[k + 1][0]) { k += 1; } let (t0, x0, y0) = (f(&p[k][0]), f(&p[k][1]), f(&p[k][2])); let (t1, x1, y1) = (f(&p[k + 1][0]), f(&p[k + 1][1]), f(&p[k + 1][2]));
                 let fct = clamp((el - t0) / (t1 - t0).max(1e-3), 0.0, 1.0); x = x0 + (x1 - x0) * fct; y = y0 + (y1 - y0) * fct; }
-            else if it["proc"].as_str() == Some("jornal") { let us = fo(&it["u"], 2.6); let l = self.read_lift; let yy = (if it["pos"].is_null() { 80.0 } else { f(&it["pos"][1]) }) + l * 26.0; let (dw, dh) = sprite_dim("jornal", &Value::Null);
-                let top2 = yy - dh / 2.0 * us; let hw = dw / 2.0 * us - 4.0; deferred.push((rot(l * 3.0, 0.0, 0.0) * tr(50.0, yy) * pm, "jornal", us, Value::Null, 1.0));
+            else if it["proc"].as_str() == Some("jornal") { let us = fo(&it["u"], 2.6); let l = self.read_lift; let yy = (if it["pos"].is_null() { 80.0 } else { f(&it["pos"][1]) }) + l * 26.0; let (dw, dh) = sprite_dim("jornal", &SP0);
+                let top2 = yy - dh / 2.0 * us; let hw = dw / 2.0 * us - 4.0; deferred.push((rot(l * 3.0, 0.0, 0.0) * tr(50.0, yy) * pm, "jornal", us, SP0, 1.0));
                 for sg in [-1.0f32, 1.0] { hands_extra.push((rot(sg * -22.0, 0.0, 0.0) * tr(50.0 + sg * hw, top2 + 7.0) * pm, 1.0)); } continue; }
             else { x = f(&it["pos"][0]); y = f(&it["pos"][1]); }
             if !it["esc"].is_null() && el >= f(&it["esc"][0]) { scl = 1.0 - clamp((el - f(&it["esc"][0])) / (f(&it["esc"][1]) - f(&it["esc"][0])), 0.0, 1.0); }
@@ -397,7 +398,7 @@ impl Eavy {
             let osc = if it["osc"].is_null() { (0.0, 0.0) } else { let o = &it["osc"]; ((TAU * t / f(&o["p"])).sin() * f(&o["ax"]), (TAU * t / f(&o["p"])).cos() * f(&o["ay"])) };
             let m = sc(fo(&it["s"], 1.0) * scl, fo(&it["s"], 1.0) * scl) * rot(fo(&it["r"], 0.0) + sh, 0.0, 0.0) * tr(x + osc.0, y + osc.1) * pm;
             if it["t"].as_str() == Some("plug") { plug = Some((x, y, fo(&it["u"], 2.4), a)); }
-            deferred.push((m, it["t"].as_str().unwrap_or(""), fo(&it["u"], 2.6), it["opts"].clone(), if it["clip"].as_bool() == Some(true) { -a } else { a })); }
+            deferred.push((m, it["t"].as_str().unwrap_or(""), fo(&it["u"], 2.6), spo(&it["opts"], SP0), if it["clip"].as_bool() == Some(true) { -a } else { a })); }
         if let (Some(cb), Some(p)) = (cable, plug) { let p0 = (f(&cb["port"][0]), f(&cb["port"][1])); let p1 = (p.0 - 7.0 * p.2, p.1 + 1.0); let dist = (p1.0 - p0.0).hypot(p1.1 - p0.1);
             let sag = clamp(0.6 * (fo(&cb["L"], 46.0) - dist), 0.0, 30.0); let (cx, cy) = ((p0.0 + p1.0) / 2.0 + self.cab.0, (p0.1 + p1.1) / 2.0 + sag);
             let d = [Seg::M(p0.0, p0.1), Seg::Q(cx, cy, p1.0, p1.1)]; g.path(&d, None, Some((4.6, (0.165, 0.141, 0.188, p.3)))); g.path(&d, None, Some((2.6, (0.416, 0.439, 0.518, p.3)))); }
@@ -422,12 +423,12 @@ impl Eavy {
                 PT::Note => { g.set_matrix(at); let z = q.size / 11.0; g.ellipse(0.0, 0.0, 3.0 * z, 2.2 * z, col); g.path(&[Seg::M(2.6 * z, 0.0), Seg::L(2.6 * z, -9.0 * z), Seg::Q(2.6 * z, -6.0 * z, 6.0 * z, -5.0 * z)], None, Some((1.6 * z, col))); }
                 PT::Bang => { let z = q.size / 14.0 * pop * (1.0 + (1.0 - (a * 3.0).min(1.0)) * 0.4); g.set_matrix(sc(z, z) * at); g.path(&[Seg::M(0.0, -8.0), Seg::L(0.0, 0.0)], None, Some((3.0, col))); g.circle(0.0, 4.0, 1.7, col); }
                 PT::Bolt => { let (rr, s2) = (q.size, q.seed); g.set_matrix(rot(q.rot.to_degrees(), 0.0, 0.0) * at); if a < 0.8 { g.path(&[Seg::M(0.0, 0.0), Seg::L(rr * 0.3, s2.sin() * 4.0), Seg::L(rr * 0.55, -(s2 * 2.0).cos() * 5.0), Seg::L(rr * 0.8, (s2 * 3.0).sin() * 4.0), Seg::L(rr, 0.0)], None, Some((2.2, col))); } }
-                PT::File => { g.set_matrix(at); sprite(g, "pasta", 0.0, 2.2, &Value::Null, 1.0, 1.0); }
+                PT::File => { g.set_matrix(at); sprite(g, "pasta", 0.0, 2.2, &SP0, 1.0, 1.0); }
                 PT::Conf => { g.set_matrix(m); g.aa(false); g.rrect((q.x / 3.0).round() * 3.0, (q.y / 3.0).round() * 3.0, 3.0, 3.0, 0.0, col); g.aa(true); }
                 PT::Refl => { g.set_matrix(m); g.aa(false); g.rrect(q.x.round(), q.y.round(), 3.0, 3.0, 0.0, rgba(q.c, fo_ * if (q.age * 40.0).sin() > -0.3 { 1.0 } else { 0.4 })); g.aa(true); }
                 PT::Fumaca => { g.set_matrix(m); let z = (q.size + a * 5.0).round(); g.aa(false); g.rrect((q.x / 2.0).round() * 2.0, (q.y / 2.0).round() * 2.0, z, z, 0.0, rgba(q.c, 0.7 * fo_)); g.aa(true); }
                 PT::Puff => { g.set_matrix(m); g.circle(q.x, q.y, q.size + a * 6.0, rgba(q.c, 0.5 * fo_)); } } }
-        if self.badge_s > 0.02 { if let Some(bg) = &self.badge { let bob = (self.t * 5.0).sin() * 2.0; let z = self.badge_s; let q = bg == "qmark"; g.set_matrix(sc(z, z) * tr(88.0, 2.0 + bob) * m);
+        if self.badge_s > 0.02 { if let Some(bg) = self.badge { let bob = (self.t * 5.0).sin() * 2.0; let z = self.badge_s; let q = bg == "qmark"; g.set_matrix(sc(z, z) * tr(88.0, 2.0 + bob) * m);
             g.circle(0.0, 0.0, 9.0, rgba(hex(if q { "#4cc9f0" } else { "#ffb020" }), 1.0));
             if q { g.path(&[Seg::M(-2.6, -3.0), Seg::Q(-2.6, -6.0, 0.0, -6.0), Seg::Q(2.8, -6.0, 2.8, -3.0), Seg::Q(2.8, -1.0, 0.0, 0.0), Seg::L(0.0, 1.8)], None, Some((1.8, (1.0, 1.0, 1.0, 1.0)))); g.circle(0.0, 5.0, 1.1, (1.0, 1.0, 1.0, 1.0)); }
             else { g.path(&[Seg::M(0.0, -6.0), Seg::L(0.0, 1.5)], None, Some((2.0, (1.0, 1.0, 1.0, 1.0)))); g.circle(0.0, 5.0, 1.2, (1.0, 1.0, 1.0, 1.0)); } } }
@@ -455,47 +456,96 @@ pub fn parse_path(d: &str) -> Vec<Seg> {
 }
 
 // ---------------------------------------------------------------- integracao com o app (gatilhos reais)
-/// Dados do app lidos a cada quadro; o `Mascot` detecta as bordas (tocar/pausar, trocar de faixa, plugar, timer, arquivo na Shelf) e dispara as reacoes.
-pub struct Ctx { pub playing: bool, pub track: String, pub charging: Option<bool>, pub timer: u8, pub shelf_adds: u32, pub pointer: Option<(f32, f32)>, pub calm: bool }
-pub struct Mascot { pub e: Eavy, last: Option<Instant>, born: Instant, init: bool, was_playing: bool, track: String, charging: Option<bool>, timer: u8, shelf_adds: u32, last_ptr: Option<(f32, f32)>, pub touch: Instant, pub night_forced: bool }
-impl Default for Mascot { fn default() -> Self { Mascot { e: Eavy::new(), last: None, born: Instant::now(), init: false, was_playing: false, track: String::new(), charging: None, timer: 0, shelf_adds: 0, last_ptr: None, touch: Instant::now(), night_forced: false } } }
+/// erros reais do app (falha ao abrir da Shelf, rede das letras): quem falha chama `report_error()`; o Eavy faz a reacao `erro` quando a pagina esta visivel
+pub static ERRORS: AtomicU32 = AtomicU32::new(0);
+pub fn report_error() { ERRORS.fetch_add(1, Relaxed); }
+/// notificacao nova (gesto) e atencao sustentada (1 approval, 2 pergunta, 3 busca; 0 nada); o app chama quando tiver a origem
+pub static NOTIFS: AtomicU32 = AtomicU32::new(0);
+pub static ATTENTION: AtomicU8 = AtomicU8::new(0);
+pub fn report_notification() { NOTIFS.fetch_add(1, Relaxed); }
+pub fn set_attention(kind: u8) { ATTENTION.store(kind, Relaxed); }
+
+/// Dados do app lidos a cada quadro (sem alocar). `timer`: 0 parado, 1 rodando, 2 pausado, 3 concluido.
+#[derive(Clone, Copy, Default)]
+pub struct Ctx { pub playing: bool, pub track: u64, pub charging: Option<bool>, pub low_batt: bool, pub night: bool, pub timer: u8, pub cycle: u32, pub shelf_adds: u32, pub pointer: Option<(f32, f32)>, pub reduced: bool }
+/// Estado logico do Eavy: detecta as bordas (tocar/pausar, faixa, plugar, timer, Shelf, erro...) e decide o estado de base. So avanca com a pagina/compacto visivel;
+/// ao reabrir depois de uma pausa (> 1,5 s) ressincroniza com o estado ATUAL e descarta gestos vencidos.
+pub struct Mascot {
+    pub e: Eavy, last: Option<Instant>, born: Instant, init: bool, prev: Ctx, key: u64, cand: (u64, Instant), last_ptr: Option<(f32, f32)>, pub touch: Instant,
+    asleep: bool, yawned: bool, pending: Option<&'static str>, clicks: Vec<Instant>, tap_at: Option<Instant>, errors: u32, notifs: u32, last_greet: Option<Instant>, reduced: bool, sleep_lock: bool,
+}
+impl Default for Mascot { fn default() -> Self { Mascot { e: Eavy::new(), last: None, born: Instant::now(), init: false, prev: Ctx::default(), key: 0, cand: (0, Instant::now()), last_ptr: None, touch: Instant::now(), asleep: false, yawned: false,
+    pending: None, clicks: Vec::new(), tap_at: None, errors: 0, notifs: 0, last_greet: None, reduced: false, sleep_lock: false } } }
+const FAR_PX: f32 = 150.0; const YAWN_S: f32 = 60.0; const SLEEP_S: f32 = 120.0; const TRACK_DEBOUNCE: Duration = Duration::from_millis(300);
 impl Mascot {
     pub fn age_ms(&self, now: Instant) -> u128 { now.duration_since(self.born).as_millis() }
-    pub fn on_click(&mut self, now: Instant) { self.touch = now; }
-    pub fn touched(&mut self, now: Instant) { self.touch = now; }
-    /// dispara a reacao do app (erro de arquivo/faixa etc.)
+    pub fn touched(&mut self, now: Instant) { self.touch = now; self.asleep = false; self.yawned = false; }
+    /// clique no mascote: 1 clique = tapa (apos 300 ms, para distinguir duplo-clique); 3 em 1,7 s = tonto
+    pub fn on_click(&mut self, now: Instant) {
+        self.touched(now); self.clicks.retain(|t| now.duration_since(*t) < Duration::from_millis(1700)); self.clicks.push(now);
+        if self.clicks.len() >= 3 { self.clicks.clear(); self.tap_at = None; self.e.play("tonto"); } else { self.tap_at = Some(now); }
+    }
     pub fn error(&mut self) { self.e.play("erro"); }
-    /// precisa de quadros continuos? (acordado = 30 fps; dormindo ou animacoes reduzidas = so o timer de 4 fps)
-    pub fn busy(&self, _now: Instant, _over: bool) -> bool { !self.e.sleeping() }
-    pub fn wake_ms(&self, _now: Instant) -> Option<u32> { if self.e.sleeping() { Some(250) } else { None } }
+    /// teste/captura: dorme (ignora atividade)
+    pub fn bench_sleep(&mut self) { self.asleep = true; self.sleep_lock = true; self.e.unfreeze(); }
+    /// quadros continuos so acordado e sem animacoes reduzidas; dormindo ou reduzido = so o timer de 250 ms (4 fps)
+    pub fn busy(&self, _now: Instant, _over: bool) -> bool { !self.e.sleeping() && !self.reduced }
+    pub fn wake_ms(&self, _now: Instant) -> Option<u32> { if self.e.sleeping() || self.reduced { Some(250) } else { None } }
     pub fn raging(&self) -> bool { false }
-    /// atualiza gatilhos e avanca o motor
+    fn want(&self, c: &Ctx) -> &'static str {
+        match ATTENTION.load(Relaxed) { 1 => return "approval", 2 => return "pergunta", 3 => return "busca", _ => {} }
+        if c.low_batt { "bateria-baixa" } else if c.timer == 1 { "pomodoro-inicio" } else if c.playing { "danca" } else if c.charging == Some(true) { "carregando-ativo" } else if self.asleep { "sono" } else { "idle-pisca" }
+    }
+    fn resync(&mut self, c: &Ctx, now: Instant, greet: bool) {
+        self.prev = *c; self.key = c.track; self.cand = (c.track, now); self.errors = ERRORS.load(Relaxed); self.notifs = NOTIFS.load(Relaxed); self.clicks.clear(); self.tap_at = None; self.pending = None;
+        self.touched(now); self.e.play(self.want(c)); if greet { self.e.play("saudacao"); self.last_greet = Some(now); }
+    }
+    /// atualiza gatilhos e avanca o motor (chamado por quadro desenhado)
     pub fn step(&mut self, c: &Ctx, now: Instant) {
-        let dt = self.last.map_or(1.0 / 30.0, |t| now.duration_since(t).as_secs_f32()); self.last = Some(now);
+        let gap = self.last.map(|t| now.duration_since(t));
+        let dt = gap.map_or(1.0 / 30.0, |g| g.as_secs_f32()); self.last = Some(now); self.reduced = c.reduced;
         self.e.ctx_musica = c.playing;
-        if !self.init { // estado inicial sem reacoes de borda
-            self.init = true; self.was_playing = c.playing; self.track = c.track.clone(); self.charging = c.charging; self.timer = c.timer; self.shelf_adds = c.shelf_adds;
-            if c.playing { self.e.play("danca"); } else if c.charging == Some(true) { self.e.play("carregando-ativo"); } else if c.timer == 1 { self.e.play("pomodoro-inicio"); } }
-        else {
-            if c.shelf_adds != self.shelf_adds { self.shelf_adds = c.shelf_adds; self.e.play("engolir"); }
-            if c.playing != self.was_playing { self.was_playing = c.playing; self.e.play(if c.playing { "danca" } else { "musica-pausa" }); }
-            else if c.track != self.track && !c.track.is_empty() && !self.track.is_empty() { self.e.play("troca-faixa"); }
-            self.track = c.track.clone();
-            if c.charging != self.charging { if self.charging.is_some() { self.e.play(if c.charging == Some(true) { "carregando" } else if c.playing { "danca" } else { "idle-pisca" }); } self.charging = c.charging; }
-            if c.timer != self.timer { let (from, to) = (self.timer, c.timer); self.timer = to; // 0 parado, 1 rodando, 2 pausado, 3 concluido
-                if to == 1 { self.e.play("pomodoro-inicio"); } else if to == 3 { self.e.play("pomodoro-fim"); } else if from == 1 { self.e.play(if c.playing { "danca" } else { "idle-pisca" }); } }
+        if !self.init || gap.is_some_and(|g| g > Duration::from_millis(1500) && !self.e.sleeping()) {
+            let greet = self.last_greet.is_none_or(|t| now.duration_since(t) > Duration::from_secs(60)); self.init = true; self.resync(c, now, greet);
+        } else {
+            let p = self.prev; let mut act = false;
+            if c.shelf_adds != p.shelf_adds { self.e.play("engolir"); act = true; }
+            let er = ERRORS.load(Relaxed); if er != self.errors { self.errors = er; self.e.play("erro"); act = true; }
+            let nf = NOTIFS.load(Relaxed); if nf != self.notifs { self.notifs = nf; self.e.play("notificacao"); act = true; }
+            if c.playing != p.playing { if !c.playing { self.e.play("musica-pausa"); } act = true; }
+            // troca de faixa com debounce de 300 ms (titulo e artista chegam em 2 eventos do SMTC)
+            if c.track != self.cand.0 { self.cand = (c.track, now); }
+            if self.cand.0 != self.key && now.duration_since(self.cand.1) >= TRACK_DEBOUNCE { if self.key != 0 && self.cand.0 != 0 { self.e.play("troca-faixa"); act = true; } self.key = self.cand.0; }
+            if c.charging != p.charging { if c.charging == Some(true) && p.charging.is_some() { self.e.play("carregando"); } act = true; }
+            if c.timer != p.timer { act = true; if c.timer == 3 { self.e.play("pomodoro-fim"); if c.cycle > 0 && c.cycle % 4 == 0 { self.pending = Some("orgulho"); } } }
+            self.prev = *c;
+            // atividade: mouse perto movendo, clique ou evento (cursor longe e parado nao conta)
+            let near = c.pointer.is_none_or(|(x, y)| x.hypot(y) < FAR_PX);
+            if let Some((x, y)) = c.pointer { if self.last_ptr.is_none_or(|q| (q.0 - x).abs() + (q.1 - y).abs() > 1.5) { self.last_ptr = Some((x, y)); if near { act = true; } } }
+            if act && !self.sleep_lock { self.touched(now); }
+            if let Some(t) = self.tap_at { if now.duration_since(t) >= Duration::from_millis(300) { self.tap_at = None; self.e.play("clique-tapa"); } }
+            // ocioso: 60 s bocejo (uma vez), 120 s com o mouse longe (ou noite) dorme
+            let idle = now.duration_since(self.touch).as_secs_f32(); let calm = !c.playing && c.timer != 1 && !c.low_batt && c.charging != Some(true);
+            if calm && !self.sleep_lock {
+                if idle >= YAWN_S && !self.yawned && !self.asleep { self.yawned = true; self.e.play("bocejo"); }
+                if !self.asleep && ((idle >= SLEEP_S && !near) || (c.night && idle >= 20.0)) { self.asleep = true; }
+            } else if !self.sleep_lock { self.asleep = false; }
+            if let Some(g) = self.pending { if !self.e.gesture_running() { self.pending = None; self.e.play(g); } }
         }
-        if let Some((x, y)) = c.pointer { if self.last_ptr.is_none_or(|p| (p.0 - x).abs() + (p.1 - y).abs() > 1.5) { self.e.pointer(x, y); self.touch = now; self.last_ptr = Some((x, y)); } }
-        self.e.step(if c.calm { dt } else { dt.max(0.25) });
+        // estado de base: depois de um gesto volta ao estado ATUAL (danca se musica, carregando-ativo se plugado...), nao a idle
+        if !self.e.gesture_running() { let w = self.want(c); if self.e.base_id() != w { self.e.play(w); } }
+        self.e.step(dt);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn steps(m: &mut Mascot, c: &Ctx, t: &mut Instant, secs: f32) { for _ in 0..(secs * 30.0) as u32 { *t += Duration::from_millis(33); m.step(c, *t); } }
     #[test] fn rig_embutido_tem_22_reacoes_e_skin() { let r = rig(); assert_eq!(r.ids().len(), 22); assert_eq!(r.skin["id"], "areia-final"); assert!(r.idx.contains_key("carregando-ativo")); }
-    #[test] fn caminho_do_corpo_vira_segmentos_fechados() { let s = parse_path(rig().skin["corpo"].as_str().unwrap()); assert!(matches!(s[0], Seg::M(26.0, 22.0))); assert!(matches!(s.last(), Some(Seg::Z))); assert_eq!(s.iter().filter(|x| matches!(x, Seg::C(..))).count(), 4); }
-    #[test] fn seguir_alvo_independe_do_fps() { // k = 1 - base^dt: 1 s a 30 fps e a 144 fps chegam ao mesmo valor
+    #[test] fn rig_embutido_sem_textos_de_terceiros() { let t = RIG.to_lowercase(); assert!(!t.contains("coucou") && !t.contains("mochi")); }
+    #[test] fn caminho_do_corpo_vira_segmentos_fechados() { let s = &rig().body; assert!(matches!(s[0], Seg::M(26.0, 22.0))); assert!(matches!(s.last(), Some(Seg::Z))); assert_eq!(s.iter().filter(|x| matches!(x, Seg::C(..))).count(), 4); }
+    #[test] fn seguir_alvo_independe_do_fps() {
         let run = |fps: f32| { let mut e = Eavy::new(); e.pointer(300.0, 0.0); for _ in 0..(fps as i32) { e.step(1.0 / fps); } e.cur.gx };
         let (a, b) = (run(30.0), run(144.0)); assert!((a - b).abs() < 0.02, "{a} {b}"); assert!(a > 0.0 && a < 1.0); }
     #[test] fn todas_as_reacoes_rodam_sem_nan_e_terminam() {
@@ -505,12 +555,31 @@ mod tests {
     #[test] fn troca_de_faixa_volta_para_danca_se_a_musica_segue() {
         let mut e = Eavy::new(); e.ctx_musica = true; e.play("danca"); e.play("troca-faixa"); for _ in 0..(30 * 6) { e.step(1.0 / 30.0); } assert_eq!(e.base_id(), "danca");
         let mut e = Eavy::new(); e.ctx_musica = false; e.play("troca-faixa"); for _ in 0..(30 * 6) { e.step(1.0 / 30.0); } assert_eq!(e.base_id(), "idle-pisca"); }
-    #[test] fn carregando_vira_estado_ativo_e_pomodoro_fim_volta_ao_idle() {
-        let mut e = Eavy::new(); e.play("carregando"); for _ in 0..(30 * 7) { e.step(1.0 / 30.0); } assert_eq!(e.base_id(), "carregando-ativo");
-        e.play("pomodoro-fim"); for _ in 0..(30 * 4) { e.step(1.0 / 30.0); } assert_eq!(e.base_id(), "idle-pisca"); }
-    #[test] fn gatilhos_reais_disparam_as_reacoes() {
-        let mut m = Mascot::default(); let mut c = Ctx { playing: false, track: "a".into(), charging: Some(false), timer: 0, shelf_adds: 0, pointer: None, calm: true }; let n = Instant::now(); m.step(&c, n);
-        c.playing = true; m.step(&c, n); assert_eq!(m.e.base_id(), "danca"); c.track = "b".into(); m.step(&c, n); assert!(m.e.gesture_running(), "troca de faixa");
-        c.charging = Some(true); m.step(&c, n); assert!(m.e.gesture_running()); c.shelf_adds = 1; m.step(&c, n); assert!(m.e.gesture_running(), "engolir");
-        c.timer = 1; m.step(&c, n); assert_eq!(m.e.base_id(), "pomodoro-inicio"); c.timer = 3; m.step(&c, n); assert!(m.e.gesture_running(), "pomodoro-fim"); }
+    #[test] fn gatilhos_reais_e_volta_ao_estado_atual() {
+        let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, charging: Some(false), ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
+        c.playing = true; steps(&mut m, &c, &mut t, 0.2); assert_eq!(m.e.base_id(), "danca");
+        c.track = 2; steps(&mut m, &c, &mut t, 0.1); assert!(!m.e.gesture_running(), "debounce: ainda nao troca"); steps(&mut m, &c, &mut t, 0.5); assert!(m.e.gesture_running(), "troca de faixa"); steps(&mut m, &c, &mut t, 6.0); assert_eq!(m.e.base_id(), "danca");
+        c.charging = Some(true); steps(&mut m, &c, &mut t, 0.2); assert!(m.e.gesture_running(), "carregando"); steps(&mut m, &c, &mut t, 7.0); assert_eq!(m.e.base_id(), "danca", "musica tem prioridade sobre carregando-ativo");
+        c.playing = false; steps(&mut m, &c, &mut t, 3.0); assert_eq!(m.e.base_id(), "carregando-ativo", "pausar a musica nao perde o carregador");
+        c.timer = 1; steps(&mut m, &c, &mut t, 0.2); assert_eq!(m.e.base_id(), "pomodoro-inicio"); c.timer = 3; c.playing = true; steps(&mut m, &c, &mut t, 0.2); assert!(m.e.gesture_running(), "pomodoro-fim");
+        steps(&mut m, &c, &mut t, 4.0); assert_eq!(m.e.base_id(), "danca", "pomodoro-fim volta ao estado atual"); }
+    #[test] fn titulo_e_artista_em_dois_eventos_disparam_uma_troca() {
+        let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, playing: true, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
+        c.track = 2; steps(&mut m, &c, &mut t, 0.1); c.track = 3; steps(&mut m, &c, &mut t, 0.5); assert!(m.e.gesture_running()); steps(&mut m, &c, &mut t, 6.0);
+        let mut n = 0; let mut was = false; for _ in 0..200 { t += Duration::from_millis(33); m.step(&c, t); let g = m.e.gesture_running(); if g && !was { n += 1; } was = g; } assert_eq!(n, 0, "so uma troca"); }
+    #[test] fn reabrir_descarta_gestos_vencidos_e_mostra_o_estado_atual() {
+        let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
+        c.playing = true; c.timer = 3; t += Duration::from_secs(30); m.step(&c, t); assert_eq!(m.e.base_id(), "danca"); }
+    #[test] fn ocioso_bocejo_sono_e_acorda() {
+        let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, pointer: Some((400.0, 0.0)), ..Default::default() }; steps(&mut m, &c, &mut t, 59.0); assert!(!m.e.gesture_running());
+        steps(&mut m, &c, &mut t, 2.0); assert!(m.e.gesture_running(), "bocejo aos 60 s"); steps(&mut m, &c, &mut t, 62.0); assert!(m.e.sleeping(), "sono aos 120 s com mouse longe");
+        c.pointer = Some((40.0, 0.0)); steps(&mut m, &c, &mut t, 0.3); assert!(!m.e.sleeping(), "mouse perto acorda");
+        let mut m = Mascot::default(); let mut t = Instant::now(); let c = Ctx { track: 1, pointer: Some((10.0, 0.0)), ..Default::default() }; steps(&mut m, &c, &mut t, 130.0); assert!(!m.e.sleeping(), "mouse perto nao dorme"); }
+    #[test] fn cliques_tapa_e_tonto() {
+        let mut m = Mascot::default(); let mut t = Instant::now(); let c = Ctx { track: 1, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
+        m.on_click(t); steps(&mut m, &c, &mut t, 0.1); assert!(!m.e.gesture_running(), "espera 300 ms: {:?}", m.e.fx.as_ref().map(|f| rig().def(f.d)["id"].as_str())); steps(&mut m, &c, &mut t, 0.4); assert!(m.e.gesture_running(), "tapa");
+        steps(&mut m, &c, &mut t, 2.0); for _ in 0..3 { m.on_click(t); t += Duration::from_millis(200); } assert!(m.e.gesture_running()); }
+    #[test] fn erro_real_e_bateria_baixa() {
+        let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
+        m.error(); steps(&mut m, &c, &mut t, 0.2); assert!(m.e.gesture_running()); /* report_error usa contador global: nao chamado aqui para nao afetar testes paralelos */ c.low_batt = true; steps(&mut m, &c, &mut t, 3.0); assert_eq!(m.e.base_id(), "bateria-baixa"); }
 }

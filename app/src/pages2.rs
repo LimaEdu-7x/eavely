@@ -282,7 +282,7 @@ pub fn click(a: &mut App, act: Act) {
             if shift { // intervalo a partir da ancora (Ctrl junto soma ao que ja esta selecionado)
                 sel_range(&mut a.p.sel, a.p.sel_anchor, i, ctrl); if a.p.sel_anchor.is_none() { a.p.sel_anchor = Some(i); }
             } else if ctrl || a.p.select { if let Some(p) = a.p.sel.iter().position(|x| *x == i) { a.p.sel.remove(p); } else { a.p.sel.push(i); } a.p.sel_anchor = Some(i); }
-            else { a.p.sel.clear(); a.p.sel_anchor = None; if let Some(it) = a.p.shelf.get(i) { unsafe { ShellExecuteW(None, w!("open"), &HSTRING::from(it.path.as_str()), None, None, SW_SHOWNORMAL); } } } }
+            else { a.p.sel.clear(); a.p.sel_anchor = None; if let Some(it) = a.p.shelf.get(i) { unsafe { if ShellExecuteW(None, w!("open"), &HSTRING::from(it.path.as_str()), None, None, SW_SHOWNORMAL).0 as usize <= 32 { crate::mascot::report_error(); } } } } }
         _ => {}
     }
 }

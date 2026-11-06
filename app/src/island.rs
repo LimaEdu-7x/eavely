@@ -507,7 +507,7 @@ impl App {
         let peek = self.state == St::Peek && crate::settings::get().collapsed_look == "mascot";
         let busy = (mascot || peek) && self.p.mascot.busy(now, mascot && self.class & 3 == 2);
         // Eavy: 30 fps acordado (o laco limita), 4 fps dormindo/animacoes reduzidas (timer), 0 com a ilha oculta
-        let awake = busy && !overlay_simple();
+        let awake = busy; // (reduzido/dormindo: busy=false, so o timer de 250 ms)
         LOW_FPS.store(awake && !other, Relaxed);
         other || awake
     }
