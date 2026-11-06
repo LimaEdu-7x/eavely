@@ -140,7 +140,7 @@ pub struct Eavy {
     dance: f32, blink_v: f32, next_blink: f32, blink_q: Vec<f32>, ptr: Option<(f32, f32)>, ptr_t: f32, badge_s: f32,
     sc: HashMap<&'static str, Scn>, hand: [Hand; 2], cab: (f32, f32), prev_ox_px: f32, read_lift: f32, el_now: f32,
     tw: Tw, d_roll: f32, dsx: f32, dsy: f32, eye: String, tint_a: f32, badge: Option<String>, face_x: Option<f32>,
-    pub ctx_musica: bool, pub n_eyes: u32, pub n_mouths: u32, pub n_hands: u32,
+    frozen: bool, pub ctx_musica: bool, pub n_eyes: u32, pub n_mouths: u32, pub n_hands: u32,
 }
 fn bd(r: f32, dt: f32) -> f32 { 1.0 - r.powf(dt) }
 impl Eavy {
@@ -149,18 +149,22 @@ impl Eavy {
         let mut e = Eavy { t: 0.0, dt: 0.033, s_t: 0.0, seed: 7, cur: Cur { gx: 0.0, gy: 0.0, tilt: 0.0, oy: 0.0, ox: 0.0, sx: 1.0, sy: 1.0, blush: 0.12, tint_a: 0.0, tint: [1.0; 3], mc: 0.8, mw: fo(&r.skin["bocaDW"], 5.0), mo: 0.0 },
             base, base_id: r.def(base)["id"].as_str().unwrap_or("").to_string(), fx: None, parts: Vec::new(), timers: HashMap::new(), dance: 0.0, blink_v: 1.0, next_blink: 0.0, blink_q: Vec::new(), ptr: None, ptr_t: -99.0, badge_s: 0.0,
             sc: HashMap::new(), hand: [Hand { x: 2.0, y: 66.0, r: -35.0, v: 0.0 }, Hand { x: 98.0, y: 66.0, r: 35.0, v: 0.0 }], cab: (0.0, 0.0), prev_ox_px: 0.0, read_lift: 0.0, el_now: 0.0,
-            tw: Tw::default(), d_roll: 0.0, dsx: 1.0, dsy: 1.0, eye: "open".into(), tint_a: 0.0, badge: None, face_x: None, ctx_musica: true, n_eyes: 0, n_mouths: 0, n_hands: 0 };
+            tw: Tw::default(), d_roll: 0.0, dsx: 1.0, dsy: 1.0, eye: "open".into(), tint_a: 0.0, badge: None, face_x: None, frozen: false, ctx_musica: true, n_eyes: 0, n_mouths: 0, n_hands: 0 };
         e.next_blink = 1.5 + e.rnd() * 2.0; e
     }
     fn rnd(&mut self) -> f32 { // mulberry32 (igual ao rng() do JS)
         self.seed = self.seed.wrapping_add(0x6D2B79F5); let s = self.seed; let mut t = (s ^ (s >> 15)).wrapping_mul(1 | s);
         t = t.wrapping_add((t ^ (t >> 7)).wrapping_mul(61 | t)) ^ t; ((t ^ (t >> 14)) as f64 / 4294967296.0) as f32 }
+    /// teste/captura: toca `id` e avanca `ms` ms em quadros de 1/30 s
+    pub fn seek(&mut self, id: &str, ms: u32) { let m = self.ctx_musica; *self = Eavy::new(); self.ctx_musica = m; self.play(id); for _ in 0..(ms as f32 / 33.333).round() as u32 { self.step(1.0 / 30.0); } self.frozen = true; }
+    pub fn unfreeze(&mut self) { self.frozen = false; }
     pub fn base_id(&self) -> &str { &self.base_id }
     pub fn gesture_running(&self) -> bool { self.fx.is_some() }
     pub fn sleeping(&self) -> bool { self.base_id == "sono" }
     /// ponteiro relativo ao centro do mascote, px de tela (esquece em 4 s sem mexer)
     pub fn pointer(&mut self, dx: f32, dy: f32) { self.ptr = Some((dx, dy)); self.ptr_t = self.t; }
     pub fn play(&mut self, id: &str) {
+        self.frozen = false;
         let r = rig(); let Some(&i) = r.idx.get(id) else { return }; let d = r.def(i);
         if !d["estado"].is_null() { self.base = i; self.base_id = id.to_string(); self.fx = None; self.s_t = 0.0; self.blink_q.push(self.t); return; }
         if let Some(bn) = d["base_now"].as_str() { if let Some(&bi) = r.idx.get(bn) { self.base = bi; self.base_id = bn.to_string(); self.s_t = 0.0; } }
@@ -197,6 +201,7 @@ impl Eavy {
 
     /// avanca `dt` segundos (equivale a step(dt) do JS)
     pub fn step(&mut self, dt: f32) {
+        if self.frozen { return; }
         let dt = dt.clamp(1e-3, 0.1); let r = rig(); let rg = &r.v; let k = &rg["seguir"];
         self.t += dt; self.dt = dt; self.s_t += dt;
         let (k_gen, k_look, k_col) = (bd(f(&k["kGen"]), dt), bd(f(&k["kLook"]), dt), bd(f(&k["kCor"]), dt));

@@ -193,6 +193,23 @@ impl Gfx {
     } }
     /// liga/desliga o antialiasing das primitivas (sprites pixel art ficam nitidos sem frestas)
     pub fn aa(&self, on: bool) { unsafe { self.dc.SetAntialiasMode(if on { D2D1_ANTIALIAS_MODE_PER_PRIMITIVE } else { D2D1_ANTIALIAS_MODE_ALIASED }); } }
+    /// Renderiza `draw` numa textura fora da tela (BGRA, fundo preto) e devolve os pixels; usado pelas capturas do mascote (independe da tela/sessao). Chamar fora de begin()/end().
+    pub fn offscreen(&self, w: u32, h: u32, draw: impl FnOnce(&Gfx)) -> Option<Vec<u8>> { unsafe {
+        let fmt = D2D1_PIXEL_FORMAT { format: DXGI_FORMAT_B8G8R8A8_UNORM, alphaMode: D2D1_ALPHA_MODE_PREMULTIPLIED };
+        let mk = |opts: D2D1_BITMAP_OPTIONS| D2D1_BITMAP_PROPERTIES1 { pixelFormat: fmt, dpiX: 96.0, dpiY: 96.0, bitmapOptions: opts, colorContext: ManuallyDrop::new(None) };
+        let sz = D2D_SIZE_U { width: w, height: h };
+        let bmp = self.dc.CreateBitmap(sz, None, 0, &mk(D2D1_BITMAP_OPTIONS_TARGET)).ok()?;
+        let st = self.dc.CreateBitmap(sz, None, 0, &mk(D2D1_BITMAP_OPTIONS_CANNOT_DRAW | D2D1_BITMAP_OPTIONS_CPU_READ)).ok()?;
+        let prev = self.dc.GetTarget().ok(); let old = self.get_matrix();
+        self.dc.SetTarget(&bmp); self.dc.BeginDraw(); self.dc.Clear(Some(&col((0.0, 0.0, 0.0, 1.0)))); self.dc.SetTransform(&ID); draw(self);
+        let ok = self.dc.EndDraw(None, None).is_ok(); self.dc.SetTransform(&old);
+        if let Some(p) = prev { self.dc.SetTarget(&p); } else { self.dc.SetTarget(None::<&ID2D1Image>); }
+        if !ok { return None; }
+        st.CopyFromBitmap(None, &bmp, None).ok()?;
+        let m = st.Map(D2D1_MAP_OPTIONS_READ).ok()?; let mut out = Vec::with_capacity((w * h * 4) as usize);
+        for y in 0..h as usize { out.extend_from_slice(std::slice::from_raw_parts(m.bits.add(y * m.pitch as usize), w as usize * 4)); }
+        let _ = st.Unmap(); Some(out)
+    } }
     pub fn clip(&self, x: f32, y: f32, w: f32, h: f32) { unsafe { self.dc.PushAxisAlignedClip(&rc(x, y, w, h), D2D1_ANTIALIAS_MODE_ALIASED); } }
     pub fn unclip(&self) { unsafe { self.dc.PopAxisAlignedClip(); } }
     /// Grupo com opacidade (fade de conteudo).

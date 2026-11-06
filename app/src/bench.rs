@@ -132,17 +132,17 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
         93 => { crate::settings::update(|s| { s.size_preset = "large".into(); s.mascot_size = "auto".into(); }); open(a, 0, false, false); "94-tamanho-grande-mascote" }
         94 => { open(a, 1, false, false); "95-tamanho-grande-musica" }
         95 => { crate::settings::update(|s| { s.size_preset = base_preset(); s.mascot_size = "auto".into(); }); open(a, 0, false, false); "skip" }
-        96 => { open(a, 0, false, false); a.p.mascot.force = Some("sono".into()); "96-mascote-sono-zzz" }
-        97 => { a.p.mascot.force = Some("sonolento".into()); "97-mascote-sonolento" }
-        98 => { a.p.mascot.force = Some("preocupado".into()); "98-mascote-preocupado-suor" }
-        99 => { a.p.mascot.force = Some("triste".into()); "99-mascote-triste" }
-        100 => { a.p.mascot.force = Some("choro".into()); "100-mascote-choro-lagrimas" }
-        101 => { a.p.mascot.force = Some("entediado".into()); "101-mascote-entediado" }
-        102 => { a.p.mascot.force = Some("feliz".into()); crate::settings::update(|s| s.collapsed_look = "mascot".into()); a.force = Some(St::Peek); "102-peek-mascote-padrao" }
-        103 => { crate::settings::update(|s| s.size_preset = "small".into()); "103-peek-mascote-pequeno-so-olhos" }
-        104 => { a.p.mascot.force = Some("raiva".into()); "104-peek-pequeno-raiva" }
-        105 => { crate::settings::update(|s| { s.size_preset = "large".into(); }); a.p.mascot.force = Some("feliz".into()); "105-peek-mascote-grande" }
-        106 => { a.p.mascot.force = None; crate::settings::update(|s| { s.size_preset = base_preset(); s.collapsed_look = "clock".into(); }); "skip" }
+        96 => { crate::media::fake_none(); open(a, 0, false, false); a.p.mascot.e.seek("idle-pisca", 800); "96-eavy-idle" }
+        97 => { a.p.mascot.e.seek("danca", 1300); "97-eavy-danca-globo-toca-discos" }
+        98 => { a.p.mascot.e.seek("troca-faixa", 1500); "98-eavy-troca-faixa" }
+        99 => { a.p.mascot.e.seek("carregando", 2700); "99-eavy-carregando-eletrico" }
+        100 => { a.p.mascot.e.seek("engolir", 1250); "100-eavy-engolir" }
+        101 => { a.p.mascot.e.seek("pomodoro-inicio", 800); "101-eavy-pomodoro-jornal" }
+        102 => { a.p.mascot.e.seek("idle-pisca", 500); crate::settings::update(|s| s.collapsed_look = "mascot".into()); a.force = Some(St::Peek); "102-eavy-compacto" }
+        103 => { crate::settings::update(|s| s.size_preset = "small".into()); "103-eavy-compacto-pequeno" }
+        104 => { a.p.mascot.e.seek("erro", 1100); "104-eavy-erro-chave" }
+        105 => { crate::settings::update(|s| { s.size_preset = "large".into(); }); a.p.mascot.e.seek("pomodoro-fim", 1000); "105-eavy-compacto-grande" }
+        106 => { a.p.mascot.e.seek("idle-pisca", 100); crate::settings::update(|s| { s.size_preset = base_preset(); s.collapsed_look = "clock".into(); }); "skip" }
         107 => { crate::settings::update(|s| s.open_mode = "click".into()); a.mx[0] = true; a.force = None; a.class = 0; "skip" }
         108 => { a.class = 2; "108-linha-encosta-faixa-desce" }
         109 => { a.class = 0; a.mx[0] = false; a.force = None; crate::settings::update(|s| s.open_mode = "hover".into()); "skip" }
@@ -206,11 +206,18 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
 pub fn step(a: &mut App) {
     let i = STEP.fetch_add(1, Relaxed);
     let dir = std::env::var("EAVELY_SHOTS").ok();
+    if i == 0 { if let Some(f) = std::env::var("EAVELY_BENCH_FROM").ok().and_then(|v| v.parse::<u32>().ok()) { if let Ok(p) = std::env::var("EAVELY_PRESET") { crate::settings::update(|s| s.size_preset = p); } STEP.store(f * 2, Relaxed); return; } } // roteiro parcial (EAVELY_BENCH_FROM / EAVELY_BENCH_TO)
     if i == 0 { if let Ok(p) = std::env::var("EAVELY_PRESET") { crate::settings::update(|s| s.size_preset = p); } } // tamanho do notch para a rodada de capturas (small|standard|large)
     if i < 300 {
-        if i % 2 == 0 { let k = i / 2; match scenario(a, k) { Some(n) => { crate::log(&format!("BENCH cenario {n}")); flog_mark(n); NAME.with(|c| *c.borrow_mut() = n); } None => { STEP.store(300, Relaxed); } } a.evaluate_pub(); }
-        else if let Some(d) = dir { let n = NAME.with(|c| *c.borrow()); if n == "skip" { } else if a.fs.iter().any(|f| *f) { crate::log("screenshot ignorado: ha janela em tela cheia (nao capturo outros apps)"); } else { unsafe { shot(a, &format!("{d}/{n}.bmp")); } } }
+        if i % 2 == 0 { let k = i / 2; let to = std::env::var("EAVELY_BENCH_TO").ok().and_then(|v| v.parse::<u32>().ok()).unwrap_or(u32::MAX); match if k > to { None } else { scenario(a, k) } { Some(n) => { crate::log(&format!("BENCH cenario {n}")); flog_mark(n); NAME.with(|c| *c.borrow_mut() = n); } None => { STEP.store(300, Relaxed); } } a.evaluate_pub(); }
+        else if let Some(d) = dir { let n = NAME.with(|c| *c.borrow()); if n.contains("eavy") { eavy_dump(a, &format!("{d}/{n}-mascote.bmp")); } if n == "skip" { } else if a.fs.iter().any(|f| *f) { crate::log("screenshot ignorado: ha janela em tela cheia (nao capturo outros apps)"); } else { unsafe { shot(a, &format!("{d}/{n}.bmp")); } } }
         return;
+    }
+    // EAVELY_BENCH_HOLD_MS: deixa o ultimo cenario parado (ilha como ficou) por N ms antes de sair; serve para medir CPU/RAM do mascote
+    if let Some(ms) = std::env::var("EAVELY_BENCH_HOLD_MS").ok().and_then(|v| v.parse::<u64>().ok()) {
+        static T0: std::sync::OnceLock<Instant> = std::sync::OnceLock::new(); let t0 = *T0.get_or_init(Instant::now);
+        if i == 300 { unsafe { SetTimer(Some(a.hwnd), 4, 450, None); } a.p.mascot.e.unfreeze(); crate::log("BENCH HOLD inicio"); }
+        if t0.elapsed().as_millis() < ms as u128 { return; } crate::log("BENCH HOLD fim"); if std::env::var_os("EAVELY_BENCH_EXIT").is_some() { crate::fast_exit(0); } return;
     }
     // fase de benchmark: abre/fecha repetidamente (animacao de forma + conteudo)
     let k = i - 300;
@@ -264,4 +271,17 @@ unsafe fn shot(a: &App, path: &str) {
     crate::log(&format!("screenshot {path} bitblt={ok}"));
     SelectObject(mem, old); let _ = DeleteObject(bmp.into()); let _ = DeleteDC(mem); ReleaseDC(None, hdc);
     let _ = HWND::default();
+}
+
+/// captura do mascote fora da tela (D2D -> bitmap): cena 208x136 u (metade esquerda da pagina Mascote) na escala 3 x k do preset; independe da tela estar bloqueada
+fn eavy_dump(a: &mut App, path: &str) {
+    let k = crate::layout::k(); let sc = 3.0 * k; let (w, h) = ((208.0 * sc) as u32, (136.0 * sc) as u32); let cfg = crate::settings::get(); let l = 72.0 * cfg.mascot_w() / 150.0;
+    let compact = path.contains("compacto");
+    let px = a.gfx.offscreen(w, h, |g| { g.set_matrix(windows_numerics::Matrix3x2::scale(sc, sc)); if compact { a.p.mascot.e.draw(g, 104.0, 68.0, 26.0 * 2.5, true); } else { a.p.mascot.e.draw(g, 104.0, 68.0 + l * 0.35 + 8.0, l, false); } });
+    let Some(px) = px else { crate::log("eavy_dump falhou"); return };
+    let mut out = Vec::with_capacity((w * h * 3) as usize + 54); let row = ((w * 3 + 3) / 4 * 4) as usize;
+    out.extend_from_slice(b"BM"); out.extend_from_slice(&((row as u32 * h) + 54).to_le_bytes()); out.extend_from_slice(&[0; 4]); out.extend_from_slice(&54u32.to_le_bytes());
+    out.extend_from_slice(&40u32.to_le_bytes()); out.extend_from_slice(&(w as i32).to_le_bytes()); out.extend_from_slice(&(h as i32).to_le_bytes()); out.extend_from_slice(&1u16.to_le_bytes()); out.extend_from_slice(&24u16.to_le_bytes()); out.extend_from_slice(&[0; 24]);
+    for y in (0..h as usize).rev() { let mut r = Vec::with_capacity(row); for x in 0..w as usize { let i = (y * w as usize + x) * 4; r.extend_from_slice(&px[i..i + 3]); } r.resize(row, 0); out.extend_from_slice(&r); }
+    let _ = std::fs::write(path, out); crate::log(&format!("eavy_dump {path}"));
 }
