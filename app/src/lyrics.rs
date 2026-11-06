@@ -162,7 +162,10 @@ pub fn clean_title(t: &str) -> String {
 /// Spotify junta varios artistas com ", " ou "; ": a LRCLIB casa melhor com o primeiro.
 pub fn first_artist(a: &str) -> String { a.split([',', ';']).next().unwrap_or(a).trim().to_string() }
 
+/// 'erro' do mascote no maximo 1x por periodo offline (rearma quando uma requisicao volta a responder)
+static OFFLINE_REPORTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 fn net_state(r: Net, srv: &mut bool) -> Result<Option<String>, ()> {
+    if !matches!(r, Net::Fail) { OFFLINE_REPORTED.store(false, std::sync::atomic::Ordering::Relaxed); }
     match r { Net::Found(b) => Ok(Some(b)), Net::NotFound => Ok(None), Net::Server => { *srv = true; Ok(None) } Net::Fail => Err(()) }
 }
 
@@ -238,7 +241,7 @@ pub fn request(job: Job, done: fn(&str, Option<Lyrics>)) {
 }
 
 fn fail() -> Option<Lyrics> {
-    crate::log("lrclib: falha/timeout, nova tentativa em 5 min"); crate::mascot::report_error();
+    crate::log("lrclib: falha/timeout, nova tentativa em 5 min"); if !OFFLINE_REPORTED.swap(true, std::sync::atomic::Ordering::Relaxed) { crate::mascot::report_error(); }
     *NO_NET_UNTIL.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now() + RETRY_AFTER);
     None
 }
