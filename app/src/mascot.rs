@@ -118,10 +118,11 @@ fn sprite_runs(name: &'static str, tm: f32, o: &SpO) -> Option<Runs> {
 }
 fn sprite_dim(name: &'static str, o: &SpO) -> (f32, f32) { sprite_runs(name, 0.0, o).map_or((1.0, 1.0), |r| (r.0 as f32, r.1 as f32)) }
 /// desenha o sprite centrado na origem atual; u = tamanho do "pixel"; dim escurece (camada de tras)
-fn sprite(g: &Gfx, name: &'static str, tm: f32, u: f32, o: &SpO, dim: f32, a: f32) {
+fn sprite(g: &Gfx, name: &'static str, tm: f32, u: f32, o: &SpO, dim: f32, a: f32, clipx: f32) {
     let Some(r) = sprite_runs(name, tm, o) else { return }; let (w, h) = (r.0 as f32, r.1 as f32);
     g.aa(false);
-    for &(c, i, j, n) in &r.2 { let p = pal(c); g.rrect((i as f32 - w / 2.0) * u, (j as f32 - h / 2.0) * u, n as f32 * u, u, 0.0, (p[0] * dim, p[1] * dim, p[2] * dim, a)); }
+    for &(c, i, j, n) in &r.2 { let p = pal(c); let x0 = (i as f32 - w / 2.0) * u; let x1 = (x0 + n as f32 * u).min(clipx); if x1 <= x0 { continue; } // clipx: corte vertical no espaco do sprite (pinos somem na tomada)
+        g.rrect(x0, (j as f32 - h / 2.0) * u, x1 - x0, u, 0.0, (p[0] * dim, p[1] * dim, p[2] * dim, a)); }
     g.aa(true);
 }
 
@@ -158,9 +159,11 @@ impl Eavy {
         t = t.wrapping_add((t ^ (t >> 7)).wrapping_mul(61 | t)) ^ t; ((t ^ (t >> 14)) as f64 / 4294967296.0) as f32 }
     /// teste/captura: toca `id` e avanca `ms` ms em quadros de 1/30 s
     pub fn seek(&mut self, id: &str, ms: u32) { let m = self.ctx_musica; *self = Eavy::new(); self.ctx_musica = m; self.play(id); for _ in 0..(ms as f32 / 33.333).round() as u32 { self.step(1.0 / 30.0); } self.frozen = true; }
+    pub fn dbg(&self) -> String { format!("face_x={:?} cur.ox={} tw.ox={} hand_r=({:.1},{:.1}) v={:.2}", self.face_x, self.cur.ox, self.tw.ox, self.hand[1].x, self.hand[1].y, self.hand[1].v) }
     pub fn unfreeze(&mut self) { self.frozen = false; }
     pub fn base_id(&self) -> &'static str { self.base_id }
     pub fn gesture_running(&self) -> bool { self.fx.is_some() }
+    pub fn gesture_id(&self) -> Option<&'static str> { self.fx.as_ref().and_then(|f| rig().def(f.d)["id"].as_str()) }
     pub fn sleeping(&self) -> bool { self.base_id == "sono" }
     /// ponteiro relativo ao centro do mascote, px de tela (esquece em 4 s sem mexer)
     pub fn pointer(&mut self, dx: f32, dy: f32) { self.ptr = Some((dx, dy)); self.ptr_t = self.t; }
@@ -370,7 +373,7 @@ impl Eavy {
             if sname == "parede" { face_x = Some(f(&sp["x"]) + (1.0 - dw / 2.0) * us); }
             if !sp["base"].is_null() { let (rx, ry) = (dw * us * 0.4, dw * us * 0.07); for k in 0..2 { g.ellipse(xx, f(&sp["base"]) + 1.5, rx * (1.0 + 0.3 * (1.0 - k as f32)), ry * (1.0 + 0.4 * (1.0 - k as f32)), (0.0, 0.0, 0.0, 0.2 * a * shd)); } }
             let dim = if !front { if d > 0.35 { 0.66 } else if d > 0.08 { 0.82 } else { 1.0 } } else { 1.0 };
-            g.set_matrix(rot(rt, 0.0, 0.0) * tr(xx, cy) * lm); sprite(g, sname, t, us, &par, dim, a); g.set_matrix(lm); }
+            g.set_matrix(rot(rt, 0.0, 0.0) * tr(xx, cy) * lm); sprite(g, sname, t, us, &par, dim, a, f32::INFINITY); g.set_matrix(lm); }
         if front { let _ = (ox, oy); } else { self.face_x = face_x.or(self.face_x); }
         g.set_matrix(base);
         if !front && self.face_x.is_some() && self.sc.get("parede").is_none_or(|q| q.a < 0.01) { self.face_x = None; }
@@ -380,7 +383,7 @@ impl Eavy {
     fn items(&mut self, g: &Gfx, ox: f32, _oy: f32, top: C3) {
         let r = rig(); let base_d = r.def(self.base); let fx_d = self.fx.as_ref().map(|x| r.def(x.d)); let el = self.el_now; let t = self.t; let pm = g.get_matrix();
         let items: Option<&Value> = fx_d.and_then(|d| if d["itens"].is_null() { None } else { Some(&d["itens"]) }).or(if base_d["estado"]["itens"].is_null() { None } else { Some(&base_d["estado"]["itens"]) });
-        let mut cable: Option<&Value> = None; let mut plug: Option<(f32, f32, f32, f32)> = None; let mut deferred: Vec<(Matrix3x2, &'static str, f32, SpO, f32)> = Vec::new(); let mut hands_extra: Vec<(Matrix3x2, f32)> = Vec::new();
+        let mut cable: Option<&Value> = None; let mut plug: Option<(f32, f32, f32, f32)> = None; let mut deferred: Vec<(Matrix3x2, &'static str, f32, SpO, f32, f32)> = Vec::new(); let mut hands_extra: Vec<(Matrix3x2, f32)> = Vec::new();
         for it in items.and_then(|v| v.as_array()).into_iter().flatten() {
             if it["t"].as_str() == Some("cabo") { cable = Some(it); continue; }
             let w = &it["win"]; let in_fx = self.fx.is_some() && !w.is_null(); if in_fx && (el < f(&w[0]) || el > f(&w[1])) { continue; }
@@ -389,7 +392,7 @@ impl Eavy {
             else if let Some(p) = it["path"].as_array() { let mut k = 0usize; while k + 2 < p.len() && el > f(&p[k + 1][0]) { k += 1; } let (t0, x0, y0) = (f(&p[k][0]), f(&p[k][1]), f(&p[k][2])); let (t1, x1, y1) = (f(&p[k + 1][0]), f(&p[k + 1][1]), f(&p[k + 1][2]));
                 let fct = clamp((el - t0) / (t1 - t0).max(1e-3), 0.0, 1.0); x = x0 + (x1 - x0) * fct; y = y0 + (y1 - y0) * fct; }
             else if it["proc"].as_str() == Some("jornal") { let us = fo(&it["u"], 2.6); let l = self.read_lift; let yy = (if it["pos"].is_null() { 80.0 } else { f(&it["pos"][1]) }) + l * 26.0; let (dw, dh) = sprite_dim("jornal", &SP0);
-                let top2 = yy - dh / 2.0 * us; let hw = dw / 2.0 * us - 4.0; deferred.push((rot(l * 3.0, 0.0, 0.0) * tr(50.0, yy) * pm, "jornal", us, SP0, 1.0));
+                let top2 = yy - dh / 2.0 * us; let hw = dw / 2.0 * us - 4.0; deferred.push((rot(l * 3.0, 0.0, 0.0) * tr(50.0, yy) * pm, "jornal", us, SP0, 1.0, f32::INFINITY));
                 for sg in [-1.0f32, 1.0] { hands_extra.push((rot(sg * -22.0, 0.0, 0.0) * tr(50.0 + sg * hw, top2 + 7.0) * pm, 1.0)); } continue; }
             else { x = f(&it["pos"][0]); y = f(&it["pos"][1]); }
             if !it["esc"].is_null() && el >= f(&it["esc"][0]) { scl = 1.0 - clamp((el - f(&it["esc"][0])) / (f(&it["esc"][1]) - f(&it["esc"][0])), 0.0, 1.0); }
@@ -398,13 +401,11 @@ impl Eavy {
             let osc = if it["osc"].is_null() { (0.0, 0.0) } else { let o = &it["osc"]; ((TAU * t / f(&o["p"])).sin() * f(&o["ax"]), (TAU * t / f(&o["p"])).cos() * f(&o["ay"])) };
             let m = sc(fo(&it["s"], 1.0) * scl, fo(&it["s"], 1.0) * scl) * rot(fo(&it["r"], 0.0) + sh, 0.0, 0.0) * tr(x + osc.0, y + osc.1) * pm;
             if it["t"].as_str() == Some("plug") { plug = Some((x, y, fo(&it["u"], 2.4), a)); }
-            deferred.push((m, it["t"].as_str().unwrap_or(""), fo(&it["u"], 2.6), spo(&it["opts"], SP0), if it["clip"].as_bool() == Some(true) { -a } else { a })); }
+            deferred.push((m, it["t"].as_str().unwrap_or(""), fo(&it["u"], 2.6), spo(&it["opts"], SP0), a, if it["clip"].as_bool() == Some(true) { self.face_x.map_or(f32::INFINITY, |fx| (fx - ox - (x + osc.0)) / (fo(&it["s"], 1.0) * scl)) } else { f32::INFINITY })); }
         if let (Some(cb), Some(p)) = (cable, plug) { let p0 = (f(&cb["port"][0]), f(&cb["port"][1])); let p1 = (p.0 - 7.0 * p.2, p.1 + 1.0); let dist = (p1.0 - p0.0).hypot(p1.1 - p0.1);
             let sag = clamp(0.6 * (fo(&cb["L"], 46.0) - dist), 0.0, 30.0); let (cx, cy) = ((p0.0 + p1.0) / 2.0 + self.cab.0, (p0.1 + p1.1) / 2.0 + sag);
             let d = [Seg::M(p0.0, p0.1), Seg::Q(cx, cy, p1.0, p1.1)]; g.path(&d, None, Some((4.6, (0.165, 0.141, 0.188, p.3)))); g.path(&d, None, Some((2.6, (0.416, 0.439, 0.518, p.3)))); }
-        let face_x = self.face_x;
-        for (m, name, us, opts, a) in deferred { g.set_matrix(m); let clip = a < 0.0; if clip { g.clip(-1000.0, -1000.0, face_x.map_or(3000.0, |fx| fx - ox + 1000.0), 3000.0); }
-            sprite(g, name, t, us, &opts, 1.0, a.abs().max(0.0)); if clip { g.unclip(); } }
+        for (m, name, us, opts, a, cl) in deferred { g.set_matrix(m); sprite(g, name, t, us, &opts, 1.0, a, cl); }
         for (m, a) in hands_extra { g.set_matrix(m); mitten(g, rgba(top, a), (0.165, 0.141, 0.188, 0.5 * a), 1.1); self.n_hands += 1; }
         let hands = self.hand; for q in hands.iter() { if q.v > 0.03 { g.set_matrix(rot(q.r, 0.0, 0.0) * tr(q.x, q.y) * pm); mitten(g, rgba(top, q.v.min(1.0)), (0.165, 0.141, 0.188, 0.5 * q.v.min(1.0)), 1.1); self.n_hands += 1; } }
         g.set_matrix(pm);
@@ -423,7 +424,7 @@ impl Eavy {
                 PT::Note => { g.set_matrix(at); let z = q.size / 11.0; g.ellipse(0.0, 0.0, 3.0 * z, 2.2 * z, col); g.path(&[Seg::M(2.6 * z, 0.0), Seg::L(2.6 * z, -9.0 * z), Seg::Q(2.6 * z, -6.0 * z, 6.0 * z, -5.0 * z)], None, Some((1.6 * z, col))); }
                 PT::Bang => { let z = q.size / 14.0 * pop * (1.0 + (1.0 - (a * 3.0).min(1.0)) * 0.4); g.set_matrix(sc(z, z) * at); g.path(&[Seg::M(0.0, -8.0), Seg::L(0.0, 0.0)], None, Some((3.0, col))); g.circle(0.0, 4.0, 1.7, col); }
                 PT::Bolt => { let (rr, s2) = (q.size, q.seed); g.set_matrix(rot(q.rot.to_degrees(), 0.0, 0.0) * at); if a < 0.8 { g.path(&[Seg::M(0.0, 0.0), Seg::L(rr * 0.3, s2.sin() * 4.0), Seg::L(rr * 0.55, -(s2 * 2.0).cos() * 5.0), Seg::L(rr * 0.8, (s2 * 3.0).sin() * 4.0), Seg::L(rr, 0.0)], None, Some((2.2, col))); } }
-                PT::File => { g.set_matrix(at); sprite(g, "pasta", 0.0, 2.2, &SP0, 1.0, 1.0); }
+                PT::File => { g.set_matrix(at); sprite(g, "pasta", 0.0, 2.2, &SP0, 1.0, 1.0, f32::INFINITY); }
                 PT::Conf => { g.set_matrix(m); g.aa(false); g.rrect((q.x / 3.0).round() * 3.0, (q.y / 3.0).round() * 3.0, 3.0, 3.0, 0.0, col); g.aa(true); }
                 PT::Refl => { g.set_matrix(m); g.aa(false); g.rrect(q.x.round(), q.y.round(), 3.0, 3.0, 0.0, rgba(q.c, fo_ * if (q.age * 40.0).sin() > -0.3 { 1.0 } else { 0.4 })); g.aa(true); }
                 PT::Fumaca => { g.set_matrix(m); let z = (q.size + a * 5.0).round(); g.aa(false); g.rrect((q.x / 2.0).round() * 2.0, (q.y / 2.0).round() * 2.0, z, z, 0.0, rgba(q.c, 0.7 * fo_)); g.aa(true); }
@@ -472,35 +473,50 @@ pub struct Ctx { pub playing: bool, pub track: u64, pub charging: Option<bool>, 
 /// ao reabrir depois de uma pausa (> 1,5 s) ressincroniza com o estado ATUAL e descarta gestos vencidos.
 pub struct Mascot {
     pub e: Eavy, last: Option<Instant>, born: Instant, init: bool, prev: Ctx, key: u64, cand: (u64, Instant), last_ptr: Option<(f32, f32)>, pub touch: Instant,
-    asleep: bool, yawned: bool, pending: Option<&'static str>, clicks: Vec<Instant>, tap_at: Option<Instant>, errors: u32, notifs: u32, last_greet: Option<Instant>, reduced: bool, sleep_lock: bool, pinned: bool, low: bool,
+    asleep: bool, yawned: bool, pending: Option<&'static str>, slaps: Vec<Instant>, dizzies: Vec<Instant>, cool_until: Option<Instant>, pub mini: bool, errors: u32, notifs: u32, last_greet: Option<Instant>, reduced: bool, sleep_lock: bool, pinned: bool, low: bool,
 }
 impl Default for Mascot { fn default() -> Self { Mascot { e: Eavy::new(), last: None, born: Instant::now(), init: false, prev: Ctx::default(), key: 0, cand: (0, Instant::now()), last_ptr: None, touch: Instant::now(), asleep: false, yawned: false,
-    pending: None, clicks: Vec::new(), tap_at: None, errors: 0, notifs: 0, last_greet: None, reduced: false, sleep_lock: false, pinned: false, low: false } } }
-const FAR_PX: f32 = 150.0; const YAWN_S: f32 = 60.0; const SLEEP_S: f32 = 120.0; const TRACK_DEBOUNCE: Duration = Duration::from_millis(300);
+    pending: None, slaps: Vec::new(), dizzies: Vec::new(), cool_until: None, mini: false, errors: 0, notifs: 0, last_greet: None, reduced: false, sleep_lock: false, pinned: false, low: false } } }
+const COOLDOWN: Duration = Duration::from_secs(5); const FAR_PX: f32 = 150.0; const YAWN_S: f32 = 60.0; const SLEEP_S: f32 = 120.0; const TRACK_DEBOUNCE: Duration = Duration::from_millis(300);
 impl Mascot {
     pub fn age_ms(&self, now: Instant) -> u128 { now.duration_since(self.born).as_millis() }
     pub fn touched(&mut self, now: Instant) { self.touch = now; if !self.sleep_lock { self.asleep = false; } self.yawned = false; }
-    /// clique no mascote: 1 clique = tapa (apos 300 ms, para distinguir duplo-clique); 3 em 1,7 s = tonto
+    /// Clique no mascote (no mouse-down, sem espera). Escalonamento (tempos do Coucou: janela de 1,7 s, 3 tapas = tontura; o Coucou ignora tapas enquanto tonto):
+    /// tapa -> 3 em 1,7 s tonto -> uma 2a tontura em ate 10 s = irritado: balao + 5 s de cooldown ignorando cliques.
     pub fn on_click(&mut self, now: Instant) {
-        self.touched(now); self.clicks.retain(|t| now.duration_since(*t) < Duration::from_millis(1700)); self.clicks.push(now);
-        if self.clicks.len() >= 3 { self.clicks.clear(); self.tap_at = None; self.e.play("tonto"); } else { self.tap_at = Some(now); }
+        if self.cooling(now) { return; }
+        self.touched(now); if self.e.gesture_id() == Some("tonto") { return; }
+        self.slaps.retain(|t| now.duration_since(*t) < Duration::from_millis(1700)); self.slaps.push(now);
+        if self.slaps.len() >= 3 {
+            self.slaps.clear(); self.dizzies.retain(|t| now.duration_since(*t) < Duration::from_secs(10)); self.dizzies.push(now);
+            if self.dizzies.len() >= 2 { self.dizzies.clear(); self.cool_until = Some(now + COOLDOWN); self.e.play("irritado"); } else { self.e.play("tonto"); }
+        } else { self.e.play("clique-tapa"); }
+    }
+    fn cooling(&self, now: Instant) -> bool { self.cool_until.is_some_and(|t| now < t) }
+    /// balao de texto durante o cooldown: (texto, opacidade 0..1)
+    pub fn balloon(&self, now: Instant) -> Option<(&'static str, f32)> {
+        let t = self.cool_until?; if now >= t { return None; } let left = t.duration_since(now).as_secs_f32();
+        Some(("Ai! Vou dar um tempo... volto em 5 s", (left / 0.25).min(1.0).min(((COOLDOWN.as_secs_f32() - left) / 0.15).min(1.0))))
     }
     pub fn error(&mut self) { self.e.play("erro"); }
     /// captura/teste: toca `id`, avanca `ms` e congela (o app nao reaplica o estado de base nem avanca)
     pub fn seek(&mut self, id: &str, ms: u32) { self.e.seek(id, ms); self.pinned = true; }
+    /// captura: estado irritado com balao (cooldown de 5 s iniciado agora, congelado em 1 s)
+    pub fn seek_irritado(&mut self) { let now = Instant::now(); self.cool_until = Some(now + COOLDOWN - Duration::from_millis(1000)); self.e.seek("irritado", 900); self.pinned = true; }
     pub fn unpin(&mut self) { self.pinned = false; self.e.unfreeze(); }
     /// teste/captura: dorme (ignora atividade)
     pub fn bench_sleep(&mut self) { self.asleep = true; self.sleep_lock = true; self.e.unfreeze(); }
     /// quadros continuos so acordado e sem animacoes reduzidas; dormindo ou reduzido = so o timer de 250 ms (4 fps)
-    pub fn busy(&self, _now: Instant, _over: bool) -> bool { !self.e.sleeping() && !self.reduced }
-    pub fn wake_ms(&self, _now: Instant) -> Option<u32> { if self.e.sleeping() || self.reduced { Some(250) } else { None } }
+    pub fn busy(&self, _now: Instant, _over: bool) -> bool { !self.mini && !self.e.sleeping() && !self.reduced }
+    pub fn wake_ms(&self, _now: Instant) -> Option<u32> { if self.e.sleeping() || self.reduced { Some(250) } else if self.mini { Some(if self.e.gesture_running() { 33 } else { 100 }) } else { None } }
     pub fn raging(&self) -> bool { false }
     fn want(&self, c: &Ctx) -> &'static str {
+        if self.cool_until.is_some() { return "irritado"; }
         match ATTENTION.load(Relaxed) { 1 => return "approval", 2 => return "pergunta", 3 => return "busca", _ => {} }
         if self.low { "bateria-baixa" } else if c.timer == 1 { "pomodoro-inicio" } else if c.playing { "danca" } else if c.charging == Some(true) { "carregando-ativo" } else if self.asleep { "sono" } else { "idle-pisca" }
     }
     fn resync(&mut self, c: &Ctx, now: Instant, greet: bool) {
-        self.prev = *c; self.key = c.track; self.cand = (c.track, now); self.errors = ERRORS.load(Relaxed); self.notifs = NOTIFS.load(Relaxed); self.clicks.clear(); self.tap_at = None; self.pending = None;
+        self.prev = *c; self.key = c.track; self.cand = (c.track, now); self.errors = ERRORS.load(Relaxed); self.notifs = NOTIFS.load(Relaxed); self.slaps.clear(); self.pending = None;
         self.touched(now); self.e.play(self.want(c)); if greet { self.e.play("saudacao"); self.last_greet = Some(now); }
     }
     /// atualiza gatilhos e avanca o motor (chamado por quadro desenhado)
@@ -510,7 +526,7 @@ impl Mascot {
         if c.charging == Some(true) || c.batt_pct >= 25 { self.low = false; } else if c.charging == Some(false) && c.batt_pct > 0 && c.batt_pct <= 20 { self.low = true; }
         let gap = self.last.map(|t| now.duration_since(t));
         let dt = gap.map_or(1.0 / 30.0, |g| g.as_secs_f32()); self.last = Some(now); self.reduced = c.reduced;
-        self.e.ctx_musica = c.playing;
+        self.e.ctx_musica = c.playing; if self.cool_until.is_some_and(|t| now >= t) { self.cool_until = None; }
         if !self.init || gap.is_some_and(|g| g > Duration::from_millis(1500)) {
             let greet = self.last_greet.is_none_or(|t| now.duration_since(t) > Duration::from_secs(60)); self.init = true; self.resync(c, now, greet);
         } else {
@@ -527,9 +543,8 @@ impl Mascot {
             self.prev = *c;
             // atividade: mouse perto movendo, clique ou evento (cursor longe e parado nao conta)
             let near = c.pointer.is_none_or(|(x, y)| x.hypot(y) < FAR_PX);
-            if let Some((x, y)) = c.pointer { if self.last_ptr.is_none_or(|q| (q.0 - x).abs() + (q.1 - y).abs() > 1.5) { self.last_ptr = Some((x, y)); if near { act = true; } } }
+            if let Some((x, y)) = c.pointer { if self.last_ptr.is_none_or(|q| (q.0 - x).abs() + (q.1 - y).abs() > 1.5) { self.last_ptr = Some((x, y)); if near { act = true; } self.e.pointer(x, y); } }
             if act && !self.sleep_lock { self.touched(now); }
-            if let Some(t) = self.tap_at { if now.duration_since(t) >= Duration::from_millis(300) { self.tap_at = None; self.e.play("clique-tapa"); } }
             // ocioso: 60 s bocejo (uma vez), 120 s com o mouse longe (ou noite) dorme
             let idle = now.duration_since(self.touch).as_secs_f32(); let calm = !c.playing && c.timer != 1 && !self.low && c.charging != Some(true);
             if calm && !self.sleep_lock {
@@ -549,7 +564,7 @@ impl Mascot {
 mod tests {
     use super::*;
     fn steps(m: &mut Mascot, c: &Ctx, t: &mut Instant, secs: f32) { for _ in 0..(secs * 30.0) as u32 { *t += Duration::from_millis(33); m.step(c, *t); } }
-    #[test] fn rig_embutido_tem_22_reacoes_e_skin() { let r = rig(); assert_eq!(r.ids().len(), 22); assert_eq!(r.skin["id"], "areia-final"); assert!(r.idx.contains_key("carregando-ativo")); }
+    #[test] fn rig_embutido_tem_22_reacoes_e_skin() { let r = rig(); assert_eq!(r.ids().len(), 23); assert_eq!(r.skin["id"], "areia-final"); assert!(r.idx.contains_key("carregando-ativo")); }
     #[test] fn rig_embutido_sem_textos_de_terceiros() { let t = RIG.to_lowercase(); assert!(!t.contains("coucou") && !t.contains("mochi")); }
     #[test] fn caminho_do_corpo_vira_segmentos_fechados() { let s = &rig().body; assert!(matches!(s[0], Seg::M(26.0, 22.0))); assert!(matches!(s.last(), Some(Seg::Z))); assert_eq!(s.iter().filter(|x| matches!(x, Seg::C(..))).count(), 4); }
     #[test] fn seguir_alvo_independe_do_fps() {
@@ -588,10 +603,19 @@ mod tests {
     #[test] fn passo_de_4_fps_usa_tempo_real() {
         let run = |fps: f32| { let mut m = Mascot::default(); let mut t = Instant::now(); let c = Ctx { track: 1, ..Default::default() }; m.step(&c, t); m.e.play("engolir"); let step = Duration::from_secs_f32(1.0 / fps); for _ in 0..(fps * 1.5) as u32 { t += step; m.step(&c, t); } m.e.fx.as_ref().map_or(-1.0, |f| f.t) };
         let (a, b) = (run(30.0), run(4.0)); assert!((a - b).abs() < 0.3, "{a} {b}"); }
-    #[test] fn cliques_tapa_e_tonto() {
+    #[test] fn clique_e_imediato_e_escalona_tapa_tonto_irritado() {
         let mut m = Mascot::default(); let mut t = Instant::now(); let c = Ctx { track: 1, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
-        m.on_click(t); steps(&mut m, &c, &mut t, 0.1); assert!(!m.e.gesture_running(), "espera 300 ms: {:?}", m.e.fx.as_ref().map(|f| rig().def(f.d)["id"].as_str())); steps(&mut m, &c, &mut t, 0.4); assert!(m.e.gesture_running(), "tapa");
-        steps(&mut m, &c, &mut t, 2.0); for _ in 0..3 { m.on_click(t); t += Duration::from_millis(200); } assert!(m.e.gesture_running()); }
+        m.on_click(t); assert_eq!(m.e.gesture_id(), Some("clique-tapa"), "tapa no mesmo instante, sem espera");
+        t += Duration::from_millis(300); m.on_click(t); t += Duration::from_millis(300); m.on_click(t); assert_eq!(m.e.gesture_id(), Some("tonto"), "3 em 1,7 s");
+        let n = m.slaps.len(); m.on_click(t); assert_eq!(m.slaps.len(), n, "tonto ignora tapas (como o Coucou)");
+        steps(&mut m, &c, &mut t, 2.5); assert!(m.cool_until.is_none() && m.e.gesture_id().is_none());
+        for _ in 0..3 { m.on_click(t); t += Duration::from_millis(200); } assert!(m.cooling(t), "2a tontura em 10 s = irritado");
+        assert_eq!(m.e.base_id(), "irritado"); assert!(m.balloon(t).is_some());
+        m.on_click(t); assert!(m.slaps.is_empty(), "cliques ignorados no cooldown");
+        steps(&mut m, &c, &mut t, 5.5); assert!(!m.cooling(t) && m.balloon(t).is_none()); assert_eq!(m.e.base_id(), "idle-pisca"); }
+    #[test] fn olhos_seguem_o_cursor_global() {
+        let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, pointer: Some((300.0, 0.0)), ..Default::default() }; steps(&mut m, &c, &mut t, 1.0); assert!(m.e.cur.gx > 0.3, "{}", m.e.cur.gx);
+        c.pointer = Some((-300.0, 0.0)); steps(&mut m, &c, &mut t, 1.0); assert!(m.e.cur.gx < -0.3); }
     #[test] fn erro_real_e_bateria_baixa() {
         let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
         m.error(); steps(&mut m, &c, &mut t, 0.2); assert!(m.e.gesture_running()); /* report_error usa contador global: nao chamado aqui para nao afetar testes paralelos */ c.charging = Some(false); c.batt_pct = 18; steps(&mut m, &c, &mut t, 3.0); assert_eq!(m.e.base_id(), "bateria-baixa"); c.batt_pct = 22; steps(&mut m, &c, &mut t, 3.0); assert_eq!(m.e.base_id(), "bateria-baixa", "histerese: 22 % ainda baixa"); c.batt_pct = 25; steps(&mut m, &c, &mut t, 3.0); assert_eq!(m.e.base_id(), "idle-pisca"); }

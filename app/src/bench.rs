@@ -209,6 +209,13 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
         157 => { a.p.mascot.seek("saudacao", 600); "157-eavy-saudacao" }
         158 => { a.p.mascot.seek("orgulho", 700); "158-eavy-orgulho" }
         159 => { a.p.mascot.seek("tonto", 500); "159-eavy-tonto" }
+        160 => { crate::media::fake_none(); open(a, 0, false, false); a.p.mascot.seek("carregando", 1500); "160-eavy-carregando-1500" }
+        161 => { crate::media::fake_none(); open(a, 0, false, false); a.p.mascot.seek("carregando", 2000); "161-eavy-carregando-2000" }
+        162 => { crate::media::fake_none(); open(a, 0, false, false); a.p.mascot.seek("carregando", 2700); "162-eavy-carregando-2700" }
+        163 => { crate::media::fake_none(); open(a, 0, false, false); a.p.mascot.seek("carregando", 3300); "163-eavy-carregando-3300" }
+        164 => { crate::media::fake_none(); open(a, 0, false, false); a.p.mascot.seek("idle-pisca", 600); "164-eavy-mini-peek" }
+        165 => { a.p.mascot.seek_irritado(); "165-eavy-irritado-balao" }
+        166 => { crate::media::fake_none(); crate::settings::update(|s| { s.collapsed_look = "clock".into(); s.eavy_mini = true; }); a.force = Some(St::Peek); "skip" }
         85 => { crate::settings::update(|s| { s.slot_top = "shelf".into(); s.slot_bottom = "player".into(); }); "skip" }
         70 => { crate::settings::update(|s| { s.pc_cpu = true; s.pc_ram = true; s.pc_gpu = true; s.pc_state = true; }); "skip" }
         _ => return None,
@@ -288,14 +295,14 @@ unsafe fn shot(a: &App, path: &str) {
 /// captura do mascote fora da tela (D2D -> bitmap): cena 208x136 u (metade esquerda da pagina Mascote) na escala 3 x k do preset; independe da tela estar bloqueada
 fn eavy_dump(a: &mut App, path: &str) {
     let k = crate::layout::k(); let sc = 3.0 * k; let (w, h) = ((208.0 * sc) as u32, (136.0 * sc) as u32); let cfg = crate::settings::get(); let l = 72.0 * cfg.mascot_w() / 150.0;
-    let compact = path.contains("compacto");
-    let px = a.gfx.offscreen(w, h, |g| { g.set_matrix(windows_numerics::Matrix3x2::scale(sc, sc)); if compact { a.p.mascot.e.draw(g, 104.0, 68.0, 26.0 * 2.5, true); } else { a.p.mascot.e.draw(g, 104.0, 68.0 + l * 0.35 + 8.0, l, false); } });
+    let compact = path.contains("compacto"); let mini = path.contains("mini"); let balloon = a.p.mascot.balloon(Instant::now());
+    let px = a.gfx.offscreen(w, h, |g| { g.set_matrix(windows_numerics::Matrix3x2::scale(sc, sc)); if mini { a.p.mascot.e.draw(g, 104.0, 68.0 + 22.0 * 0.33, 22.0 * 3.0, true); } else if compact { a.p.mascot.e.draw(g, 104.0, 68.0, 26.0 * 2.5, true); } else { a.p.mascot.e.draw(g, 104.0, 68.0 + l * 0.35 + 8.0, l, false); if let Some((t, al)) = balloon { crate::pages::balloon_draw(g, t, 104.0, 10.0, al); } } });
     let Some(px) = px else { crate::log("eavy_dump falhou"); return };
     let mut out = Vec::with_capacity((w * h * 3) as usize + 54); let row = ((w * 3 + 3) / 4 * 4) as usize;
     out.extend_from_slice(b"BM"); out.extend_from_slice(&((row as u32 * h) + 54).to_le_bytes()); out.extend_from_slice(&[0; 4]); out.extend_from_slice(&54u32.to_le_bytes());
     out.extend_from_slice(&40u32.to_le_bytes()); out.extend_from_slice(&(w as i32).to_le_bytes()); out.extend_from_slice(&(h as i32).to_le_bytes()); out.extend_from_slice(&1u16.to_le_bytes()); out.extend_from_slice(&24u16.to_le_bytes()); out.extend_from_slice(&[0; 24]);
     for y in (0..h as usize).rev() { let mut r = Vec::with_capacity(row); for x in 0..w as usize { let i = (y * w as usize + x) * 4; r.extend_from_slice(&px[i..i + 3]); } r.resize(row, 0); out.extend_from_slice(&r); }
-    let _ = std::fs::write(path, out); crate::log(&format!("eavy_dump {path}"));
+    let _ = std::fs::write(path, out); crate::state_log(&format!("eavy_dump {path} {}", a.p.mascot.e.dbg()));
 }
 
 /// varre as 22 reacoes quadro a quadro (30 fps, 8 s cada) desenhando fora da tela e confere: exatamente 2 olhos, 1 boca e no maximo 2 maos por quadro (equivalente ao audit.py do pacote)
