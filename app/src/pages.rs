@@ -456,7 +456,7 @@ fn mascot_page(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
     let cfg = crate::settings::get(); a.p.slot_tip = None;
     for (w, rc) in crate::slots::layout(&cfg.slot_top, &cfg.slot_bottom) { crate::slots::draw_slot(a, w, rc, hits, off, now); }
     if let Some((txt, cx, ty)) = a.p.slot_tip.take() { // legenda com o nome completo (por cima dos slots)
-        let s = crate::pages2::ellip(a, &txt, Fmt::Small, 176.0); let tw = a.gfx.measure(&s, Fmt::Small); let bw = tw + 14.0; let bx = clamp_in(cx - bw / 2.0, 208.0, 394.0 - bw);
+        let s = crate::pages2::ellip(a, &txt, Fmt::Small, 172.0); let tw = a.gfx.measure(&s, Fmt::Small); let bw = tw + 14.0; let bx = clamp_in(cx - bw / 2.0, 208.0, 394.0 - bw);
         a.gfx.rrect(bx, ty, bw, 17.0, 8.5, rgba(0x000000, 0.94)); a.gfx.rrect_stroke(bx + 0.5, ty + 0.5, bw - 1.0, 16.0, 8.0, 1.0, rgba(0xFFFFFF, 0.16)); a.gfx.text(&s, Fmt::Small, bx + 7.0, ty + 1.5, tw + 4.0, 14.0, TEXT, false);
     }
     let (cx, cy) = (104.0, 68.0);
@@ -776,9 +776,9 @@ pub fn mouse(a: &mut App, m: u32, wp: WPARAM, lp: LPARAM) {
                 let n = a.p.tasks.len(); if d < 0 { a.p.task_scroll = (a.p.task_scroll + 1).min(n - 3); } else { a.p.task_scroll = a.p.task_scroll.saturating_sub(1); } a.dirty = true; return;
             }
             if a.split && a.page == P_MUSIC && x >= 262.0 && x <= 512.0 && y >= 10.0 && y <= 126.0 && { let l = lyr(); l.state == 2 && l.synced && !l.lines.is_empty() } {
-                let n = lyr().lines.len() as f32; let cur = { let v = media::view(); lyric_idx(&lyr(), v.pos_ms).max(0) as f32 };
+                let (n, cur) = { let l = lyr(); let v = media::view(); (l.lines.len() as f32, lyric_idx(&l, v.pos_ms).max(0) as f32) }; if n < 1.0 { return; }
                 let c = match a.p.lyr_user { Some((t, c)) if t.elapsed().as_millis() < 3000 => c, _ => cur };
-                a.p.lyr_user = Some((Instant::now(), (c + if d < 0 { 1.0 } else { -1.0 }).clamp(0.0, n - 1.0))); a.dirty = true; return;
+                a.p.lyr_user = Some((Instant::now(), (c + if d < 0 { 1.0 } else { -1.0 }).max(0.0).min((n - 1.0).max(0.0)))); a.dirty = true; return;
             }
             if a.page == P_SHELF && a.p.shelf.len() > 5 && y > 30.0 && y < 118.0 { // roda: um card por nocao, com mola suave (alvo acumula)
                 let mx = (a.p.shelf.len() as f32 * 66.0 - 330.0).max(0.0); let now = Instant::now(); let cur = a.p.shelf_sc.as_ref().map_or(a.p.shelf_sx, |t| t.target());

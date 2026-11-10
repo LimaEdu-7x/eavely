@@ -25,6 +25,7 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
         a.dock = dock; a.dock_t = crate::island::Tw::new(if dock { 1.0 } else { 0.0 }); a.drag_over = false; a.p.edit = None; a.p.select = false; a.p.vol_t = None;
         a.retarget(Instant::now(), 0.0);
     };
+    a.p.mascot.e.reseed(7); // cenas reproduziveis (o app real usa seed do relogio)
     Some(match i {
         0 => { a.force = Some(St::Line); "01-traco" }
         1 => { a.force = Some(St::Peek); "02-peek" }

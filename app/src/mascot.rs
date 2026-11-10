@@ -567,6 +567,8 @@ impl Mascot {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// seed fixa nos testes (o Default real usa o relogio)
+    fn seeded() -> Mascot { let mut m = Mascot::default(); m.e.reseed(7); m }
     fn steps(m: &mut Mascot, c: &Ctx, t: &mut Instant, secs: f32) { for _ in 0..(secs * 30.0) as u32 { *t += Duration::from_millis(33); m.step(c, *t); } }
     #[test] fn rig_embutido_tem_22_reacoes_e_skin() { let r = rig(); assert_eq!(r.ids().len(), 23); assert_eq!(r.skin["id"], "areia-final"); assert!(r.idx.contains_key("carregando-ativo")); }
     #[test] fn rig_embutido_sem_textos_de_terceiros() { let t = RIG.to_lowercase(); assert!(!t.contains("coucou") && !t.contains("mochi")); }
@@ -582,7 +584,7 @@ mod tests {
         let mut e = Eavy::new(); e.ctx_musica = true; e.play("danca"); e.play("troca-faixa"); for _ in 0..(30 * 6) { e.step(1.0 / 30.0); } assert_eq!(e.base_id(), "danca");
         let mut e = Eavy::new(); e.ctx_musica = false; e.play("troca-faixa"); for _ in 0..(30 * 6) { e.step(1.0 / 30.0); } assert_eq!(e.base_id(), "idle-pisca"); }
     #[test] fn gatilhos_reais_e_volta_ao_estado_atual() {
-        let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, charging: Some(false), ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
+        let mut m = seeded(); let mut t = Instant::now(); let mut c = Ctx { track: 1, charging: Some(false), ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
         c.playing = true; steps(&mut m, &c, &mut t, 0.2); assert_eq!(m.e.base_id(), "danca");
         c.track = 2; steps(&mut m, &c, &mut t, 0.1); assert!(!m.e.gesture_running(), "debounce: ainda nao troca"); steps(&mut m, &c, &mut t, 0.5); assert!(m.e.gesture_running(), "troca de faixa"); steps(&mut m, &c, &mut t, 6.0); assert_eq!(m.e.base_id(), "danca");
         c.charging = Some(true); steps(&mut m, &c, &mut t, 0.2); assert!(m.e.gesture_running(), "carregando"); steps(&mut m, &c, &mut t, 7.0); assert_eq!(m.e.base_id(), "danca", "musica tem prioridade sobre carregando-ativo");
@@ -590,25 +592,25 @@ mod tests {
         c.timer = 1; steps(&mut m, &c, &mut t, 0.2); assert_eq!(m.e.base_id(), "pomodoro-inicio"); c.timer = 3; c.playing = true; steps(&mut m, &c, &mut t, 0.2); assert!(m.e.gesture_running(), "pomodoro-fim");
         steps(&mut m, &c, &mut t, 4.0); assert_eq!(m.e.base_id(), "danca", "pomodoro-fim volta ao estado atual"); }
     #[test] fn titulo_e_artista_em_dois_eventos_disparam_uma_troca() {
-        let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, playing: true, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
+        let mut m = seeded(); let mut t = Instant::now(); let mut c = Ctx { track: 1, playing: true, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
         c.track = 2; steps(&mut m, &c, &mut t, 0.1); c.track = 3; steps(&mut m, &c, &mut t, 0.5); assert!(m.e.gesture_running()); steps(&mut m, &c, &mut t, 6.0);
         let mut n = 0; let mut was = false; for _ in 0..200 { t += Duration::from_millis(33); m.step(&c, t); let g = m.e.gesture_running(); if g && !was { n += 1; } was = g; } assert_eq!(n, 0, "so uma troca"); }
     #[test] fn reabrir_descarta_gestos_vencidos_e_mostra_o_estado_atual() {
-        let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
+        let mut m = seeded(); let mut t = Instant::now(); let mut c = Ctx { track: 1, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
         c.playing = true; c.timer = 3; t += Duration::from_secs(30); m.step(&c, t); assert_eq!(m.e.base_id(), "danca"); }
     #[test] fn ocioso_bocejo_sono_e_acorda() {
-        let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, pointer: Some((400.0, 0.0)), ..Default::default() }; steps(&mut m, &c, &mut t, 59.0); assert!(!m.e.gesture_running());
+        let mut m = seeded(); let mut t = Instant::now(); let mut c = Ctx { track: 1, pointer: Some((400.0, 0.0)), ..Default::default() }; steps(&mut m, &c, &mut t, 59.0); assert!(!m.e.gesture_running());
         steps(&mut m, &c, &mut t, 2.0); assert!(m.e.gesture_running(), "bocejo aos 60 s"); steps(&mut m, &c, &mut t, 62.0); assert!(m.e.sleeping(), "sono aos 120 s com mouse longe");
         c.pointer = Some((40.0, 0.0)); steps(&mut m, &c, &mut t, 0.3); assert!(!m.e.sleeping(), "mouse perto acorda");
-        let mut m = Mascot::default(); let mut t = Instant::now(); let c = Ctx { track: 1, pointer: Some((10.0, 0.0)), ..Default::default() }; steps(&mut m, &c, &mut t, 130.0); assert!(!m.e.sleeping(), "mouse perto nao dorme"); }
+        let mut m = seeded(); let mut t = Instant::now(); let c = Ctx { track: 1, pointer: Some((10.0, 0.0)), ..Default::default() }; steps(&mut m, &c, &mut t, 130.0); assert!(!m.e.sleeping(), "mouse perto nao dorme"); }
     #[test] fn dormindo_e_oculto_ressincroniza_sem_gesto_velho() {
-        let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, pointer: Some((400.0, 0.0)), ..Default::default() }; steps(&mut m, &c, &mut t, 125.0); assert!(m.e.sleeping());
+        let mut m = seeded(); let mut t = Instant::now(); let mut c = Ctx { track: 1, pointer: Some((400.0, 0.0)), ..Default::default() }; steps(&mut m, &c, &mut t, 125.0); assert!(m.e.sleeping());
         c.shelf_adds = 3; t += Duration::from_secs(40); m.step(&c, t); assert!(!m.e.gesture_running() || m.e.fx.as_ref().map(|f| rig().def(f.d)["id"].as_str()) == Some(Some("saudacao")), "sem engolir velho"); }
     #[test] fn passo_de_4_fps_usa_tempo_real() {
-        let run = |fps: f32| { let mut m = Mascot::default(); let mut t = Instant::now(); let c = Ctx { track: 1, ..Default::default() }; m.step(&c, t); m.e.play("engolir"); let step = Duration::from_secs_f32(1.0 / fps); for _ in 0..(fps * 1.5) as u32 { t += step; m.step(&c, t); } m.e.fx.as_ref().map_or(-1.0, |f| f.t) };
+        let run = |fps: f32| { let mut m = seeded(); let mut t = Instant::now(); let c = Ctx { track: 1, ..Default::default() }; m.step(&c, t); m.e.play("engolir"); let step = Duration::from_secs_f32(1.0 / fps); for _ in 0..(fps * 1.5) as u32 { t += step; m.step(&c, t); } m.e.fx.as_ref().map_or(-1.0, |f| f.t) };
         let (a, b) = (run(30.0), run(4.0)); assert!((a - b).abs() < 0.3, "{a} {b}"); }
     #[test] fn clique_e_imediato_e_escalona_tapa_tonto_irritado() {
-        let mut m = Mascot::default(); let mut t = Instant::now(); let c = Ctx { track: 1, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
+        let mut m = seeded(); let mut t = Instant::now(); let c = Ctx { track: 1, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
         m.on_click(t); assert_eq!(m.e.gesture_id(), Some("clique-tapa"), "tapa no mesmo instante, sem espera");
         t += Duration::from_millis(300); m.on_click(t); t += Duration::from_millis(300); m.on_click(t); assert_eq!(m.e.gesture_id(), Some("tonto"), "3 em 1,7 s");
         let n = m.slaps.len(); m.on_click(t); assert_eq!(m.slaps.len(), n, "tonto ignora tapas (como o Coucou)");
@@ -618,9 +620,9 @@ mod tests {
         m.on_click(t); assert!(m.slaps.is_empty(), "cliques ignorados no cooldown");
         steps(&mut m, &c, &mut t, 5.5); assert!(!m.cooling(t) && m.balloon(t).is_none()); assert_eq!(m.e.base_id(), "idle-pisca"); }
     #[test] fn olhos_seguem_o_cursor_global() {
-        let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, pointer: Some((300.0, 0.0)), ..Default::default() }; steps(&mut m, &c, &mut t, 1.0); assert!(m.e.cur.gx > 0.3, "{}", m.e.cur.gx);
+        let mut m = seeded(); let mut t = Instant::now(); let mut c = Ctx { track: 1, pointer: Some((300.0, 0.0)), ..Default::default() }; steps(&mut m, &c, &mut t, 1.0); assert!(m.e.cur.gx > 0.3, "{}", m.e.cur.gx);
         c.pointer = Some((-300.0, 0.0)); steps(&mut m, &c, &mut t, 1.0); assert!(m.e.cur.gx < -0.3); }
     #[test] fn erro_real_e_bateria_baixa() {
-        let mut m = Mascot::default(); let mut t = Instant::now(); let mut c = Ctx { track: 1, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
+        let mut m = seeded(); let mut t = Instant::now(); let mut c = Ctx { track: 1, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
         m.error(); steps(&mut m, &c, &mut t, 0.2); assert!(m.e.gesture_running()); /* report_error usa contador global: nao chamado aqui para nao afetar testes paralelos */ c.charging = Some(false); c.batt_pct = 18; steps(&mut m, &c, &mut t, 3.0); assert_eq!(m.e.base_id(), "bateria-baixa"); c.batt_pct = 22; steps(&mut m, &c, &mut t, 3.0); assert_eq!(m.e.base_id(), "bateria-baixa", "histerese: 22 % ainda baixa"); c.batt_pct = 25; steps(&mut m, &c, &mut t, 3.0); assert_eq!(m.e.base_id(), "idle-pisca"); }
 }
