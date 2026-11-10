@@ -431,9 +431,13 @@ fn mascot_ctx(a: &mut App, center: (f32, f32), gaze: bool) -> crate::mascot::Ctx
         shelf_adds: crate::shelf::ADDS.load(std::sync::atomic::Ordering::Relaxed), pointer: if gaze { Some(a.cursor_px_from(center.0, center.1)) } else { None }, reduced: crate::island::overlay_simple() }
 }
 /// balao de fala do Eavy (estilo do corpo: areia, contorno suave, rabinho para baixo), centrado em cx com o topo em y
-fn speech_balloon(a: &mut App, txt: &str, cx: f32, y: f32, al: f32) { let s = crate::pages2::ellip(a, txt, Fmt::Small, 190.0); balloon_draw(&a.gfx, &s, cx, y, al); }
+/// largura maxima do texto do balao (bw = texto + 20 <= 190 cabe na area de 4..204)
+const BALLOON_MAX_W: f32 = 170.0;
+/// clamp que nunca entra em panico quando max < min (std::f32::clamp panica): vence o minimo
+pub(crate) fn clamp_in(v: f32, lo: f32, hi: f32) -> f32 { v.min(hi).max(lo) }
+fn speech_balloon(a: &mut App, txt: &str, cx: f32, y: f32, al: f32) { let s = crate::pages2::ellip(a, txt, Fmt::Small, BALLOON_MAX_W); balloon_draw(&a.gfx, &s, cx, y, al); }
 pub fn balloon_draw(g: &crate::gfx::Gfx, s: &str, cx: f32, y: f32, al: f32) {
-    let tw = g.measure(s, Fmt::Small); let (bw, bh) = (tw + 20.0, 22.0); let bx = (cx - bw / 2.0).clamp(4.0, 204.0 - bw);
+    let tw = g.measure(s, Fmt::Small); let (bw, bh) = (tw + 20.0, 22.0); let bx = clamp_in(cx - bw / 2.0, 4.0, 204.0 - bw);
     let ink = (0.078, 0.071, 0.102, al); let body = (0.961, 0.945, 0.914, 0.97 * al);
     g.rrect(bx, y, bw, bh, 11.0, (0.0, 0.0, 0.0, 0.25 * al)); g.rrect(bx, y - 1.0, bw, bh, 11.0, body);
     g.path(&[crate::gfx::Seg::M(cx - 5.0, y + bh - 1.5), crate::gfx::Seg::L(cx, y + bh + 5.0), crate::gfx::Seg::L(cx + 5.0, y + bh - 1.5), crate::gfx::Seg::Z], Some(body), None);
@@ -452,7 +456,7 @@ fn mascot_page(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
     let cfg = crate::settings::get(); a.p.slot_tip = None;
     for (w, rc) in crate::slots::layout(&cfg.slot_top, &cfg.slot_bottom) { crate::slots::draw_slot(a, w, rc, hits, off, now); }
     if let Some((txt, cx, ty)) = a.p.slot_tip.take() { // legenda com o nome completo (por cima dos slots)
-        let s = crate::pages2::ellip(a, &txt, Fmt::Small, 176.0); let tw = a.gfx.measure(&s, Fmt::Small); let bw = tw + 14.0; let bx = (cx - bw / 2.0).clamp(208.0, 394.0 - bw);
+        let s = crate::pages2::ellip(a, &txt, Fmt::Small, 176.0); let tw = a.gfx.measure(&s, Fmt::Small); let bw = tw + 14.0; let bx = clamp_in(cx - bw / 2.0, 208.0, 394.0 - bw);
         a.gfx.rrect(bx, ty, bw, 17.0, 8.5, rgba(0x000000, 0.94)); a.gfx.rrect_stroke(bx + 0.5, ty + 0.5, bw - 1.0, 16.0, 8.0, 1.0, rgba(0xFFFFFF, 0.16)); a.gfx.text(&s, Fmt::Small, bx + 7.0, ty + 1.5, tw + 4.0, 14.0, TEXT, false);
     }
     let (cx, cy) = (104.0, 68.0);
@@ -845,5 +849,16 @@ mod spin_tests {
         let (end, _) = spin_scale(SPIN_IN_MS + SPIN_OUT_MS); assert!((end - 1.0).abs() < 1e-3);
         let mut prev = 1.0; for i in 0..=130 { let k = spin_scale(i as f32).0; assert!(k <= prev + 1e-4, "encolhe monotonicamente"); prev = k; }
         let mut prev = 0.0; for i in 131..=580 { let k = spin_scale(i as f32).0; assert!(k >= prev - 1e-4, "reabre monotonicamente"); prev = k; }
+    }
+}
+
+#[cfg(test)]
+mod balloon_tests {
+    use super::*;
+    #[test] fn balao_largo_nao_panica_em_escalas() {
+        for k in [0.8f32, 1.0, 1.2] { for tw in (0..=4000).map(|i| i as f32 * 0.1 * k) { let bw = tw.min(BALLOON_MAX_W * k) + 20.0; // texto ja cortado pelo ellip
+            let bx = clamp_in(104.0 - bw / 2.0, 4.0, 204.0 - bw); assert!(bx.is_finite() && bx >= 4.0); let bx2 = clamp_in(300.0 - bw / 2.0, 208.0, 394.0 - bw); assert!(bx2 >= 208.0); } }
+        assert_eq!(clamp_in(0.0, 4.0, 3.598), 4.0, "o caso do crash (min 4, max 3,598)");
+        assert_eq!(clamp_in(50.0, 4.0, 100.0), 50.0);
     }
 }

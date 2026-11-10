@@ -159,6 +159,8 @@ impl Eavy {
         t = t.wrapping_add((t ^ (t >> 7)).wrapping_mul(61 | t)) ^ t; ((t ^ (t >> 14)) as f64 / 4294967296.0) as f32 }
     /// teste/captura: toca `id` e avanca `ms` ms em quadros de 1/30 s
     pub fn seek(&mut self, id: &str, ms: u32) { let m = self.ctx_musica; *self = Eavy::new(); self.ctx_musica = m; self.play(id); for _ in 0..(ms as f32 / 33.333).round() as u32 { self.step(1.0 / 30.0); } self.frozen = true; }
+    /// seed por abertura (a fixa repetia a mesma sequencia de piscadas/emissores); seek/capturas seguem com a seed 7
+    pub fn reseed(&mut self, seed: u32) { self.seed = seed; self.next_blink = 1.5 + self.rnd() * 2.0; }
     pub fn dbg(&self) -> String { format!("face_x={:?} cur.ox={} tw.ox={} hand_r=({:.1},{:.1}) v={:.2}", self.face_x, self.cur.ox, self.tw.ox, self.hand[1].x, self.hand[1].y, self.hand[1].v) }
     pub fn unfreeze(&mut self) { self.frozen = false; }
     pub fn base_id(&self) -> &'static str { self.base_id }
@@ -475,7 +477,7 @@ pub struct Mascot {
     pub e: Eavy, last: Option<Instant>, born: Instant, init: bool, prev: Ctx, key: u64, cand: (u64, Instant), last_ptr: Option<(f32, f32)>, pub touch: Instant,
     asleep: bool, yawned: bool, pending: Option<&'static str>, slaps: Vec<Instant>, dizzies: Vec<Instant>, cool_until: Option<Instant>, pub mini: bool, errors: u32, notifs: u32, last_greet: Option<Instant>, reduced: bool, sleep_lock: bool, pinned: bool, low: bool,
 }
-impl Default for Mascot { fn default() -> Self { Mascot { e: Eavy::new(), last: None, born: Instant::now(), init: false, prev: Ctx::default(), key: 0, cand: (0, Instant::now()), last_ptr: None, touch: Instant::now(), asleep: false, yawned: false,
+impl Default for Mascot { fn default() -> Self { let mut e = Eavy::new(); e.reseed(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(7, |d| d.subsec_nanos() ^ d.as_secs() as u32)); Mascot { e, last: None, born: Instant::now(), init: false, prev: Ctx::default(), key: 0, cand: (0, Instant::now()), last_ptr: None, touch: Instant::now(), asleep: false, yawned: false,
     pending: None, slaps: Vec::new(), dizzies: Vec::new(), cool_until: None, mini: false, errors: 0, notifs: 0, last_greet: None, reduced: false, sleep_lock: false, pinned: false, low: false } } }
 const COOLDOWN: Duration = Duration::from_secs(5); const FAR_PX: f32 = 150.0; const YAWN_S: f32 = 60.0; const SLEEP_S: f32 = 120.0; const TRACK_DEBOUNCE: Duration = Duration::from_millis(300);
 impl Mascot {

@@ -605,7 +605,7 @@ impl App {
                 for y in 0..h { for x in 0..w {
                     let (fx, fy) = (x as f32 + 0.5, y as f32 + 0.5);
                     let c = if fx >= bx0 && fx <= bx1 { // corpo: topo reto, cantos de baixo arredondados
-                        let cx = fx.clamp(bx0 + r, bx1 - r); let d = if fy > h as f32 - r { ((fx - cx).powi(2) + (fy - (h as f32 - r)).powi(2)).sqrt() } else { 0.0 }; (r - d + 0.5).clamp(0.0, 1.0)
+                        let cx = crate::pages::clamp_in(fx, bx0 + r, bx1 - r); let d = if fy > h as f32 - r { ((fx - cx).powi(2) + (fy - (h as f32 - r)).powi(2)).sqrt() } else { 0.0 }; (r - d + 0.5).clamp(0.0, 1.0)
                     } else if fy <= f { // flares concavos: quadrado menos o quarto de disco centrado no canto
                         let (cx, cy) = if fx < bx0 { (0.0, f) } else { (w as f32, f) }; (((fx - cx).powi(2) + (fy - cy).powi(2)).sqrt() - f + 0.5).clamp(0.0, 1.0)
                     } else { 0.0 };
