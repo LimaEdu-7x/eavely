@@ -431,3 +431,15 @@ fn pick_font(dw: &IDWriteFactory) -> &'static str { unsafe {
     } }
     "Segoe UI"
 } }
+
+#[cfg(test)]
+mod balloon_fit_tests {
+    use super::*;
+    /// a frase do balao do irritado cabe inteira (sem reticencias) em BALLOON_MAX_W nas escalas 0,8/1,0/1,2 (medido com a mesma fonte/formatos do app)
+    #[test] fn frase_do_irritado_cabe_em_170px() { unsafe {
+        let dw: IDWriteFactory = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED).unwrap(); let font = pick_font(&dw);
+        for k in [0.8f32, 1.0, 1.2] {
+            let f = build_fmts(&dw, font, k).unwrap(); let v: Vec<u16> = crate::mascot::IRRITADO_TXT.encode_utf16().collect();
+            let l = dw.CreateTextLayout(&v, &f[&Fmt::Small], 2000.0, 100.0).unwrap(); let mut m = DWRITE_TEXT_METRICS::default(); l.GetMetrics(&mut m).unwrap();
+            eprintln!("k={k} largura={:.1}", m.width); assert!(m.width <= crate::pages::BALLOON_MAX_W, "k={k}: {} px > {}", m.width, crate::pages::BALLOON_MAX_W); } } }
+}

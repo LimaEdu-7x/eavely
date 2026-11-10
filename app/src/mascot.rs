@@ -479,6 +479,8 @@ pub struct Mascot {
 }
 impl Default for Mascot { fn default() -> Self { let mut e = Eavy::new(); e.reseed(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(7, |d| d.subsec_nanos() ^ d.as_secs() as u32)); Mascot { e, last: None, born: Instant::now(), init: false, prev: Ctx::default(), key: 0, cand: (0, Instant::now()), last_ptr: None, touch: Instant::now(), asleep: false, yawned: false,
     pending: None, slaps: Vec::new(), dizzies: Vec::new(), cool_until: None, mini: false, errors: 0, notifs: 0, last_greet: None, reduced: false, sleep_lock: false, pinned: false, low: false } } }
+/// frase do balao do irritado (deve caber inteira em BALLOON_MAX_W; ha teste em gfx.rs)
+pub const IRRITADO_TXT: &str = "Dou um tempo. Volto em 5 s.";
 const COOLDOWN: Duration = Duration::from_secs(5); const FAR_PX: f32 = 150.0; const YAWN_S: f32 = 60.0; const SLEEP_S: f32 = 120.0; const TRACK_DEBOUNCE: Duration = Duration::from_millis(300);
 impl Mascot {
     pub fn age_ms(&self, now: Instant) -> u128 { now.duration_since(self.born).as_millis() }
@@ -498,7 +500,7 @@ impl Mascot {
     /// balao de texto durante o cooldown: (texto, opacidade 0..1)
     pub fn balloon(&self, now: Instant) -> Option<(&'static str, f32)> {
         let t = self.cool_until?; if now >= t { return None; } let left = t.duration_since(now).as_secs_f32();
-        Some(("Ai! Vou dar um tempo... volto em 5 s", (left / 0.25).min(1.0).min(((COOLDOWN.as_secs_f32() - left) / 0.15).min(1.0))))
+        Some((IRRITADO_TXT, (left / 0.25).min(1.0).min(((COOLDOWN.as_secs_f32() - left) / 0.15).min(1.0))))
     }
     pub fn error(&mut self) { self.e.play("erro"); }
     /// captura/teste: toca `id`, avanca `ms` e congela (o app nao reaplica o estado de base nem avanca)

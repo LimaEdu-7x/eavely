@@ -432,7 +432,7 @@ fn mascot_ctx(a: &mut App, center: (f32, f32), gaze: bool) -> crate::mascot::Ctx
 }
 /// balao de fala do Eavy (estilo do corpo: areia, contorno suave, rabinho para baixo), centrado em cx com o topo em y
 /// largura maxima do texto do balao (bw = texto + 20 <= 190 cabe na area de 4..204)
-const BALLOON_MAX_W: f32 = 170.0;
+pub(crate) const BALLOON_MAX_W: f32 = 170.0;
 /// clamp que nunca entra em panico quando max < min (std::f32::clamp panica): vence o minimo
 pub(crate) fn clamp_in(v: f32, lo: f32, hi: f32) -> f32 { v.min(hi).max(lo) }
 fn speech_balloon(a: &mut App, txt: &str, cx: f32, y: f32, al: f32) { let s = crate::pages2::ellip(a, txt, Fmt::Small, BALLOON_MAX_W); balloon_draw(&a.gfx, &s, cx, y, al); }
