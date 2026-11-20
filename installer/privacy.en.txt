@@ -1,0 +1,14 @@
+Eavely privacy policy (summary)
+
+Eavely has no account, no telemetry, no usage analytics and no automatic update.
+
+NETWORK: the only network communication is the OPTIONAL search for synchronized lyrics at LRCLIB (lrclib.net). When a song plays, its TITLE, ARTIST, ALBUM and DURATION are sent. Nothing else: no identifier, file name or other application.
+
+HOW TO TURN IT OFF: Settings > Music and lyrics > Show lyrics. Lyrics already downloaded keep working offline.
+
+ON YOUR PC: settings, tasks, Shelf references and the lyrics cache stay in %APPDATA%\Eavely (stable version) or %APPDATA%\EavelyDev (dev channel). The state.log file keeps system diagnostic events (start, exit and reason, power, brightness, network, monitors, shortcuts, Shelf), without titles, artists, file names or content. An extra log in %TEMP%\eavely-spike.log exists only with EAVELY_LOG or after a failure, and may contain the audio device name and error messages.
+
+SYSTEM: the installer runs per user (no administrator rights). "Start with Windows" is optional and off by default. There is an uninstaller.
+
+Full policy: https://github.com/LimaEdu-7x/eavely/blob/main/docs/PRIVACY.md
+Contact: contact.eavely@gmail.com
