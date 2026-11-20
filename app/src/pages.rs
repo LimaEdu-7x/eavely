@@ -453,18 +453,30 @@ fn draw_peek_mascot(a: &mut App, w: f32, h: f32, now: Instant) {
     a.p.mascot.step(&ctx, now); let l = 26.0; a.p.mascot.e.draw(&a.gfx, w / 2.0, h / 2.0 + l * 0.35, l, true);
     if let Some(ms) = a.p.mascot.wake_ms(now) { unsafe { SetTimer(Some(a.hwnd), crate::island::T_MASCOT, ms.max(15), None); } }
 }
-/// Pagina Mascote (v0.2.0): rosto a esquerda (150 px, reage ao mouse e a cliques), 2 slots configuraveis a direita (padrao: Arquivos em cima, Player mini embaixo)
+/// posicao (centro x, centro y) e tamanho do corpo do Eavy: com slots, a esquerda (104, 68); sem slots, no centro da pagina e 1,5x maior (com a cena inteira)
+pub(crate) fn mascot_pose(solo: bool, mascot_w: f32) -> (f32, f32, f32) {
+    let base = 72.0 * mascot_w / 150.0; // corpo de 72 u (x k = 58/72/86 px); o tamanho do mascote escala sobre isso
+    if solo { (200.0, 72.0, base * 1.5) } else { (104.0, 68.0, base) }
+}
+#[cfg(test)]
+mod mascot_pose_tests {
+    use super::mascot_pose;
+    #[test] fn sem_slots_o_eavy_fica_no_centro_e_maior() { let (cx, _, l) = mascot_pose(true, 150.0); assert_eq!(cx, 200.0); assert!(l > mascot_pose(false, 150.0).2); }
+    #[test] fn com_slots_o_eavy_fica_a_esquerda() { assert_eq!(mascot_pose(false, 150.0).0, 104.0); }
+}
+/// Pagina Mascote (v0.2.0): rosto a esquerda (150 px, reage ao mouse e a cliques), 2 slots configuraveis a direita (padrao: Arquivos em cima, Player mini embaixo).
+/// Sem slots: Eavy no centro, maior, com a cena (globo, toca-discos etc.); balao de status so quando houver.
 fn mascot_page(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
     a.p.mascot.mini = false;
     let cfg = crate::settings::get(); a.p.slot_tip = None;
-    for (w, rc) in crate::slots::layout(&cfg.slot_top, &cfg.slot_bottom) { crate::slots::draw_slot(a, w, rc, hits, off, now); }
+    let lay = crate::slots::layout(&cfg.slot_top, &cfg.slot_bottom); let solo = lay.iter().all(|(w, _)| *w == crate::slots::Widget::Empty);
+    for (w, rc) in lay { crate::slots::draw_slot(a, w, rc, hits, off, now); }
     if let Some((txt, cx, ty)) = a.p.slot_tip.take() { // legenda com o nome completo (por cima dos slots)
         let s = crate::pages2::ellip(a, &txt, Fmt::Small, 172.0); let tw = a.gfx.measure(&s, Fmt::Small); let bw = tw + 14.0; let bx = clamp_in(cx - bw / 2.0, 208.0, 394.0 - bw);
         a.gfx.rrect(bx, ty, bw, 17.0, 8.5, rgba(0x000000, 0.94)); a.gfx.rrect_stroke(bx + 0.5, ty + 0.5, bw - 1.0, 16.0, 8.0, 1.0, rgba(0xFFFFFF, 0.16)); a.gfx.text(&s, Fmt::Small, bx + 7.0, ty + 1.5, tw + 4.0, 14.0, TEXT, false);
     }
-    let (cx, cy) = (104.0, 68.0);
+    let (cx, cy, l) = mascot_pose(solo, cfg.mascot_w());
     let ctx = mascot_ctx(a, (cx, cy), cfg.mascot_gaze); a.p.mascot.step(&ctx, now);
-    let l = 72.0 * cfg.mascot_w() / 150.0; // corpo de 72 u (x k = 58/72/86 px); o tamanho do mascote escala sobre isso
     a.p.mascot.e.draw(&a.gfx, cx, cy + l * 0.35 + 8.0, l, false);
     hits.push((r(cx - l * 0.55 + off, cy - l * 0.4, l * 1.1, l * 0.9), Act::Mascot));
     if let Some((txt, al)) = a.p.mascot.balloon(now) { speech_balloon(a, txt, cx, 10.0, al); }
