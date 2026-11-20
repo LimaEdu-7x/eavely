@@ -96,8 +96,8 @@ fn main() { channel::seed_settings();
         use windows::{core::w, Win32::{Foundation::{GetLastError, ERROR_ALREADY_EXISTS}, System::Threading::CreateMutexW}};
         // apos crash (--restart) espera a trava do processo antigo soltar (ate 15 s) em vez de um sleep fixo; sem --restart tenta 1 vez
         let tries = if std::env::args().any(|a| a == "--restart") { 30 } else { 1 };
-        let mut res = CreateMutexW(None, true, w!("Local\\EavelyNotchSingleInstance"));
-        for _ in 1..tries { if res.is_ok() && GetLastError() == ERROR_ALREADY_EXISTS { if let Ok(h) = &res { let _ = windows::Win32::Foundation::CloseHandle(*h); } std::thread::sleep(std::time::Duration::from_millis(500)); res = CreateMutexW(None, true, w!("Local\\EavelyNotchSingleInstance")); } else { break; } }
+        let mut res = CreateMutexW(None, true, &windows::core::HSTRING::from(channel::MUTEX));
+        for _ in 1..tries { if res.is_ok() && GetLastError() == ERROR_ALREADY_EXISTS { if let Ok(h) = &res { let _ = windows::Win32::Foundation::CloseHandle(*h); } std::thread::sleep(std::time::Duration::from_millis(500)); res = CreateMutexW(None, true, &windows::core::HSTRING::from(channel::MUTEX)); } else { break; } }
         match res {
             Ok(m) => { if GetLastError() == ERROR_ALREADY_EXISTS && !(cfg!(feature = "devtools") && std::env::var_os("EAVELY_MULTI").is_some()) { state_log(&format!("segunda instancia ignorada (pid {}, v{}): ja existe outra", std::process::id(), env!("CARGO_PKG_VERSION"))); return; } std::mem::forget(m); } // GetLastError logo apos a chamada
             Err(_) => {} // sem mutex (raro): segue sem a trava de instancia unica
