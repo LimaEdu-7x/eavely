@@ -167,11 +167,11 @@ Section "Uninstall"
   ${GetParameters} $R0
   ${GetOptions} $R0 "/DELETEDATA" $R1
   ${IfNot} ${Errors}
-    RMDir /r "$APPDATA\${APPNAME}"
+    RMDir /r "$APPDATA\${APPDIR}"
   ${ElseIf} ${Silent}
     ; desinstalacao silenciosa sem /DELETEDATA: preserva os dados
   ${Else}
-    MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 "Remover tambem seus dados (lista do Shelf, configuracoes e cache de letras) em $APPDATA\${APPNAME}?" IDNO +2
-    RMDir /r "$APPDATA\${APPNAME}"
+    MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 "Remover tambem seus dados (lista do Shelf, configuracoes e cache de letras) em $APPDATA\${APPDIR}?" IDNO +2
+    RMDir /r "$APPDATA\${APPDIR}"
   ${EndIf}
 SectionEnd
