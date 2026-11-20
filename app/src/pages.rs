@@ -135,7 +135,7 @@ fn bar_text(pos: u64) -> (String, bool) {
 }
 pub fn live_size() -> (f32, f32, f32) { if live_expanded() { (300.0, 52.0, 22.0) } else if lyric_bar() { (300.0, 34.0, 14.0) } else { (live_width(), 30.0, 14.0) } }
 pub fn live_width() -> f32 { if is_playing() && timer_running() { 190.0 } else { 168.0 } }
-pub fn eq_anim() -> bool { is_playing() && !crate::island::reduced_motion() }
+pub fn eq_anim() -> bool { is_playing() && !crate::island::reduced_motion() && !crate::island::FS_COMPACT.load(std::sync::atomic::Ordering::Relaxed) }
 pub fn open_anim(a: &App, _now: Instant) -> bool { eq_anim() && a.state == St::Open }
 pub fn on_open(a: &mut App) {
     a.p.batt_t = None; a.p.mascot.touched(Instant::now());

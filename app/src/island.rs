@@ -121,6 +121,21 @@ unsafe fn pointer_moved(pt: POINT, wm: u32) {
 }
 /// bit 6 da classe: "ha cursor dentro de um monitor". Sem ele, o monitor 0 fora da zona de gatilho daria 0, igual a "sem cursor": a ilha nao voltava da tela 2 (bug A->B->A)
 const CLS_PRESENT: u32 = 1 << 6;
+/// modo compacto da tela cheia ativo (equalizador parado)
+pub static FS_COMPACT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// o que fazer com a ilha quando o monitor ativo esta em tela cheia
+#[derive(Debug, PartialEq, Clone, Copy)] pub enum FsAction { Stay, Move { to: usize, compact: bool }, Hide }
+/// decisao da tela cheia (funcao pura): `mode` = live (padrao) | compact | hide; `fs[i]` = monitor i em tela cheia.
+/// Sai para o proximo monitor livre a partir do ativo; sem outro livre (1 monitor, todos cheios) oculta.
+pub fn fs_action(mode: &str, active: usize, fs: &[bool]) -> FsAction {
+    if !fs.get(active).copied().unwrap_or(false) { return FsAction::Stay; }
+    if mode == "hide" { return FsAction::Hide; }
+    let n = fs.len();
+    match (1..n).map(|k| (active + k) % n).find(|&i| !fs[i]) {
+        Some(to) => FsAction::Move { to, compact: mode == "compact" },
+        None => FsAction::Hide,
+    }
+}
 /// classe do cursor: zona (bits 0-1), dock (bit 2), monitor (bits 3-5), presenca (bit 6)
 fn cursor_class(zone: u32, dock: bool, mon: usize) -> u32 { zone | (dock as u32) << 2 | ((mon as u32) & 7) << 3 | CLS_PRESENT }
 /// monitor para onde a ilha segue o cursor: so com cursor num monitor, ilha fechada (nao aberta) e monitor diferente do atual
@@ -321,7 +336,7 @@ impl Slot {
 }
 
 pub struct App {
-    pub hwnd: HWND, pub trace: HWND, pub vis: bool, pub gfx: Slot, pub mons: Vec<Mon>, pub active: usize, pub fs: Vec<bool>, pub mx: Vec<bool>,
+    pub hwnd: HWND, pub trace: HWND, pub vis: bool, pub gfx: Slot, pub mons: Vec<Mon>, pub active: usize, pub fs_compact: bool, pub fs_last: Option<Instant>, pub fs: Vec<bool>, pub mx: Vec<bool>,
     pub enabled: bool, pub state: St, pub page: usize, pub prev_page: usize, pub page_t: Spring, pub dir: f32,
     pub split: bool, pub dock: bool, pub drag_over: bool,
     pub ty: Spring, pub tw: Spring, pub th: Spring, pub tr: Spring, pub last_step: Instant, pub dock_t: Tw, pub split_t: Tw,
@@ -384,13 +399,22 @@ impl App {
         let pref = crate::settings::get().monitor;
         let want = match pref.as_str() { "cursor" => None, "primary" => Some(self.mons.iter().position(|m| m.x <= 0 && m.y <= 0 && m.x + m.w > 0 && m.y + m.h > 0).unwrap_or(0)), p => p.strip_prefix('m').and_then(|v| v.parse::<usize>().ok()).filter(|i| *i < n).or(Some(0)) };
         match want {
-            Some(i) => if i != self.active && self.state != St::Open { self.active = i; ACTIVE.store(i as u32, Relaxed); self.place(); },
-            None => if let Some(t) = follow_target(self.class, self.active, self.state == St::Open).filter(|&t| t < n) { self.active = t; ACTIVE.store(t as u32, Relaxed); self.place(); },
+            Some(i) => if i != self.active && self.state != St::Open && !self.fs[i] { self.active = i; ACTIVE.store(i as u32, Relaxed); self.place(); },
+            None => if let Some(t) = follow_target(self.class, self.active, self.state == St::Open).filter(|&t| t < n && !self.fs[t]) { self.active = t; ACTIVE.store(t as u32, Relaxed); self.place(); },
         }
+        // tela cheia (Configuracoes > Tela cheia): o monitor em tela cheia nunca recebe a ilha; sai para outra tela livre ou fica oculta
+        let mode = crate::settings::get().fs_mode().to_string();
+        let mut fs_hidden = false;
+        match fs_action(&mode, self.active.min(n - 1), &self.fs) {
+            FsAction::Move { to, compact } => { self.active = to; ACTIVE.store(to as u32, Relaxed); self.fs_compact = compact; self.place(); }
+            FsAction::Hide => { fs_hidden = true; self.fs_compact = false; }
+            FsAction::Stay => self.fs_compact = false,
+        }
+        FS_COMPACT.store(self.fs_compact, Relaxed);
         if let Some(p) = self.pin { if Instant::now() < p { self.set_state(St::Open, now); return; } else { self.pin = None; } }
         let a = self.active.min(n - 1);
         if zone >= 1 && self.enabled && !self.fs[a] && self.gfx.g.is_none() { self.ensure_gfx(); } // aquece o renderer ao chegar perto: abrir nao espera ~150 ms
-        let fs_hide = self.fs[a] && crate::settings::flag(crate::settings::F_HIDE_FS);
+        let fs_hide = fs_hidden;
         let new = if !self.enabled || fs_hide { St::Hidden }
             else if zone == 2 && self.state != St::Hidden && (!crate::settings::flag(crate::settings::F_CLICK) || self.click_open || self.state == St::Open) { St::Open }
             else if zone >= 1 && matches!(self.state, St::Line | St::Peek) { St::Peek }
@@ -538,6 +562,10 @@ impl App {
     fn frame(&mut self) {
         if !self.gfx.has() || !self.vis { self.dirty = false; return; }
         let t0 = Instant::now();
+        if self.fs_compact { // tela cheia em modo compacto: no maximo ~4 quadros/s (sem animacao continua)
+            if self.fs_last.is_some_and(|t| t0.duration_since(t).as_millis() < 250) { return; }
+            self.fs_last = Some(t0);
+        }
         let now = t0;
         let mut dt = (now - self.last_step).as_secs_f32(); self.last_step = now;
         if dt > 0.1 { dt = 0.016; } // quadro atrasado (criacao do renderer): a mola nao 'pula' o tempo perdido
@@ -887,7 +915,7 @@ pub fn start() -> Option<std::thread::JoinHandle<()>> {
         let mut hz = 60.0f32;
         let mut ti = DWM_TIMING_INFO { cbSize: size_of::<DWM_TIMING_INFO>() as u32, ..Default::default() };
         if DwmGetCompositionTimingInfo(hwnd, &mut ti).is_ok() && ti.rateRefresh.uiDenominator != 0 { hz = ti.rateRefresh.uiNumerator as f32 / ti.rateRefresh.uiDenominator as f32; }
-        let mut app = App { hwnd, trace, vis: false, gfx, mons: mons.clone(), active, fs: vec![false; mons.len()], mx: vec![false; mons.len()], enabled: true, state: St::Hidden,
+        let mut app = App { hwnd, trace, vis: false, gfx, mons: mons.clone(), active, fs: vec![false; mons.len()], mx: vec![false; mons.len()], fs_compact: false, fs_last: None, enabled: true, state: St::Hidden,
             breathe: None, kb_prev: None, click_open: false, look_eyes: crate::settings::get().collapsed_look == "eyes", eye_last: (0, 0), page: crate::pages::load_page(), prev_page: 0, page_t: Spring::new(1.0), dir: 1.0, split: crate::pages::load_split(), dock: false, drag_over: false,
             ty: Spring::new(0.0), tw: Spring::new(crate::layout::mini_w()), th: Spring::new(crate::layout::mini_h()), tr: Spring::new(crate::layout::mini_r()), last_step: Instant::now(), dock_t: Tw::new(0.0), split_t: Tw::new(0.0), class: 0, hover: None, pressed: None, hits: Vec::new(),
             seek_drag: false, seek_opt: None, rest_shape: (crate::layout::mini_w(), crate::layout::mini_h(), crate::layout::mini_r()), pin: None, leave_at: None, drag_prev_page: None, rect1: (0.0, 0.0, crate::layout::win_w(), crate::layout::win_h()), rect2: (0.0, 0.0, crate::layout::win_w(), crate::layout::win_h()), stats: Stats { iv: Vec::new(), cpu: Vec::new(), last: None, streaks: 0, hz }, dirty: true, started: Instant::now(), force: None, region: (0, 0),
@@ -1051,4 +1079,30 @@ mod metrics_want_tests {
     #[test] fn metricas_ligam_no_slot_da_pagina_mascote_com_ilha_aberta() { assert!(metrics_wanted(true, true, St::Open, crate::pages::P_MASCOT, false, false, true)); }
     #[test] fn metricas_nao_ligam_sem_slot_ou_em_outra_pagina() { assert!(!metrics_wanted(true, true, St::Open, crate::pages::P_MASCOT, false, false, false)); assert!(!metrics_wanted(true, true, St::Open, crate::pages::P_MUSIC, false, false, true)); }
     #[test] fn metricas_continuam_no_compacto_e_param_oculta() { assert!(metrics_wanted(true, true, St::Peek, 1, false, true, false)); assert!(!metrics_wanted(true, false, St::Open, 0, false, false, true)); }
+}
+
+#[cfg(test)]
+mod fullscreen_tests {
+    use super::*;
+    #[test] fn um_monitor_em_tela_cheia_oculta_em_qualquer_modo() { for m in ["live", "compact", "hide"] { assert_eq!(fs_action(m, 0, &[true]), FsAction::Hide); } }
+    #[test] fn dois_monitores_ao_vivo_e_compacto_movem_para_o_livre() {
+        assert_eq!(fs_action("live", 0, &[true, false]), FsAction::Move { to: 1, compact: false });
+        assert_eq!(fs_action("compact", 0, &[true, false]), FsAction::Move { to: 1, compact: true });
+        assert_eq!(fs_action("hide", 0, &[true, false]), FsAction::Hide);
+    }
+    #[test] fn monitor_sem_tela_cheia_fica() { assert_eq!(fs_action("live", 1, &[true, false]), FsAction::Stay); }
+    #[test] fn escolhe_o_proximo_monitor_livre_a_partir_do_ativo() { assert_eq!(fs_action("live", 0, &[true, true, false]), FsAction::Move { to: 2, compact: false }); assert_eq!(fs_action("live", 0, &[true, false, true]), FsAction::Move { to: 1, compact: false }); }
+    #[test] fn todos_em_tela_cheia_oculta() { assert_eq!(fs_action("live", 0, &[true, true]), FsAction::Hide); }
+    #[test] fn ida_e_volta_nao_prende_a_ilha_no_monitor_cheio() { // A cheio -> ilha vai para B; depois B livre: fica em B (nao volta para A enquanto A estiver cheio)
+        assert_eq!(fs_action("live", 0, &[true, false]), FsAction::Move { to: 1, compact: false });
+        assert_eq!(fs_action("live", 1, &[true, false]), FsAction::Stay);
+    }
+    #[test] fn modo_desconhecido_vale_como_ao_vivo() { assert_eq!(fs_action("xyz", 0, &[true, false]), FsAction::Move { to: 1, compact: false }); }
+    #[test] fn migra_ocultar_e_mover_ao_vivo() {
+        use crate::settings::Settings;
+        let mut s = Settings::default(); s.hide_fullscreen = Some(true); s.fullscreen_mode = None; s.clamp(); assert_eq!(s.fs_mode(), "hide"); assert_eq!(s.hide_fullscreen, None);
+        let mut s = Settings::default(); s.hide_fullscreen = Some(false); s.clamp(); assert_eq!(s.fs_mode(), "live");
+        let mut s = Settings::default(); s.clamp(); assert_eq!(s.fs_mode(), "live"); // instalacao nova: padrao Mover ao vivo
+        let mut s = Settings::default(); s.hide_fullscreen = Some(true); s.fullscreen_mode = Some("compact".into()); s.clamp(); assert_eq!(s.fs_mode(), "compact"); // o modo novo vence
+    }
 }
