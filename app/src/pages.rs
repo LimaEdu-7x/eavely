@@ -588,14 +588,7 @@ fn music_normal(a: &mut App, now: Instant, t: f32, hits: &mut Vec<(R, Act)>, off
         thumb(a, 1, 296.0 + 65.0 * vv, 110.0, hov(a, Act::VolSlider) || a.p.vol_drag, now);
         hits.push((r(290.0 + off, 98.0, 77.0, 24.0), Act::VolSlider));
     }
-    let (p0, n0) = (r(160.0, 97.0, 26.0, 26.0), r(234.0, 97.0, 26.0, 26.0)); // grupo centrado em x=210 (QA5 C1: prev 173 / play 210 / next 247)
-    if !empty { button_bg(a, hits, p0, Act::Prev, off, 13.0); } if true { a.gfx.icon("skip-back", 165.0, 102.0, 16.0, (1.0, 1.0, 1.0, dis), true);
-    button_bg(a, hits, n0, Act::Next, off, 13.0); a.gfx.icon("skip-forward", 239.0, 102.0, 16.0, (1.0, 1.0, 1.0, dis), true); }
-    let pc = if a.pressed == Some(Act::Play) { rgba(0xCFCFCF, 1.0) } else if hov(a, Act::Play) { rgba(0xE6E6E6, 1.0) } else { rgba(0xFFFFFF, dis) };
-    {
-    a.gfx.rrect(192.0, 95.0, 36.0, 30.0, 15.0, pc); // 7 px abaixo da barra (antes encostava)
-    a.gfx.icon(if v.status == "playing" { "pause" } else { "play" }, if v.status == "playing" { 201.0 } else { 202.0 }, 101.0, 18.0, (0.0, 0.0, 0.0, 1.0), true); // play: +1 px (compensacao optica)
-    if !empty { hits.push((r(192.0 + off, 95.0, 36.0, 30.0), Act::Play)); } }
+    capsule_controls(a, hits, 210.0, 110.0, off, v.status == "playing", !empty);
     let lb = r(20.0, 98.0, 24.0, 24.0); // icone do balao em x=24..40 (alinha com o tempo)
     if a.split { a.gfx.rrect(lb.x, lb.y, lb.w, lb.h, 9.0, rgba(0xFFFFFF, 0.16)); } else { button_bg(a, hits, lb, Act::Lyrics, off, 9.0); }
     a.gfx.icon("message-square-quote", 24.0, 102.0, 16.0, if a.split { TEXT } else { TEXT2 }, false);
@@ -661,10 +654,7 @@ fn music_split(a: &mut App, now: Instant, hits: &mut Vec<(R, Act)>) {
     thumb(a, 0, 56.0 + 140.0 * frac, 83.0, big, Instant::now());
     hits.push((r(56.0, 74.0, 140.0, 18.0), act));
     let lb = r(16.0, 98.0, 24.0, 24.0); a.gfx.rrect(lb.x, lb.y, lb.w, lb.h, 9.0, rgba(0xFFFFFF, 0.16)); a.gfx.icon("message-square-quote", 20.0, 102.0, 16.0, TEXT, false); hits.push((lb, Act::Lyrics));
-    button_bg(a, hits, r(72.0, 97.0, 26.0, 26.0), Act::Prev, 0.0, 13.0); a.gfx.icon("skip-back", 77.0, 102.0, 16.0, TEXT, true);
-    button_bg(a, hits, r(146.0, 97.0, 26.0, 26.0), Act::Next, 0.0, 13.0); a.gfx.icon("skip-forward", 151.0, 102.0, 16.0, TEXT, true);
-    a.gfx.rrect(104.0, 95.0, 36.0, 30.0, 15.0, if hov(a, Act::Play) { rgba(0xE6E6E6, 1.0) } else { TEXT });
-    a.gfx.icon(if v.status == "playing" { "pause" } else { "play" }, 113.0, 101.0, 18.0, (0.0, 0.0, 0.0, 1.0), true); hits.push((r(104.0, 95.0, 36.0, 30.0), Act::Play));
+    capsule_controls(a, hits, 122.0, 110.0, 0.0, v.status == "playing", !(v.title.is_empty() && v.status == "stopped"));
     a.gfx.line(250.5, 16.0, 250.5, 120.0, 1.0, LINE_C);
     // painel de letras
     let l = lyr();
@@ -903,4 +893,24 @@ pub(crate) fn thumb(a: &mut App, idx: usize, x: f32, y: f32, on: bool, now: Inst
     if k < 1.0 { a.dirty = true; } // anima ate o fim
     let d = crate::spacing::THUMB * (0.6 + 0.4 * k);
     a.gfx.circle(x, y, d / 2.0, rgba(0xFFFFFF, k));
+}
+
+/// H2 (design/index.html, capsula segmentada): anterior 44x32, play/pause 56x32 branco e proximo 44x32, numa capsula de 154x38 (fundo branco 10%, 3 px de borda, 2 px entre botoes).
+/// Estados: hover (laterais +8%, central #f0f0f2), pressionado (laterais 30%, central #d5d5da), desativado (40% de opacidade, sem clique).
+pub(crate) fn capsule_controls(a: &mut App, hits: &mut Vec<(R, Act)>, cx: f32, cy: f32, off: f32, playing: bool, enabled: bool) {
+    let dis = if enabled { 1.0 } else { 0.4 };
+    let (x0, y0) = (cx - 77.0, cy - 19.0);
+    a.gfx.rrect(x0, y0, 154.0, 38.0, 19.0, rgba(0xFFFFFF, 0.10 * dis));
+    for (rc, act, icon) in [(r(x0 + 3.0, y0 + 3.0, 44.0, 32.0), Act::Prev, "skip-back"), (r(x0 + 107.0, y0 + 3.0, 44.0, 32.0), Act::Next, "skip-forward")] {
+        let pressed = enabled && a.pressed == Some(act); let hv = enabled && hov(a, act);
+        if pressed { a.gfx.rrect(rc.x + 1.3, rc.y + 1.3, rc.w - 2.6, rc.h - 2.6, 14.0, rgba(0xFFFFFF, 0.30 * dis)); }
+        else if hv { a.gfx.rrect(rc.x, rc.y, rc.w, rc.h, 16.0, rgba(0xFFFFFF, 0.18 * dis)); }
+        a.gfx.icon(icon, rc.x + 14.0, rc.y + 8.0, 16.0, (1.0, 1.0, 1.0, dis), true);
+        if enabled { hits.push((R { x: rc.x + off, ..rc }, act)); }
+    }
+    let pl = r(x0 + 49.0, y0 + 3.0, 56.0, 32.0);
+    let fill = if enabled && a.pressed == Some(Act::Play) { rgba(0xD5D5DA, dis) } else if enabled && hov(a, Act::Play) { rgba(0xF0F0F2, dis) } else { rgba(0xFFFFFF, dis) };
+    a.gfx.rrect(pl.x, pl.y, pl.w, pl.h, 16.0, fill);
+    a.gfx.icon(if playing { "pause" } else { "play" }, pl.x + 19.0, pl.y + 7.0, 18.0, (0.0, 0.0, 0.0, dis), true);
+    if enabled { hits.push((R { x: pl.x + off, ..pl }, Act::Play)); }
 }
