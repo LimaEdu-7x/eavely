@@ -31,8 +31,8 @@ Unicode true
 
 Name "${APPNAME}"
 OutFile "${OUT}"
-InstallDir "$LOCALAPPDATA\Programs\${APPNAME}"
-InstallDirRegKey HKCU "Software\${APPNAME}" "InstallDir"
+InstallDir "$LOCALAPPDATA\Programs\${APPDIR}"
+InstallDirRegKey HKCU "Software\${APPDIR}" "InstallDir"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
 BrandingText "${APPNAME} ${VERSION}"
@@ -80,35 +80,35 @@ Section "${APPNAME} (obrigatorio)" SecMain
   File "/oname=${EXE_NAME}" "${EXE}"
   File "..\LICENSE"
   WriteUninstaller "$INSTDIR\Desinstalar.exe"
-  WriteRegStr HKCU "Software\${APPNAME}" "InstallDir" "$INSTDIR"
+  WriteRegStr HKCU "Software\${APPDIR}" "InstallDir" "$INSTDIR"
   ; Adicionar ou remover programas (por usuario)
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayName" "${APPNAME}"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayVersion" "${VERSION}"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "Publisher" "${APPNAME}"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayIcon" "$INSTDIR\${EXE_NAME}"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "InstallLocation" "$INSTDIR"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "UninstallString" '"$INSTDIR\Desinstalar.exe"'
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "QuietUninstallString" '"$INSTDIR\Desinstalar.exe" /S'
-  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoModify" 1
-  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoRepair" 1
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPDIR}" "DisplayName" "${APPNAME}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPDIR}" "DisplayVersion" "${VERSION}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPDIR}" "Publisher" "${APPNAME}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPDIR}" "DisplayIcon" "$INSTDIR\${EXE_NAME}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPDIR}" "InstallLocation" "$INSTDIR"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPDIR}" "UninstallString" '"$INSTDIR\Desinstalar.exe"'
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPDIR}" "QuietUninstallString" '"$INSTDIR\Desinstalar.exe" /S'
+  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPDIR}" "NoModify" 1
+  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPDIR}" "NoRepair" 1
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
-  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "EstimatedSize" "$0"
+  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPDIR}" "EstimatedSize" "$0"
 SectionEnd
 
-; Atalhos: o desinstalador so apaga o que o proprio instalador criou (gravado em HKCU\Software\${APPNAME}).
+; Atalhos: o desinstalador so apaga o que o proprio instalador criou (gravado em HKCU\Software\${APPDIR}).
 ; Se ja existia um ${APPNAME}.lnk, ele nao e tocado nem registrado.
 Section "Atalho no Menu Iniciar" SecStart
   ${IfNot} ${FileExists} "$SMPROGRAMS\${APPNAME}.lnk"
     CreateShortcut "$SMPROGRAMS\${APPNAME}.lnk" "$INSTDIR\${EXE_NAME}"
-    WriteRegDWORD HKCU "Software\${APPNAME}" "CreatedStartLnk" 1
+    WriteRegDWORD HKCU "Software\${APPDIR}" "CreatedStartLnk" 1
   ${EndIf}
 SectionEnd
 
 Section /o "Atalho na Area de Trabalho" SecDesk
   ${IfNot} ${FileExists} "$DESKTOP\${APPNAME}.lnk"
     CreateShortcut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\${EXE_NAME}"
-    WriteRegDWORD HKCU "Software\${APPNAME}" "CreatedDesktopLnk" 1
+    WriteRegDWORD HKCU "Software\${APPDIR}" "CreatedDesktopLnk" 1
   ${EndIf}
 SectionEnd
 
@@ -151,17 +151,17 @@ Section "Uninstall"
   Delete "$INSTDIR\LICENSE"
   Delete "$INSTDIR\Desinstalar.exe"
   RMDir "$INSTDIR"
-  ReadRegDWORD $R2 HKCU "Software\${APPNAME}" "CreatedStartLnk"
+  ReadRegDWORD $R2 HKCU "Software\${APPDIR}" "CreatedStartLnk"
   ${If} $R2 == 1
     Delete "$SMPROGRAMS\${APPNAME}.lnk"
   ${EndIf}
-  ReadRegDWORD $R2 HKCU "Software\${APPNAME}" "CreatedDesktopLnk"
+  ReadRegDWORD $R2 HKCU "Software\${APPDIR}" "CreatedDesktopLnk"
   ${If} $R2 == 1
     Delete "$DESKTOP\${APPNAME}.lnk"
   ${EndIf}
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APPNAME}"
-  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}"
-  DeleteRegKey HKCU "Software\${APPNAME}"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPDIR}"
+  DeleteRegKey HKCU "Software\${APPDIR}"
   DeleteRegKey HKCU "Software\Classes\AppUserModelId\app.eavely"   ; AUMID dos toasts criado pelo app
   ; dados do usuario (lista do Shelf, ui.json, cache de letras): so se o usuario pedir
   ${GetParameters} $R0
