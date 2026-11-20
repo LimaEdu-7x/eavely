@@ -3,7 +3,7 @@
 // Cada widget recebe o retangulo INTEIRO do slot (52 px ou 110 px de altura). O conteudo fica numa faixa de BAND px com PAD px de folga
 // em cima e embaixo (em 52 px a faixa e o slot menos 10 px de cada lado); em 110 px a faixa fica centralizada.
 use std::time::Instant;
-use crate::spacing::{EDGE, GAP, BAR_W};
+use crate::spacing::{EDGE, CARD_GAP, ITEM_GAP, BAR_W};
 use crate::{gfx::{rgba, Fmt, Rgba}, island::App, media, pages::{self, hov, button_bg, ui_pos, draw_cover, timer_running, r, Act, R, R2}, pages2, shelf, tasks, timer};
 
 const TEXT: Rgba = rgba(0xFFFFFF, 1.0);
@@ -13,7 +13,8 @@ const SURFACE: Rgba = rgba(0xFFFFFF, 0.08);
 const SURFACE_H: Rgba = rgba(0xFFFFFF, 0.14);
 const BLUE: Rgba = rgba(0x7CC4FF, 1.0);
 const PAD: f32 = crate::spacing::SLOT_PAD; // margem do conteudo no slot de 52 px (modulo spacing)
-const BAND: f32 = 32.0; // altura util do conteudo (52 - 2 x PAD)
+const BAND: f32 = SLOT_H - 2.0 * PAD; // altura util do conteudo (slot pequeno - 2 x PAD)
+const TALL_MIN: f32 = 100.0; // acima disso o slot e grande (144 px): variante grande dos widgets
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)] pub enum Widget { #[default] Empty, Shelf, Player, Tasks, Timer, Clock, Metrics }
 impl Widget {
@@ -22,15 +23,15 @@ impl Widget {
     pub fn key(self) -> &'static str { match self { Widget::Shelf => "shelf", Widget::Player => "player", Widget::Tasks => "tasks", Widget::Timer => "timer", Widget::Clock => "clock", Widget::Metrics => "metrics", Widget::Empty => "none" } }
     pub fn label(self) -> &'static str { match self { Widget::Shelf => "Arquivos", Widget::Player => "Player mini", Widget::Tasks => "Tarefas", Widget::Timer => "Timer", Widget::Clock => "Relógio / Data", Widget::Metrics => "Métricas do PC", Widget::Empty => "Nenhum" } }
 }
-pub const SLOT_W: f32 = 190.0; pub const SLOT_H: f32 = 52.0; // termina em 396: as setas de pagina (402..414) ficam fora do slot
+pub const SLOT_X: f32 = 252.0; pub const SLOT_W: f32 = 212.0; pub const SLOT_H: f32 = 64.0; pub const SLOT_BIG: f32 = 144.0; pub const SLOT_TOP: f32 = 12.0; pub const SLOT_TOP2: f32 = 84.0; // termina em 396: as setas de pagina (402..414) ficam fora do slot
 /// slots efetivos (retangulos) a partir das opcoes: a mesma opcao nao pode estar nos dois (o 2o vira Nenhum); com um Nenhum o outro cresce para 190x110
 pub fn layout(top: &str, bottom: &str) -> [(Widget, R); 2] {
     let (t, mut b) = (Widget::parse(top), Widget::parse(bottom)); if t != Widget::Empty && t == b { b = Widget::Empty; }
     match (t, b) {
-        (Widget::Empty, Widget::Empty) => [(Widget::Empty, r(206.0, 10.0, SLOT_W, SLOT_H)), (Widget::Empty, r(206.0, 68.0, SLOT_W, SLOT_H))],
-        (t, Widget::Empty) => [(t, r(206.0, 10.0, SLOT_W, 110.0)), (Widget::Empty, r(206.0, 68.0, SLOT_W, SLOT_H))],
-        (Widget::Empty, b) => [(Widget::Empty, r(206.0, 10.0, SLOT_W, SLOT_H)), (b, r(206.0, 10.0, SLOT_W, 110.0))],
-        (t, b) => [(t, r(206.0, 10.0, SLOT_W, SLOT_H)), (b, r(206.0, 68.0, SLOT_W, SLOT_H))],
+        (Widget::Empty, Widget::Empty) => [(Widget::Empty, r(SLOT_X, SLOT_TOP, SLOT_W, SLOT_H)), (Widget::Empty, r(SLOT_X, SLOT_TOP2, SLOT_W, SLOT_H))],
+        (t, Widget::Empty) => [(t, r(SLOT_X, SLOT_TOP, SLOT_W, SLOT_BIG)), (Widget::Empty, r(SLOT_X, SLOT_TOP2, SLOT_W, SLOT_H))],
+        (Widget::Empty, b) => [(Widget::Empty, r(SLOT_X, SLOT_TOP, SLOT_W, SLOT_H)), (b, r(SLOT_X, SLOT_TOP, SLOT_W, SLOT_BIG))],
+        (t, b) => [(t, r(SLOT_X, SLOT_TOP, SLOT_W, SLOT_H)), (b, r(SLOT_X, SLOT_TOP2, SLOT_W, SLOT_H))],
     }
 }
 /// Topo de um bloco de altura `h` centrado no slot (funciona em 52 e em 110 px)
@@ -56,7 +57,7 @@ pub fn shelf_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: In
     card(a, s);
     if items.is_empty() || drag {
         let col = if drag { BLUE } else { rgba(0xFFFFFF, 0.28) };
-        let pd = if s.h > 60.0 { EDGE } else { PAD }; // 110 px: caixa com a margem de 12 px
+        let pd = if s.h > TALL_MIN { EDGE } else { PAD }; // 110 px: caixa com a margem de 12 px
         a.gfx.rrect_dashed(s.x + pd, s.y + pd, s.w - 2.0 * pd, s.h - 2.0 * pd, 10.0, 1.5, col, 3.0, 2.0);
         a.gfx.icon("inbox", s.x + 20.0, mid(s, 20.0), 20.0, if drag { BLUE } else { TEXT2 }, false);
         let ty = band(s);
@@ -65,7 +66,7 @@ pub fn shelf_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: In
         return;
     }
     hits.push((R { x: s.x + off, ..s }, Act::ShelfPan)); // clicar no vazio do slot limpa a selecao
-    if s.h > 60.0 { return shelf_grid(a, s, hits, off, &items); }
+    if s.h > TALL_MIN { return shelf_grid(a, s, hits, off, &items); }
     let (tw, step) = (52.0f32, 56.0f32); let th = s.h - 2.0 * PAD; let y = s.y + PAD; let oy = (th - BAND) / 2.0; // cards ocupam a altura do slot; o conteudo do card fica na faixa
     let max = ((s.w - 2.0 * PAD - step) / step) as usize; // 2 cards + alvo de soltar (ou +N) dentro da margem de 10 px
     for (i, it) in items.iter().take(max).enumerate() {
@@ -95,11 +96,11 @@ pub fn shelf_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: In
 }
 
 /// Arquivos no slot de 110 px: grade 3 x 2 (ate 6 itens) e barrinha vertical a esquerda, de cima a baixo, que abre a pagina Arquivos.
-/// Medidas do modulo spacing (margem EDGE 12, GAP 6, BAR_W 4): 48x40 por card.
+/// Medidas do modulo spacing (margem EDGE 16, CARD_GAP 12, BAR_W 4): 48x50 por card no slot grande.
 /// geometria da grade: (x do 1o card, y do 1o card, largura, altura) e a faixa da barrinha
 fn grid_geom(s: R) -> (f32, f32, f32, f32, f32) {
-    let gx = s.x + EDGE + BAR_W + GAP; let gw = s.w - EDGE - (gx - s.x); let (gy, gh) = (s.y + EDGE, s.h - 2.0 * EDGE);
-    (gx, gy, (gw - 2.0 * GAP) / 3.0, (gh - GAP) / 2.0, gh)
+    let gx = s.x + EDGE + BAR_W + ITEM_GAP; let gw = s.w - EDGE - (gx - s.x); let (gy, gh) = (s.y + EDGE, s.h - 2.0 * EDGE);
+    (gx, gy, (gw - 2.0 * CARD_GAP) / 3.0, (gh - CARD_GAP) / 2.0, gh)
 }
 fn shelf_grid(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, items: &[shelf::ShelfItem]) {
     let (gx, gy, tw, th, gh) = grid_geom(s);
@@ -108,7 +109,7 @@ fn shelf_grid(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, items: &[sh
     a.gfx.rrect(bar.x, bar.y, bar.w, bar.h, BAR_W / 2.0, if hv_bar { rgba(0xFFFFFF, 0.42) } else { rgba(0xFFFFFF, 0.22) });
     hits.push((R { x: bar.x + off - 4.0, y: bar.y, w: bar.w + 8.0, h: bar.h }, shelf_act)); // a barrinha (com folga de 4 px) abre a pagina Arquivos
     for (i, it) in items.iter().take(6).enumerate() {
-        let (x, y) = (gx + (i % 3) as f32 * (tw + GAP), gy + (i / 3) as f32 * (th + GAP)); let act = Act::ShelfOpen(i as u32);
+        let (x, y) = (gx + (i % 3) as f32 * (tw + CARD_GAP), gy + (i / 3) as f32 * (th + CARD_GAP)); let act = Act::ShelfOpen(i as u32);
         let hv = a.hover == Some(act); let on = a.p.sel.contains(&i);
         a.gfx.rrect(x, y, tw, th, 10.0, if hv || on { SURFACE_H } else { SURFACE });
         pages2::card_art(a, it, x + tw / 2.0, y + 12.0, 0.4); // icone pequeno no topo do card; nome numa linha embaixo
@@ -125,7 +126,7 @@ fn shelf_grid(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, items: &[sh
 pub fn player_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
     let v = media::view(); let empty = v.title.is_empty() && v.status == "stopped";
     card(a, s);
-    let tall = s.h > 60.0;
+    let tall = s.h > TALL_MIN;
     let cs = if tall { 72.0 } else { s.h - 2.0 * PAD }; let (cx, cy) = (s.x + PAD, if tall { s.y + PAD } else { s.y + PAD });
     let tx = cx + cs + PAD; let ctl = s.x + s.w - 68.0; // 52 px: controles (16+2+22+2+16 = 58 px) terminam a 10 px da borda
     let (ty, ay) = if tall { (s.y + 16.0, s.y + 33.0) } else { (s.y + 8.0, s.y + 22.0) }; // 52 px: titulo + artista terminam antes da barra (y 39)
@@ -157,7 +158,7 @@ pub fn tasks_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32) {
     card(a, s); hits.push((R { x: s.x + off, ..s }, Act::Page(pages::P_TASKS as u8)));
     let list = tasks::list(); let today = tasks::now_local().date_str(); let (done, total) = tasks::counts(&list, &today);
     let green = rgba(0x5EE0B0, 1.0);
-    if s.h > 60.0 { // 110 px: ate 3 pendentes com marcador + contagem e barra de progresso na base
+    if s.h > TALL_MIN { // 110 px: ate 3 pendentes com marcador + contagem e barra de progresso na base
         let pend: Vec<&tasks::Task> = list.iter().filter(|t| !t.done).collect();
         if pend.is_empty() { a.gfx.text("Sem tarefas pendentes", Fmt::Row, s.x + 14.0, s.y + 14.0, s.w - 28.0, 16.0, TEXT2, false); }
         for (i, t) in pend.iter().take(3).enumerate() {
@@ -184,7 +185,7 @@ pub fn timer_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32) {
     let t = timer::timer_get().ok(); let running = timer_running();
     let (rem, total, label) = t.map_or((0, 0, "Foco".to_string()), |t| (t.remaining_sec, t.total_sec, format!("{} · ciclo {}", match t.mode { timer::Mode::Focus => "Foco", _ => "Pausa" }, t.cycle.max(1))));
     let coral = rgba(0xFF7A66, 1.0);
-    if s.h > 60.0 {
+    if s.h > TALL_MIN {
         a.gfx.text(&label, Fmt::Small, s.x + 14.0, s.y + 12.0, s.w - 28.0, 13.0, TEXT3, false);
         a.gfx.text(&format!("{:02}:{:02}", rem / 60, rem % 60), Fmt::Big, s.x + 14.0, s.y + 24.0, s.w - 28.0, 36.0, TEXT, false);
         let (pl, rs) = (r(s.x + 14.0, s.y + 64.0, 60.0, 22.0), r(s.x + 82.0, s.y + 64.0, 22.0, 22.0)); // botoes terminam em y+86: 10 px acima da barra (y+96)
@@ -204,7 +205,7 @@ pub fn timer_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32) {
 /// Relogio / data: 52 px = hora + data; 110 px = hora grande (Big), data e icone de 40 px a direita
 pub fn clock_mini(a: &mut App, s: R) {
     card(a, s); let (hm, date) = pages::rest_clock();
-    if s.h > 60.0 {
+    if s.h > TALL_MIN {
         a.gfx.text(&hm, Fmt::Big, s.x + 14.0, s.y + 27.0, s.w - 70.0, 36.0, TEXT, false); a.gfx.text(&date, Fmt::Row, s.x + 14.0, s.y + 67.0, s.w - 70.0, 16.0, TEXT3, false);
         a.gfx.icon("clock", s.x + s.w - 54.0, s.y + (s.h - 40.0) / 2.0, 40.0, TEXT2, false);
         return;
@@ -217,7 +218,7 @@ pub fn clock_mini(a: &mut App, s: R) {
 pub fn metrics_mini(a: &mut App, s: R) {
     card(a, s); let sn = crate::metrics::snap();
     let cols = [("CPU", Some(sn.cpu), BLUE), ("RAM", Some(sn.ram), rgba(0x5EE0B0, 1.0)), ("GPU", sn.gpu, rgba(0xB69CFF, 1.0))];
-    if s.h > 60.0 { // 110 px: rotulo, valor grande (Big; Head se nao couber na coluna) e barra de 16 px ancorada a 10 px da base
+    if s.h > TALL_MIN { // 110 px: rotulo, valor grande (Big; Head se nao couber na coluna) e barra de 16 px ancorada a 10 px da base
         for (i, (lbl, v, col)) in cols.into_iter().enumerate() {
             let x = s.x + 14.0 + i as f32 * 58.0; let txt = v.map_or("—".into(), |v| format!("{v:.0}%"));
             let vf = if a.gfx.measure(&txt, Fmt::Big) <= 56.0 { Fmt::Big } else { Fmt::Head };
@@ -239,23 +240,23 @@ mod tests {
     use super::*;
     #[test]
     fn slot_unico_ocupa_altura_toda() { // com um Nenhum, o outro cresce para 110 px; com dois, cada um tem 52
-        assert_eq!(layout("shelf", "none")[0].1.h, 110.0);
+        assert_eq!(layout("shelf", "none")[0].1.h, SLOT_BIG);
         assert_eq!(layout("shelf", "player")[0].1.h, SLOT_H);
         assert_eq!(layout("shelf", "player")[1].1.h, SLOT_H);
     }
     #[test]
     fn grade_de_arquivos_cabe_com_margem_de_12_px() { // 110 px: 3 x 2 cards dentro de EDGE 12 e barrinha de BAR_W antes da grade
-        let s = r(206.0, 10.0, SLOT_W, 110.0); let (gx, gy, tw, th, _) = grid_geom(s);
-        assert_eq!((tw, th), (48.0, 40.0));
-        assert!(gx + 3.0 * tw + 2.0 * GAP <= s.x + s.w - EDGE + 0.01, "colunas passam da margem direita");
-        assert!(gy + 2.0 * th + GAP <= s.y + s.h - EDGE + 0.01, "linhas passam da margem de baixo");
-        assert!(gx - s.x >= EDGE + BAR_W + GAP - 0.01, "grade colide com a barrinha");
+        let s = r(SLOT_X, SLOT_TOP, SLOT_W, SLOT_BIG); let (gx, gy, tw, th, _) = grid_geom(s);
+        assert_eq!((tw, th), (48.0, 50.0));
+        assert!(gx + 3.0 * tw + 2.0 * CARD_GAP <= s.x + s.w - EDGE + 0.01, "colunas passam da margem direita");
+        assert!(gy + 2.0 * th + CARD_GAP <= s.y + s.h - EDGE + 0.01, "linhas passam da margem de baixo");
+        assert!(gx - s.x >= EDGE + BAR_W + ITEM_GAP - 0.01, "grade colide com a barrinha");
     }
     #[test]
     fn bloco_centrado_com_margem_de_10_px() { // a faixa de conteudo tem >= 10 px em cima e embaixo, em 52 e em 110 px
         assert!(BAND <= SLOT_H - 2.0 * PAD, "faixa de {BAND} px nao cabe com margem de {PAD} px em 52 px");
-        for h in [SLOT_H, 110.0] {
-            let s = r(206.0, 10.0, SLOT_W, h);
+        for h in [SLOT_H, SLOT_BIG] {
+            let s = r(SLOT_X, SLOT_TOP, SLOT_W, h);
             let top = band(s);
             let (above, below) = (top - s.y, s.y + s.h - (top + BAND));
             assert!(above >= PAD && below >= PAD, "h={h}: margem {above} em cima, {below} embaixo (minimo {PAD})");

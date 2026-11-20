@@ -8,7 +8,7 @@ pub fn set_k(v: f32) { K.store(v.clamp(0.6, 1.5).to_bits(), Relaxed); }
 macro_rules! m { ($($n:ident = $v:expr;)*) => { $(#[inline] pub fn $n() -> f32 { $v * k() })* } }
 m! {
     win_w = 600.0;      // janela maxima (520 das letras + flares de 18 + folga para o overshoot)
-    open_w = 420.0; open_flare = 18.0;
+    open_w = 480.0; open_flare = 18.0;
     split_w = 520.0;    // aberta com letras ao lado
     dock_extra = 32.0;  // dock/calendario
     compact_h = 30.0; compact_r = 14.0; compact_flare = 6.0;
@@ -19,8 +19,8 @@ m! {
 /// altura extra (unidades de projeto) que o preset PEQUENO ganha: a tipografia tem piso em px reais, entao o conteudo ocupa mais que 80 % e o rodape (pontos, dock) nao pode ser cortado.
 /// 0 em k >= 1; +10 em 0,8 (a ilha fica com ~120 px reais em vez de 112).
 #[inline] pub fn pad() -> f32 { (1.0 - k()).max(0.0) * 50.0 }
-#[inline] pub fn open_h() -> f32 { (140.0 + pad()) * k() }
-#[inline] pub fn win_h() -> f32 { (176.0 + pad()) * k() } // 164 com dock + folga
+#[inline] pub fn open_h() -> f32 { (168.0 + pad()) * k() }
+#[inline] pub fn win_h() -> f32 { (208.0 + pad()) * k() } // 164 com dock + folga
 /// tamanho de fonte (px logicos) no preset atual: escala com k, mas nunca abaixo do piso legivel (9 px). Preset pequeno ganha tipografia propria sobre este piso.
 #[inline] pub fn font(base: f32) -> f32 { (base * k()).max(FONT_FLOOR.min(base)) }
 pub const FONT_FLOOR: f32 = 9.0;
@@ -48,8 +48,8 @@ mod tests {
         set_k(1.0);
     }
     #[test] fn pequeno_ganha_altura_para_o_rodape_e_padrao_nao_muda() {
-        let _g = lock(); set_k(1.0); assert_eq!((pad(), open_h(), win_h()), (0.0, 140.0, 176.0)); set_k(1.2); assert_eq!(pad(), 0.0);
-        set_k(0.8); assert!((pad() - 10.0).abs() < 1e-4 && (open_h() - 120.0).abs() < 1e-3 && win_h() >= open_h() + dock_extra() + 2.0, "pad {} open {} win {}", pad(), open_h(), win_h()); set_k(1.0);
+        let _g = lock(); set_k(1.0); assert_eq!((pad(), open_h(), win_h()), (0.0, 168.0, 208.0)); set_k(1.2); assert_eq!(pad(), 0.0);
+        set_k(0.8); assert!((pad() - 10.0).abs() < 1e-4 && (open_h() - 142.4).abs() < 1e-2 && win_h() >= open_h() + dock_extra() + 2.0, "pad {} open {} win {}", pad(), open_h(), win_h()); set_k(1.0);
     }
     #[test] fn pisos_de_tipografia_do_rig() {
         // 80 %: titulo 12 -> 9,6 ingenuo -> piso 11; secundario 10 -> 8 -> piso 10; icone 14 -> 11,2 -> piso 12
@@ -66,9 +66,9 @@ mod tests {
     }
     #[test] fn padrao_mantem_os_valores_de_sempre_e_o_fator_escala_tudo() {
         let _g = lock(); set_k(1.0);
-        assert_eq!((win_w(), win_h(), open_w(), open_h(), open_flare(), mini_w(), mini_h()), (600.0, 176.0, 420.0, 140.0, 18.0, 56.0, 5.0));
+        assert_eq!((win_w(), win_h(), open_w(), open_h(), open_flare(), mini_w(), mini_h()), (600.0, 208.0, 480.0, 168.0, 18.0, 56.0, 5.0));
         assert_eq!((split_w(), dock_extra(), compact_h(), compact_r(), compact_flare(), over_w(), over_h(), over_r(), open_r(), mini_r(), mini_flare()), (520.0, 32.0, 30.0, 14.0, 6.0, 280.0, 48.0, 22.0, 28.0, 2.5, 4.0));
-        set_k(0.8); assert!((win_w() - 480.0).abs() < 1e-3 && (mini_h() - 4.0).abs() < 1e-3); set_k(1.0); assert_eq!(open_h(), 140.0);
+        set_k(0.8); assert!((win_w() - 480.0).abs() < 1e-3 && (mini_h() - 4.0).abs() < 1e-3); set_k(1.0); assert_eq!(open_h(), 168.0);
         set_k(9.0); assert_eq!(k(), 1.5); set_k(1.0);
     }
 }

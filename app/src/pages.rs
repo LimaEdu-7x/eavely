@@ -456,13 +456,13 @@ fn draw_peek_mascot(a: &mut App, w: f32, h: f32, now: Instant) {
 /// posicao (centro x, centro y) e tamanho do corpo do Eavy: com slots, a esquerda (104, 68); sem slots, no centro da pagina e 1,5x maior (com a cena inteira)
 pub(crate) fn mascot_pose(solo: bool, mascot_w: f32) -> (f32, f32, f32) {
     let base = 72.0 * mascot_w / 150.0; // corpo de 72 u (x k = 58/72/86 px); o tamanho do mascote escala sobre isso
-    if solo { (200.0, 72.0, base * 1.5) } else { (104.0, 68.0, base) }
+    if solo { (240.0, 84.0, base * 1.5) } else { (118.0, 84.0, base) }
 }
 #[cfg(test)]
 mod mascot_pose_tests {
     use super::mascot_pose;
-    #[test] fn sem_slots_o_eavy_fica_no_centro_e_maior() { let (cx, _, l) = mascot_pose(true, 150.0); assert_eq!(cx, 200.0); assert!(l > mascot_pose(false, 150.0).2); }
-    #[test] fn com_slots_o_eavy_fica_a_esquerda() { assert_eq!(mascot_pose(false, 150.0).0, 104.0); }
+    #[test] fn sem_slots_o_eavy_fica_no_centro_e_maior() { let (cx, _, l) = mascot_pose(true, 150.0); assert_eq!(cx, 240.0); assert!(l > mascot_pose(false, 150.0).2); }
+    #[test] fn com_slots_o_eavy_fica_a_esquerda() { assert_eq!(mascot_pose(false, 150.0).0, 118.0); }
 }
 /// Pagina Mascote (v0.2.0): rosto a esquerda (150 px, reage ao mouse e a cliques), 2 slots configuraveis a direita (padrao: Arquivos em cima, Player mini embaixo).
 /// Sem slots: Eavy no centro, maior, com a cena (globo, toca-discos etc.); balao de status so quando houver.
@@ -472,7 +472,7 @@ fn mascot_page(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
     let lay = crate::slots::layout(&cfg.slot_top, &cfg.slot_bottom); let solo = lay.iter().all(|(w, _)| *w == crate::slots::Widget::Empty);
     for (w, rc) in lay { crate::slots::draw_slot(a, w, rc, hits, off, now); }
     if let Some((txt, cx, ty)) = a.p.slot_tip.take() { // legenda com o nome completo (por cima dos slots)
-        let s = crate::pages2::ellip(a, &txt, Fmt::Small, 172.0); let tw = a.gfx.measure(&s, Fmt::Small); let bw = tw + 14.0; let bx = clamp_in(cx - bw / 2.0, 208.0, 394.0 - bw);
+        let s = crate::pages2::ellip(a, &txt, Fmt::Small, 172.0); let tw = a.gfx.measure(&s, Fmt::Small); let bw = tw + 14.0; let bx = clamp_in(cx - bw / 2.0, 244.0, 464.0 - bw);
         a.gfx.rrect(bx, ty, bw, 17.0, 8.5, rgba(0x000000, 0.94)); a.gfx.rrect_stroke(bx + 0.5, ty + 0.5, bw - 1.0, 16.0, 8.0, 1.0, rgba(0xFFFFFF, 0.16)); a.gfx.text(&s, Fmt::Small, bx + 7.0, ty + 1.5, tw + 4.0, 14.0, TEXT, false);
     }
     let (cx, cy, l) = mascot_pose(solo, cfg.mascot_w());
@@ -487,7 +487,7 @@ fn page_layer(a: &mut App, now: Instant, page: usize, dx: f32, alpha: f32, off: 
     if alpha < 0.01 { return; }
     a.gfx.layer(alpha);
     match page {
-        P_MASCOT => { a.gfx.set_t(origin(a, w) + (dx + off) * crate::layout::k(), 0.0, crate::layout::k()); mascot_page(a, hits, dx + off, now); }
+        P_MASCOT => { a.gfx.set_t(origin(a, w) + off * crate::layout::k(), 0.0, crate::layout::k()); mascot_page(a, hits, off, now); } // Mascote: coordenadas absolutas da ilha de 480 (sem o centro de 420)
         P_MUSIC => {
             if split_f < 0.99 { a.gfx.layer(1.0 - split_f); a.gfx.set_t(origin(a, w) + (dx + off) * crate::layout::k(), 0.0, crate::layout::k()); music_normal(a, now, t, hits, dx + off); a.gfx.unlayer(); }
             if split_f > 0.01 { a.gfx.layer(split_f); a.gfx.set_t(origin(a, w), 0.0, crate::layout::k()); music_split(a, now, hits); a.gfx.unlayer(); }
@@ -711,7 +711,7 @@ fn chrome(a: &mut App, now: Instant, w: f32, _h: f32, dx: f32, split_f: f32, _t:
     if split_f < 0.5 {
         let al = 1.0 - split_f * 2.0;
         a.gfx.layer(al);
-        for (x, ic, d) in [(3.0f32, "chevron-left", -1i8), (399.0, "chevron-right", 1)] { // '< >' Lucide (ISC), sem borda nem fundo: cinza claro e mais claro no hover
+        for (x, ic, d) in [(3.0f32, "chevron-left", -1i8), (436.0, "chevron-right", 1)] { // '< >' Lucide (ISC), sem borda nem fundo: cinza claro e mais claro no hover
             let act = Act::Arrow(d);
             let hv = hov(a, act); a.gfx.icon(ic, x + 2.0, 68.0, 14.0, if hv { rgba(0xFFFFFF, 0.92) } else { rgba(0xFFFFFF, 0.40) }, false);
             hits.push((r(x + dx - 1.0, 62.0, 20.0, 26.0), act));
@@ -721,7 +721,7 @@ fn chrome(a: &mut App, now: Instant, w: f32, _h: f32, dx: f32, split_f: f32, _t:
             let tt = a.p.dots_at.map_or(1.0, |(t0, _)| ((now - t0).as_secs_f32() / 0.23).min(1.0)); let from = a.p.dots_at.map_or(a.page, |d| d.1); let e = crate::island::ease(tt);
             let wd: Vec<f32> = (0..N_PAGES).map(|i| { let wgt = if tt >= 1.0 { (i == a.page) as u8 as f32 } else if i == a.page { e } else if i == from { 1.0 - e } else { 0.0 }; 4.0 + 11.0 * wgt }).collect();
             let gap = 8.5; let total: f32 = wd.iter().sum::<f32>() + (N_PAGES as f32 - 1.0) * gap; let mut x = 210.0 - total / 2.0; 
-            for i in 0..N_PAGES { let act_on = i == a.page; a.gfx.rrect(x, 129.0 + crate::layout::pad(), wd[i], 4.0, 2.0, if act_on { (1.0, 1.0, 1.0, 1.0) } else { (1.0, 1.0, 1.0, 0.55) }); x += wd[i] + gap; }
+            for i in 0..N_PAGES { let act_on = i == a.page; a.gfx.rrect(x, 152.0 + crate::layout::pad(), wd[i], 4.0, 2.0, if act_on { (1.0, 1.0, 1.0, 1.0) } else { (1.0, 1.0, 1.0, 0.55) }); x += wd[i] + gap; }
             a.gfx.unlayer(); }
         a.gfx.unlayer();
     }
