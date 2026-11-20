@@ -32,7 +32,7 @@ pub struct Settings {
     pub open_mode: String,         // "hover" | "click"
     pub anim_speed: String,        // "normal" | "fast" (duracoes x1 / x0,6)
     pub cover_spin: bool, pub cover_gradient: bool, pub lyric_bar: bool, // 'Mostrar letras no notch recolhido': barra de letras e linha do ao vivo (a ilha aberta nao muda)
-    pub shelf_start_empty: bool, pub shelf_thumbs: bool, pub hide_fullscreen: bool,
+    pub shelf_start_empty: bool, pub shelf_thumbs: bool, #[serde(skip_serializing_if = "Option::is_none")] pub hide_fullscreen: Option<bool>, /* legado: migrado para fullscreen_mode em clamp() */ pub fullscreen_mode: Option<String>, /* live | compact | hide */
     pub tasks_done_last: bool, pub tasks_overdue_red: bool,
     /// compacto de PC (so com o compacto visivel): estado do momento, CPU/memoria/GPU/rede (rotacionam em `pc_slots` espacos a cada `pc_rotate` s)
     pub pc_state: bool, pub pc_cpu: bool, pub pc_ram: bool, pub pc_gpu: bool, pub pc_net: bool, pub pc_slots: u32, pub pc_rotate: u32,
@@ -54,7 +54,7 @@ impl Default for Settings {
     fn default() -> Self { Settings { online_lyrics: true, start_with_windows: false, show_trace: true, show_live: true, hide_during_event: false, monitor: "cursor".into(), trigger_zone_px: 40,
         collapsed_look: "clock".into(), show_lyric_line: true, live_mode: "compact".into(), timer: TimerCfg::default(), hotkeys: Hotkeys::default(), overlays: Overlays::default(), respect_system_animation: false,
         ui_scale: "auto".into(), minimal_island: false, open_mode: "hover".into(), anim_speed: "normal".into(), cover_spin: true, cover_gradient: true, lyric_bar: true,
-        shelf_start_empty: false, shelf_thumbs: true, hide_fullscreen: true, tasks_done_last: true, tasks_overdue_red: true,
+        shelf_start_empty: false, shelf_thumbs: true, hide_fullscreen: None, fullscreen_mode: None, tasks_done_last: true, tasks_overdue_red: true,
         pc_state: true, pc_cpu: true, pc_ram: true, pc_gpu: true, pc_net: true, pc_slots: 1, pc_rotate: 5,
         leave_delay_ms: 1000, shelf_glow: true, size_preset: "standard".into(), mascot_size: "auto".into(), mascot_gaze: true, eavy_mini: true, personality: "calmo".into(), initial_page: "last".into(), slot_top: "shelf".into(), slot_bottom: "player".into(), mini_near: false, perf_preset: "balanced".into(), fps_cap: "auto".into(), anim_quality: "smooth".into(), lyrics_scroll: "smooth".into(), fx_level: "on".into(), viz_level: "reduced".into() } }
 }
@@ -74,7 +74,13 @@ impl Settings {
     /// largura do rosto do mascote na pagina (unidades de projeto): auto 150, grande 172, pequeno 96
     pub fn mascot_w(&self) -> f32 { match self.mascot_size.as_str() { "large" => 172.0, "small" => 96.0, _ => 150.0 } }
     /// Valores fora do intervalo sao corrigidos ao ler.
+    /// modo da tela cheia ("live" padrao: move a ilha ao vivo; "compact": move em modo economia; "hide": oculta)
+    pub fn fs_mode(&self) -> &str { self.fullscreen_mode.as_deref().unwrap_or("live") }
     pub fn clamp(&mut self) {
+        // migracao: hide_fullscreen (true = Ocultar, false = Mover ao vivo) vira fullscreen_mode; so se o modo novo nao existir
+        let legacy = self.hide_fullscreen.take().map(|h| if h { "hide" } else { "live" }.to_string());
+        let m = self.fullscreen_mode.take().or(legacy);
+        self.fullscreen_mode = Some(match m.as_deref() { Some("compact") => "compact", Some("hide") => "hide", _ => "live" }.into());
         if !matches!(self.size_preset.as_str(), "small" | "standard" | "large") { self.size_preset = "standard".into(); }
         if !matches!(self.mascot_size.as_str(), "auto" | "large" | "small") { self.mascot_size = "auto".into(); }
         if !matches!(self.personality.as_str(), "calmo" | "travesso" | "dramatico") { self.personality = "calmo".into(); }
@@ -144,7 +150,7 @@ pub const F_LYR_LINE: usize = 13; pub const F_SHELF_GLOW: usize = 14;
 pub static CAP_US: AtomicU32 = AtomicU32::new(0); pub static ANIM_X100: AtomicU32 = AtomicU32::new(100); pub static VIZ_FPS: AtomicU32 = AtomicU32::new(20);
 fn sync_flags(s: &Settings) {
     let fx = s.fx_level.as_str();
-    for (i, v) in [s.hide_fullscreen, s.anim_speed == "fast", s.open_mode == "click", s.cover_spin && fx == "on", s.cover_gradient && fx != "off", s.lyric_bar, s.shelf_thumbs, s.minimal_island, s.pc_state, s.pc_cpu, s.pc_ram, s.pc_gpu, s.pc_net, s.lyrics_scroll == "line", s.shelf_glow].into_iter().enumerate() { FLAGS[i].store(v, Relaxed); }
+    for (i, v) in [s.fs_mode() == "hide", s.anim_speed == "fast", s.open_mode == "click", s.cover_spin && fx == "on", s.cover_gradient && fx != "off", s.lyric_bar, s.shelf_thumbs, s.minimal_island, s.pc_state, s.pc_cpu, s.pc_ram, s.pc_gpu, s.pc_net, s.lyrics_scroll == "line", s.shelf_glow].into_iter().enumerate() { FLAGS[i].store(v, Relaxed); }
     crate::island::GRACE_MS.store(s.leave_delay_ms, Relaxed); crate::island::MINI_PAD.store(if s.mini_near { 6 } else { 1 }, Relaxed);
     PC_SLOTS.store(s.pc_slots, Relaxed); PC_ROT.store(s.pc_rotate, Relaxed);
     let light = s.anim_quality == "light";

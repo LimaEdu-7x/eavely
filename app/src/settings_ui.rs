@@ -56,7 +56,7 @@ const T_PCSTATE: u8 = 26; const T_PCCPU: u8 = 27; const T_PCRAM: u8 = 28; const 
 const T_MINIMAL: u8 = 16; const T_SPIN: u8 = 17; const T_GRAD: u8 = 18; const T_LYRBAR: u8 = 19; const T_SHELF_EMPTY: u8 = 20; const T_THUMBS: u8 = 21; const T_HIDEFS: u8 = 22; const T_DONELAST: u8 = 23; const T_OVERDUE: u8 = 24; const T_RESPECT: u8 = 25;
 const S_PCSLOTS: u8 = 6; const S_PCROT: u8 = 7; const S_PRESET: u8 = 8; const S_FPS: u8 = 9; const S_AQ: u8 = 10; const S_LYRS: u8 = 11; const S_FX: u8 = 12; const S_VIZ: u8 = 13;
 const S_LEAVE: u8 = 14; const S_MINI: u8 = 15; const S_PERS: u8 = 16; const S_INIT: u8 = 17; const S_SIZE: u8 = 18; const S_MSIZE: u8 = 19; const T_GAZE: u8 = 32; const T_MINI: u8 = 33; const T_SHELFGLOW: u8 = 31;
-const S_LOOK: u8 = 0; const S_LIVEMODE: u8 = 1; const S_ZONE: u8 = 2; const S_SCALE: u8 = 3; const S_OPEN: u8 = 4; const S_SPEED: u8 = 5;
+const S_LOOK: u8 = 0; const S_LIVEMODE: u8 = 1; const S_ZONE: u8 = 2; const S_SCALE: u8 = 3; const S_OPEN: u8 = 4; const S_SPEED: u8 = 5; const S_FS: u8 = 6;
 const ST_FOCUS: u8 = 0; const ST_SHORT: u8 = 1; const ST_LONG: u8 = 2; const ST_CYC: u8 = 3;
 
 struct SApp { hwnd: HWND, gfx: Gfx, page: usize, prev: usize, page_t: Instant, scroll: f32, content_h: f32, hover: Option<SAct>, pressed: Option<SAct>, hits: Vec<(R, SAct)>, side: Vec<(R, SAct)>, capture: Option<u8>, scale: f32, dirty: bool, focus_ring: bool, menu: Option<Menu>, menu_rects: Vec<R>, menu_hover: Option<usize> }
@@ -168,7 +168,7 @@ fn page_body(c: &mut Ctx, page: usize) {
     match page {
         0 => { // Geral
             c.group("Inicialização", Ctx::rh(true)); c.tog_row("Iniciar com o Windows", Some("Abre o Eavely na bandeja ao entrar no Windows."), T_START, s.start_with_windows, true, true);
-            c.group("Tela cheia", Ctx::rh(true)); c.tog_row("Ocultar em tela cheia", Some("Esconde a ilha enquanto um app ou vídeo ocupa a tela inteira."), T_HIDEFS, s.hide_fullscreen, true, true);
+            c.group("Tela cheia", Ctx::rh(true)); let fsi = match s.fs_mode() { "compact" => 1, "hide" => 2, _ => 0 }; c.row("Com tela cheia", None, true, true, 190.0); c.segmented(S_FS, &["Mover ao vivo", "Mover compacta", "Ocultar"], fsi, 44.0); c.y += 44.0;
             c.group("Monitor", 44.0); c.row("Monitor preferido", None, true, true, 190.0);
             c.menu(&drop_label(D_MON), SAct::Drop(D_MON), 44.0); c.y += 44.0;
         }
@@ -347,7 +347,7 @@ fn apply(a: &mut SApp, act: SAct) {
             T_VOL => s.overlays.volume ^= true, T_BRI => s.overlays.brightness ^= true, T_BAT => s.overlays.battery ^= true, T_WIFI => s.overlays.wifi ^= true, T_HP => s.overlays.headphones ^= true, T_CAPS => s.overlays.caps_lock ^= true,
             T_MINIMAL => s.minimal_island ^= true, T_SPIN => s.cover_spin ^= true, T_GRAD => s.cover_gradient ^= true, T_LYRBAR => s.lyric_bar ^= true, T_SHELF_EMPTY => s.shelf_start_empty ^= true, T_THUMBS => s.shelf_thumbs ^= true,
             T_PCSTATE => s.pc_state ^= true, T_PCCPU => s.pc_cpu ^= true, T_PCRAM => s.pc_ram ^= true, T_PCGPU => s.pc_gpu ^= true, T_PCNET => s.pc_net ^= true,
-            T_HIDEFS => s.hide_fullscreen ^= true, T_DONELAST => s.tasks_done_last ^= true, T_OVERDUE => s.tasks_overdue_red ^= true, T_RESPECT => s.respect_system_animation ^= true, T_SHELFGLOW => s.shelf_glow ^= true, _ => {} }),
+            T_HIDEFS => {}, T_DONELAST => s.tasks_done_last ^= true, T_OVERDUE => s.tasks_overdue_red ^= true, T_RESPECT => s.respect_system_animation ^= true, T_SHELFGLOW => s.shelf_glow ^= true, _ => {} }),
         SAct::Seg(k, v) => settings::update(|s| match k {
             S_LOOK => s.collapsed_look = ["clock", "eyes", "mascot"][v as usize % 3].into(), S_LIVEMODE => s.live_mode = if v == 1 { "expanded" } else { "compact" }.into(),
             S_ZONE => s.trigger_zone_px = [24, 40, 64][v as usize % 3], S_SCALE => s.ui_scale = ["auto", "100", "115", "130", "150"][v as usize % 5].into(),
@@ -358,7 +358,7 @@ fn apply(a: &mut SApp, act: SAct) {
             S_MINI => s.mini_near = v == 1,
             S_SIZE => s.size_preset = ["small", "standard", "large"][v as usize % 3].into(),
             S_LEAVE => s.leave_delay_ms = [0, 500, 1000, 2000, 3000][v as usize % 5],
-            S_OPEN => s.open_mode = if v == 1 { "click" } else { "hover" }.into(), S_SPEED => s.anim_speed = if v == 1 { "fast" } else { "normal" }.into(), _ => {} }),
+            S_FS => s.fullscreen_mode = Some(["live", "compact", "hide"][v as usize % 3].into()), S_OPEN => s.open_mode = if v == 1 { "click" } else { "hover" }.into(), S_SPEED => s.anim_speed = if v == 1 { "fast" } else { "normal" }.into(), _ => {} }),
         SAct::Step(k, d) => settings::update(|s| { let f = |x: u32| (x as i32 + d as i32).max(0) as u32; match k {
             ST_FOCUS => s.timer.focus_min = f(s.timer.focus_min), ST_SHORT => s.timer.short_min = f(s.timer.short_min), ST_LONG => s.timer.long_min = f(s.timer.long_min), ST_CYC => s.timer.cycles_to_long = f(s.timer.cycles_to_long), _ => {} } }),
         SAct::Hot(i) => { a.capture = Some(i); }
