@@ -127,9 +127,9 @@ pub fn player_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: I
     let v = media::view(); let empty = v.title.is_empty() && v.status == "stopped";
     card(a, s);
     let tall = s.h > TALL_MIN;
-    let cs = if tall { 72.0 } else { s.h - 2.0 * PAD }; let (cx, cy) = (s.x + PAD, if tall { s.y + PAD } else { s.y + PAD });
+    let cs = if tall { 64.0 } else { s.h - 2.0 * PAD }; let (cx, cy) = (s.x + PAD, if tall { s.y + PAD } else { s.y + PAD });
     let tx = cx + cs + PAD; let ctl = s.x + s.w - 68.0; // 52 px: controles (16+2+22+2+16 = 58 px) terminam a 10 px da borda
-    let (ty, ay) = if tall { (s.y + 16.0, s.y + 33.0) } else { (s.y + 8.0, s.y + 22.0) }; // 52 px: titulo + artista terminam antes da barra (y 39)
+    let (ty, ay) = if tall { (s.y + 12.0, s.y + 30.0) } else { (s.y + 8.0, s.y + 22.0) }; // 52 px: titulo + artista terminam antes da barra (y 39)
     let tw = if tall { s.x + s.w - PAD - tx } else { ctl - tx - 4.0 };
     let (p0, pp, n0) = if tall { let (x, y) = (tx, s.y + 56.0); (r(x, y, 20.0, 20.0), r(x + 24.0, y - 3.0, 26.0, 26.0), r(x + 54.0, y, 20.0, 20.0)) }
         else { (r(ctl, s.y + 18.0, 16.0, 16.0), r(ctl + 18.0, s.y + 15.0, 22.0, 22.0), r(ctl + 42.0, s.y + 18.0, 16.0, 16.0)) };
@@ -137,6 +137,7 @@ pub fn player_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: I
     let dis = if empty { 0.4 } else { 1.0 };
     a.gfx.text(if empty { "Sem música" } else { &v.title }, Fmt::BodyStrong, tx, ty, tw, 15.0, if empty { TEXT2 } else { TEXT }, false);
     a.gfx.text(if empty { "Abra um player" } else { &v.artist }, Fmt::Small, tx, ay, tw, 13.0, TEXT3, false);
+    if tall { crate::pages::capsule_compact(a, hits, s.x + (s.w - 110.0) / 2.0, s.y + 80.0, off, v.status == "playing", !empty); } else {
     let (ri, si) = if tall { (11.0, 12.0) } else { (8.0, 10.0) }; // raio e icone dos botoes laterais
     let ico = if tall { 4.0 } else { 3.0 };
     if !empty { button_bg(a, hits, p0, Act::Prev, off, ri); } a.gfx.icon("skip-back", p0.x + ico, p0.y + ico, si, (1.0, 1.0, 1.0, dis), true);
@@ -144,6 +145,7 @@ pub fn player_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: I
     a.gfx.rrect(pp.x, pp.y, pp.w, pp.h, pp.w / 2.0, pc); a.gfx.icon(if v.status == "playing" { "pause" } else { "play" }, pp.x + 6.0, pp.y + 6.0, 14.0, (0.0, 0.0, 0.0, 1.0), true);
     if !empty { hits.push((R { x: pp.x + off, ..pp }, Act::Play)); button_bg(a, hits, n0, Act::Next, off, ri); }
     a.gfx.icon("skip-forward", n0.x + ico, n0.y + ico, si, (1.0, 1.0, 1.0, dis), true);
+    }
     // progresso fino (seek otimista, igual a Musica): faixa com 10 px da base e das laterais
     let pos = ui_pos(a, &v, now); let frac = if empty { 0.0 } else { (pos as f32 / v.dur_ms.max(1) as f32).clamp(0.0, 1.0) };
     let big = hov(a, Act::Seek(R2(720, 2760))) || a.seek_drag; let bh = if big { 4.0 } else { 3.0 };

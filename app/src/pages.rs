@@ -914,3 +914,21 @@ pub(crate) fn capsule_controls(a: &mut App, hits: &mut Vec<(R, Act)>, cx: f32, c
     a.gfx.icon(if playing { "pause" } else { "play" }, pl.x + 19.0, pl.y + 7.0, 18.0, (0.0, 0.0, 0.0, dis), true);
     if enabled { hits.push((R { x: pl.x + off, ..pl }, Act::Play)); }
 }
+
+/// H2 compacta (slot grande do Player): capsula de 110x32, anterior 30x26, play 40x26 no centro, proximo 30x26; mesma linguagem da H2 (hover e pressionado).
+pub(crate) fn capsule_compact(a: &mut App, hits: &mut Vec<(R, Act)>, x0: f32, y0: f32, off: f32, playing: bool, enabled: bool) {
+    let dis = if enabled { 1.0 } else { 0.4 };
+    a.gfx.rrect(x0, y0, 110.0, 32.0, 16.0, rgba(0xFFFFFF, 0.10 * dis));
+    for (rc, act, icon) in [(r(x0 + 3.0, y0 + 3.0, 30.0, 26.0), Act::Prev, "skip-back"), (r(x0 + 77.0, y0 + 3.0, 30.0, 26.0), Act::Next, "skip-forward")] {
+        let pressed = enabled && a.pressed == Some(act); let hv = enabled && hov(a, act);
+        if pressed { a.gfx.rrect(rc.x + 1.0, rc.y + 1.0, rc.w - 2.0, rc.h - 2.0, 13.0, rgba(0xFFFFFF, 0.30 * dis)); }
+        else if hv { a.gfx.rrect(rc.x, rc.y, rc.w, rc.h, 13.0, rgba(0xFFFFFF, 0.18 * dis)); }
+        a.gfx.icon(icon, rc.x + 9.0, rc.y + 7.0, 12.0, (1.0, 1.0, 1.0, dis), true);
+        if enabled { hits.push((R { x: rc.x + off, ..rc }, act)); }
+    }
+    let pl = r(x0 + 35.0, y0 + 3.0, 40.0, 26.0);
+    let fill = if enabled && a.pressed == Some(Act::Play) { rgba(0xD5D5DA, dis) } else if enabled && hov(a, Act::Play) { rgba(0xF0F0F2, dis) } else { rgba(0xFFFFFF, dis) };
+    a.gfx.rrect(pl.x, pl.y, pl.w, pl.h, 13.0, fill);
+    a.gfx.icon(if playing { "pause" } else { "play" }, pl.x + 13.0, pl.y + 6.0, 14.0, (0.0, 0.0, 0.0, dis), true);
+    if enabled { hits.push((R { x: pl.x + off, ..pl }, Act::Play)); }
+}
