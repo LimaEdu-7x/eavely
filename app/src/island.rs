@@ -113,11 +113,21 @@ unsafe fn pointer_moved(pt: POINT, wm: u32) {
         let busy = line && (LBTN_DOWN_ON_FILES.load(Relaxed) == false) && buttons_down();
         let zone = if busy { 0 } else if inside { 2 } else if trig { 1 } else { 0 };
         let dock = HOOK_OPEN.load(Relaxed) && inside && (y - my) as f32 / s >= 122.0 * crate::layout::k(); // zona do dock: base da ilha, em px reais (escala com o preset)
-        class = zone | (dock as u32) << 2 | (i as u32) << 3;
+        class = cursor_class(zone, dock, i);
     }
     if LAST_CLASS.swap(class, Relaxed) != class || wm == WM_LBUTTONDOWN || wm == WM_LBUTTONUP {
         let h = HW.load(Relaxed); if h != 0 { let _ = PostMessageW(Some(HWND(h as *mut _)), WM_CLASS, WPARAM(class as usize), LPARAM(0)); }
     }
+}
+/// bit 6 da classe: "ha cursor dentro de um monitor". Sem ele, o monitor 0 fora da zona de gatilho daria 0, igual a "sem cursor": a ilha nao voltava da tela 2 (bug A->B->A)
+const CLS_PRESENT: u32 = 1 << 6;
+/// classe do cursor: zona (bits 0-1), dock (bit 2), monitor (bits 3-5), presenca (bit 6)
+fn cursor_class(zone: u32, dock: bool, mon: usize) -> u32 { zone | (dock as u32) << 2 | ((mon as u32) & 7) << 3 | CLS_PRESENT }
+/// monitor para onde a ilha segue o cursor: so com cursor num monitor, ilha fechada (nao aberta) e monitor diferente do atual
+fn follow_target(class: u32, active: usize, open: bool) -> Option<usize> {
+    if class & CLS_PRESENT == 0 || open { return None; }
+    let mon = ((class >> 3) & 7) as usize;
+    (mon != active).then_some(mon)
 }
 fn buttons_down() -> bool { unsafe {
     use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON, VK_RBUTTON, VK_MBUTTON};
@@ -367,7 +377,7 @@ impl App {
     }
     fn evaluate(&mut self) {
         let now = Instant::now();
-        let zone = self.class & 3; let want_dock = (self.class & 4 != 0 || DOCK_FORCE.load(Relaxed)) && !(self.page == crate::pages::P_TASKS && self.p.task_cal); let mi = (self.class >> 3) as usize;
+        let zone = self.class & 3; let want_dock = (self.class & 4 != 0 || DOCK_FORCE.load(Relaxed)) && !(self.page == crate::pages::P_TASKS && self.p.task_cal);
         let n = self.mons.len();
         if let Some(f) = self.force { if f != self.state { self.set_state(f, now); } else { self.publish_hit(); } return; }
         // monitor preferido: seguir o cursor (padrao), o principal, ou um fixo
@@ -375,7 +385,7 @@ impl App {
         let want = match pref.as_str() { "cursor" => None, "primary" => Some(self.mons.iter().position(|m| m.x <= 0 && m.y <= 0 && m.x + m.w > 0 && m.y + m.h > 0).unwrap_or(0)), p => p.strip_prefix('m').and_then(|v| v.parse::<usize>().ok()).filter(|i| *i < n).or(Some(0)) };
         match want {
             Some(i) => if i != self.active && self.state != St::Open { self.active = i; ACTIVE.store(i as u32, Relaxed); self.place(); },
-            None => if mi < n && mi != self.active && self.state != St::Open && self.class != 0 { self.active = mi; ACTIVE.store(mi as u32, Relaxed); self.place(); },
+            None => if let Some(t) = follow_target(self.class, self.active, self.state == St::Open).filter(|&t| t < n) { self.active = t; ACTIVE.store(t as u32, Relaxed); self.place(); },
         }
         if let Some(p) = self.pin { if Instant::now() < p { self.set_state(St::Open, now); return; } else { self.pin = None; } }
         let a = self.active.min(n - 1);
@@ -1011,4 +1021,22 @@ mod drag_tests {
         assert!(real_drag(far, true, 2, (500, 300), true).is_some());
         let _ = P;
     }
+}
+
+#[cfg(test)]
+mod follow_tests {
+    use super::*;
+    #[test]
+    fn ilha_segue_o_cursor_nos_dois_sentidos() { // A (tela 1) -> B (tela 2) -> A (tela 1), cursor fora da zona de gatilho
+        let mut active = 0usize;
+        assert_eq!(follow_target(cursor_class(0, false, 0), active, false), None); // ja esta na tela 1
+        let t = follow_target(cursor_class(0, false, 1), active, false); assert_eq!(t, Some(1)); active = t.unwrap();
+        let back = follow_target(cursor_class(0, false, 0), active, false); assert_eq!(back, Some(0), "nao voltou para a tela 1"); // era o bug
+    }
+    #[test]
+    fn monitor_0_fora_da_zona_nao_e_sem_cursor() { assert_ne!(cursor_class(0, false, 0), 0); assert_eq!(follow_target(0, 1, false), None); }
+    #[test]
+    fn ilha_aberta_nao_troca_de_monitor() { assert_eq!(follow_target(cursor_class(0, false, 0), 1, true), None); }
+    #[test]
+    fn zona_e_dock_continuam_nos_bits_antigos() { let c = cursor_class(2, true, 1); assert_eq!(c & 3, 2); assert_eq!(c & 4, 4); assert_eq!((c >> 3) & 7, 1); }
 }
