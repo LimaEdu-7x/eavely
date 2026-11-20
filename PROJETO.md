@@ -3,7 +3,9 @@
 ## Objetivo
 Um notch para o Windows: uma ilha no topo da tela que mostra música, timer, arquivos e tarefas, e some quando não é necessária. 100% nativo (Rust, Direct2D/DirectComposition), leve e sem uso de CPU quando parado. Código aberto (MIT).
 
-## Estado atual (v0.2.0, candidata a release)
+## Estado atual (v0.3.0-beta.10, canal dev em teste; estável ainda é a 0.2.0)
+- **Canal Dev** (`--features dev`): versão de teste que convive com a estável (nome Eavely Dev, pasta `%APPDATA%\EavelyDev`, atalho, ícone com selo DEV, item de inicialização e AUMID próprios). Pré-release do canal dev: `v0.3.0-beta.10`, ainda não publicado. A estável continua na 0.2.0.
+- Novidades da beta: Eavy de areia sem dança, slots grandes e pequenos com tamanhos fixos (212 × 132 e 212 × 64), tela cheia com modos (mover ao vivo, mover compacta, ocultar), botões da música em cápsula (ilha e slot grande), ilha 480 × 168.
 - Núcleo nativo concluído: janela da ilha, estados (mini notch, compacto, aberta, ao vivo), animações por vblank.
 - Abas: **Mascote**, Música (com letras sincronizadas), Arquivos (File Shelf), Pomodoro e Tarefas.
 - **Mascote** (v0.2.0): rosto em curvas Bézier com morph entre expressões, piscar, olhar que segue o mouse, humores por contexto (música, arrasto de arquivo, cliques, noite, bateria baixa, inatividade) e personalidade *Calmo* (também *Travesso* e *Dramático*). Dois slots configuráveis ao lado (Arquivos, Player mini, Tarefas, Timer, Relógio, Métricas do PC). Também no compacto (só olhos no tamanho Pequeno).
