@@ -592,10 +592,23 @@ pub(crate) fn ui_pos(a: &mut App, v: &media::View, now: Instant) -> u64 {
     if let Some((p, t0)) = a.seek_opt {
         let el = (now - t0).as_millis() as u64;
         if a.seek_drag { return p; }
-        if el < 400 { return p + if v.status == "playing" { el } else { 0 }; }
+        if let Some(h) = held_pos(p, el, v.status == "playing", v.pos_ms) { return h; }
         a.seek_opt = None;
     }
     v.pos_ms
+}
+/// Posicao a mostrar enquanto o SMTC nao confirma o seek: segura o alvo (andando se estiver tocando) ate o timeline chegar perto dele
+/// ou ate 1 s. Antes soltava em 400 ms e o timeline antigo fazia a barra piscar no valor de antes. None = libera o timeline.
+pub(crate) fn held_pos(target: u64, el_ms: u64, playing: bool, smtc_pos: u64) -> Option<u64> {
+    if smtc_pos.abs_diff(target) < 1500 || el_ms >= 1000 { return None; }
+    Some(target + if playing { el_ms } else { 0 })
+}
+#[cfg(test)]
+mod seek_hold_tests {
+    use super::held_pos;
+    #[test] fn seek_segura_alvo_enquanto_smtc_esta_antigo() { assert_eq!(held_pos(60_000, 500, true, 10_000), Some(60_500)); assert_eq!(held_pos(60_000, 500, false, 10_000), Some(60_000)); }
+    #[test] fn seek_libera_quando_smtc_confirma() { assert_eq!(held_pos(60_000, 100, true, 60_300), None); }
+    #[test] fn seek_libera_no_timeout_de_1_s() { assert_eq!(held_pos(60_000, 1000, true, 10_000), None); }
 }
 
 fn lyric_line(a: &mut App, _now: Instant) -> Option<String> {
