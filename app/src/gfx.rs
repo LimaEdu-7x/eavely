@@ -18,7 +18,7 @@ fn rc(x: f32, y: f32, w: f32, h: f32) -> D2D_RECT_F { D2D_RECT_F { left: x, top:
 const ID: Matrix3x2 = Matrix3x2 { M11: 1.0, M12: 0.0, M21: 0.0, M22: 1.0, M31: 0.0, M32: 0.0 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Fmt { Title, Body, BodyStrong, Small, Clock, ClockLive, Big, Head, Row, RowStrong, Tiny }
+pub enum Fmt { Title, Body, BodyStrong, Small, Clock, ClockLive, Big, Hero, Head, Row, RowStrong, Tiny }
 
 pub struct Gfx {
     dc: ID2D1DeviceContext, dc5: Option<ID2D1DeviceContext5>, swap: IDXGISwapChain1, pub wait: HANDLE,
@@ -58,7 +58,7 @@ fn build_fmts(dw: &IDWriteFactory, font: &str, k: f32) -> Result<HashMap<Fmt, ID
     let mut fmts = HashMap::new();
     for (f, sz, wt, floor) in [(Fmt::Title, 14.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE), (Fmt::Body, 12.0, DWRITE_FONT_WEIGHT_NORMAL, FLOOR_SECOND), (Fmt::BodyStrong, 12.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE),
         (Fmt::Small, 11.0, DWRITE_FONT_WEIGHT_NORMAL, FLOOR_SECOND), (Fmt::Clock, 16.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE), (Fmt::ClockLive, 14.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE),
-        (Fmt::Big, 30.0, DWRITE_FONT_WEIGHT_BOLD, FLOOR_TITLE), (Fmt::Head, 18.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE), (Fmt::Row, 13.0, DWRITE_FONT_WEIGHT_NORMAL, FLOOR_SECOND), (Fmt::RowStrong, 13.0, DWRITE_FONT_WEIGHT_MEDIUM, FLOOR_SECOND),
+        (Fmt::Big, 30.0, DWRITE_FONT_WEIGHT_BOLD, FLOOR_TITLE), (Fmt::Hero, 44.0, DWRITE_FONT_WEIGHT_BOLD, FLOOR_TITLE), (Fmt::Head, 18.0, DWRITE_FONT_WEIGHT_SEMI_BOLD, FLOOR_TITLE), (Fmt::Row, 13.0, DWRITE_FONT_WEIGHT_NORMAL, FLOOR_SECOND), (Fmt::RowStrong, 13.0, DWRITE_FONT_WEIGHT_MEDIUM, FLOOR_SECOND),
         (Fmt::Tiny, 11.5, DWRITE_FONT_WEIGHT_MEDIUM, FLOOR_SECOND)] { fmts.insert(f, mk(design_px(sz, floor, k), wt)?); }
     Ok(fmts)
 } }

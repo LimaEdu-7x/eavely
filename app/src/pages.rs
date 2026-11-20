@@ -713,8 +713,9 @@ fn chrome(a: &mut App, now: Instant, w: f32, _h: f32, dx: f32, split_f: f32, _t:
         a.gfx.layer(al);
         for (x, ic, d) in [(3.0f32, "chevron-left", -1i8), (436.0, "chevron-right", 1)] { // '< >' Lucide (ISC), sem borda nem fundo: cinza claro e mais claro no hover
             let act = Act::Arrow(d);
-            let hv = hov(a, act); a.gfx.icon(ic, x + 2.0, 68.0, 14.0, if hv { rgba(0xFFFFFF, 0.92) } else { rgba(0xFFFFFF, 0.40) }, false);
-            hits.push((r(x + dx - 1.0, 62.0, 20.0, 26.0), act));
+            let ay = if a.page == P_MASCOT && d == 1 { 148.0 } else { 68.0 }; // Mascote: seta direita vai para a faixa inferior (fora do slot)
+            let hv = hov(a, act); a.gfx.icon(ic, x + 2.0, ay, 14.0, if hv { rgba(0xFFFFFF, 0.92) } else { rgba(0xFFFFFF, 0.40) }, false);
+            hits.push((r(x + dx - 1.0, ay - 6.0, 20.0, 26.0), act));
         }
         if dock_f < 0.99 && !(a.page == P_TASKS && a.p.task_cal) { a.gfx.layer(1.0 - dock_f);
             // pontos: 4 px, ativo = pilula 15x4, espacamento 8,5 px. Na troca a pilula antiga encolhe e a nova cresce (~0,23 s), sem gota

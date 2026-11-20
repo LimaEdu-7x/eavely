@@ -23,7 +23,7 @@ impl Widget {
     pub fn key(self) -> &'static str { match self { Widget::Shelf => "shelf", Widget::Player => "player", Widget::Tasks => "tasks", Widget::Timer => "timer", Widget::Clock => "clock", Widget::Metrics => "metrics", Widget::Empty => "none" } }
     pub fn label(self) -> &'static str { match self { Widget::Shelf => "Arquivos", Widget::Player => "Player mini", Widget::Tasks => "Tarefas", Widget::Timer => "Timer", Widget::Clock => "Relógio / Data", Widget::Metrics => "Métricas do PC", Widget::Empty => "Nenhum" } }
 }
-pub const SLOT_X: f32 = 252.0; pub const SLOT_W: f32 = 212.0; pub const SLOT_H: f32 = 64.0; pub const SLOT_BIG: f32 = 144.0; pub const SLOT_TOP: f32 = 12.0; pub const SLOT_TOP2: f32 = 84.0; // termina em 396: as setas de pagina (402..414) ficam fora do slot
+pub const SLOT_X: f32 = 252.0; pub const SLOT_W: f32 = 212.0; pub const SLOT_H: f32 = 64.0; pub const SLOT_BIG: f32 = 132.0; pub const SLOT_TOP: f32 = 12.0; pub const SLOT_TOP2: f32 = 84.0; // termina em 396: as setas de pagina (402..414) ficam fora do slot
 /// slots efetivos (retangulos) a partir das opcoes: a mesma opcao nao pode estar nos dois (o 2o vira Nenhum); com um Nenhum o outro cresce para 190x110
 pub fn layout(top: &str, bottom: &str) -> [(Widget, R); 2] {
     let (t, mut b) = (Widget::parse(top), Widget::parse(bottom)); if t != Widget::Empty && t == b { b = Widget::Empty; }
@@ -153,22 +153,25 @@ pub fn player_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: I
     if !empty { hits.push((r(sx + off, sy - 7.0, sw, 14.0), Act::Seek(R2(720, 2760)))); }
 }
 
-/// Tarefas: proxima pendente + concluidas hoje/total (clique abre a aba Tarefas); texto na faixa, barra 10 px acima da base
+/// area util do slot grande: margem de 16 px (EDGE) em todos os lados
+fn inner(s: R) -> (f32, f32, f32, f32) { (s.x + EDGE, s.y + EDGE, s.w - 2.0 * EDGE, s.h - 2.0 * EDGE) }
+/// Tarefas: proxima pendente + contagem (clique abre a aba Tarefas). Slot grande: ate 3 pendentes com marcador, contagem e barra ocupando a altura toda
 pub fn tasks_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32) {
     card(a, s); hits.push((R { x: s.x + off, ..s }, Act::Page(pages::P_TASKS as u8)));
     let list = tasks::list(); let today = tasks::now_local().date_str(); let (done, total) = tasks::counts(&list, &today);
     let green = rgba(0x5EE0B0, 1.0);
-    if s.h > TALL_MIN { // 110 px: ate 3 pendentes com marcador + contagem e barra de progresso na base
+    if s.h > TALL_MIN {
+        let (ix, iy, iw, ih) = inner(s);
         let pend: Vec<&tasks::Task> = list.iter().filter(|t| !t.done).collect();
-        if pend.is_empty() { a.gfx.text("Sem tarefas pendentes", Fmt::Row, s.x + 14.0, s.y + 14.0, s.w - 28.0, 16.0, TEXT2, false); }
-        for (i, t) in pend.iter().take(3).enumerate() {
-            let y = s.y + 14.0 + i as f32 * 22.0;
-            a.gfx.circle(s.x + 20.0, y + 8.0, 4.0, green);
-            a.gfx.text(&t.text, Fmt::Row, s.x + 32.0, y, s.w - 44.0, 16.0, TEXT, false);
+        if pend.is_empty() { a.gfx.text("Sem tarefas pendentes", Fmt::Head, ix + 12.0, iy, iw - 12.0, 22.0, TEXT2, false); }
+        for (i, t) in pend.iter().take(3).enumerate() { // linhas de 16 px com 8 px entre elas
+            let y = iy + i as f32 * 24.0;
+            a.gfx.circle(ix + 4.0, y + 8.0, 4.0, green);
+            a.gfx.text(&t.text, Fmt::Row, ix + 16.0, y, iw - 16.0, 16.0, TEXT, false);
         }
-        a.gfx.text(&format!("{done} de {total} hoje"), Fmt::Small, s.x + 14.0, s.y + s.h - 34.0, s.w - 28.0, 13.0, TEXT3, false);
-        a.gfx.rrect(s.x + 14.0, s.y + s.h - 14.0, s.w - 28.0, 4.0, 2.0, SURFACE_H);
-        if total > 0 { a.gfx.rrect(s.x + 14.0, s.y + s.h - 14.0, (s.w - 28.0) * done as f32 / total as f32, 4.0, 2.0, green); }
+        a.gfx.text(&format!("{done} de {total} hoje"), Fmt::Small, ix, iy + ih - 34.0, iw, 13.0, TEXT3, false);
+        a.gfx.rrect(ix, iy + ih - 4.0, iw, 4.0, 2.0, SURFACE_H);
+        if total > 0 { a.gfx.rrect(ix, iy + ih - 4.0, iw * done as f32 / total as f32, 4.0, 2.0, green); }
         return;
     }
     let top = band(s);
@@ -179,51 +182,54 @@ pub fn tasks_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32) {
     if total > 0 { a.gfx.rrect(s.x + 12.0, s.y + s.h - PAD - 3.0, s.w - 24.0, 3.0, 1.5, SURFACE_H); a.gfx.rrect(s.x + 12.0, s.y + s.h - PAD - 3.0, (s.w - 24.0) * done as f32 / total as f32, 3.0, 1.5, rgba(0x5EE0B0, 1.0)); }
     a.gfx.text(&format!("{done}/{total}"), Fmt::Small, s.x + s.w - 50.0, top + 1.0, 40.0, 13.0, rgba(0x5EE0B0, 1.0), true);
 }
-/// Timer: tempo restante + modo (clique abre o Pomodoro). 110 px: digitos grandes, play/pause e reset, barra de progresso. Clique do slot empilhado antes; botoes depois (vencem)
+/// Timer: tempo restante + modo (clique abre o Pomodoro). Slot grande: digitos, play/pause e reset, rotulo e barra ocupando a altura toda. Clique do slot empilhado antes; botoes depois (vencem)
 pub fn timer_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32) {
     card(a, s); hits.push((R { x: s.x + off, ..s }, Act::Page(pages::P_POMO as u8)));
     let t = timer::timer_get().ok(); let running = timer_running();
     let (rem, total, label) = t.map_or((0, 0, "Foco".to_string()), |t| (t.remaining_sec, t.total_sec, format!("{} · ciclo {}", match t.mode { timer::Mode::Focus => "Foco", _ => "Pausa" }, t.cycle.max(1))));
     let coral = rgba(0xFF7A66, 1.0);
     if s.h > TALL_MIN {
-        a.gfx.text(&label, Fmt::Small, s.x + 14.0, s.y + 12.0, s.w - 28.0, 13.0, TEXT3, false);
-        a.gfx.text(&format!("{:02}:{:02}", rem / 60, rem % 60), Fmt::Big, s.x + 14.0, s.y + 24.0, s.w - 28.0, 36.0, TEXT, false);
-        let (pl, rs) = (r(s.x + 14.0, s.y + 64.0, 60.0, 22.0), r(s.x + 82.0, s.y + 64.0, 22.0, 22.0)); // botoes terminam em y+86: 10 px acima da barra (y+96)
-        a.gfx.rrect(pl.x, pl.y, pl.w, pl.h, 11.0, rgba(0xFF7A66, if running { 0.35 } else { 1.0 }));
-        a.gfx.icon(if running { "pause" } else { "play" }, pl.x + 23.0, pl.y + 4.0, 14.0, TEXT, true); hits.push((R { x: pl.x + off, ..pl }, Act::TimerPlay));
-        a.gfx.rrect(rs.x, rs.y, rs.w, rs.h, 11.0, SURFACE_H); a.gfx.icon("rotate-ccw", rs.x + 4.0, rs.y + 4.0, 14.0, TEXT, false); hits.push((R { x: rs.x + off, ..rs }, Act::TimerReset));
+        let (ix, iy, iw, ih) = inner(s);
+        a.gfx.text(&format!("{:02}:{:02}", rem / 60, rem % 60), Fmt::Big, ix, iy, iw, 36.0, TEXT, false);
+        let (pl, rs) = (r(ix, iy + 44.0, 64.0, 32.0), r(ix + 72.0, iy + 44.0, 32.0, 32.0)); // alvo de 32 px, 8 px entre botoes
+        a.gfx.rrect(pl.x, pl.y, pl.w, pl.h, 16.0, rgba(0xFF7A66, if running { 0.35 } else { 1.0 }));
+        a.gfx.icon(if running { "pause" } else { "play" }, pl.x + 25.0, pl.y + 9.0, 14.0, TEXT, true); hits.push((R { x: pl.x + off, ..pl }, Act::TimerPlay));
+        a.gfx.rrect(rs.x, rs.y, rs.w, rs.h, 16.0, SURFACE_H); a.gfx.icon("rotate-ccw", rs.x + 9.0, rs.y + 9.0, 14.0, TEXT, false); hits.push((R { x: rs.x + off, ..rs }, Act::TimerReset));
+        let lab = pages2::ellip(a, &label, Fmt::Small, iw); a.gfx.text(&lab, Fmt::Small, ix, iy + 84.0, iw, 13.0, TEXT3, false);
         let frac = if total > 0 { 1.0 - rem as f32 / total as f32 } else { 0.0 }.clamp(0.0, 1.0);
-        a.gfx.rrect(s.x + PAD, s.y + s.h - 14.0, s.w - 2.0 * PAD, 4.0, 2.0, SURFACE_H); a.gfx.rrect(s.x + PAD, s.y + s.h - 14.0, (s.w - 2.0 * PAD) * frac, 4.0, 2.0, coral);
+        a.gfx.rrect(ix, iy + ih - 4.0, iw, 4.0, 2.0, SURFACE_H); a.gfx.rrect(ix, iy + ih - 4.0, iw * frac, 4.0, 2.0, coral);
         return;
     }
-    let top = band(s);
+    let top = mid(s, 36.0);
     a.gfx.icon("timer", s.x + 12.0, mid(s, 18.0), 18.0, rgba(0xFF7A66, 1.0), false);
-    a.gfx.text(&format!("{:02}:{:02}", rem / 60, rem % 60), Fmt::Clock, s.x + 40.0, top, 90.0, 22.0, TEXT, false);
-    a.gfx.text(&label, Fmt::Small, s.x + 40.0, top + 19.0, s.w - 90.0, 13.0, TEXT3, false);
+    a.gfx.text(&format!("{:02}:{:02}", rem / 60, rem % 60), Fmt::Clock, s.x + 40.0, top - 3.0, 90.0, 22.0, TEXT, false);
+    a.gfx.text(&label, Fmt::Small, s.x + 40.0, top + 20.0, s.w - 90.0, 13.0, TEXT3, false);
     a.gfx.circle(s.x + s.w - 26.0, s.y + s.h / 2.0, 14.0, rgba(0xFF7A66, if running { 0.35 } else { 1.0 })); a.gfx.icon(if running { "pause" } else { "play" }, s.x + s.w - 33.0, s.y + s.h / 2.0 - 7.0, 14.0, TEXT, true);
 }
-/// Relogio / data: 52 px = hora + data; 110 px = hora grande (Big), data e icone de 40 px a direita
+/// Relogio / data: 64 px = hora + data; slot grande = hora em Hero (44 px), data e icone de 40 px a direita, bloco centrado na area util
 pub fn clock_mini(a: &mut App, s: R) {
     card(a, s); let (hm, date) = pages::rest_clock();
     if s.h > TALL_MIN {
-        a.gfx.text(&hm, Fmt::Big, s.x + 14.0, s.y + 27.0, s.w - 70.0, 36.0, TEXT, false); a.gfx.text(&date, Fmt::Row, s.x + 14.0, s.y + 67.0, s.w - 70.0, 16.0, TEXT3, false);
-        a.gfx.icon("clock", s.x + s.w - 54.0, s.y + (s.h - 40.0) / 2.0, 40.0, TEXT2, false);
+        let (ix, iy, iw, ih) = inner(s); let top = iy + (ih - 72.0) / 2.0;
+        a.gfx.text(&hm, Fmt::Hero, ix, top, iw - 56.0, 52.0, TEXT, false); a.gfx.text(&date, Fmt::Row, ix, top + 56.0, iw - 56.0, 16.0, TEXT3, false);
+        a.gfx.icon("clock", ix + iw - 40.0, iy + (ih - 40.0) / 2.0, 40.0, TEXT2, false);
         return;
     }
     let t0 = band(s);
     a.gfx.text(&hm, Fmt::Clock, s.x + 14.0, t0, 100.0, 22.0, TEXT, false); a.gfx.text(&date, Fmt::Small, s.x + 14.0, t0 + 19.0, s.w - 60.0, 13.0, TEXT3, false);
     a.gfx.icon("clock", s.x + s.w - 34.0, s.y + s.h / 2.0 - 10.0, 20.0, TEXT2, false);
 }
-/// Metricas do PC (CPU/RAM/GPU) lidas por evento/1 Hz so com o compacto/ilha visivel. Colunas 58 px a partir de 12 px: margem de 12 px a direita; barra 10 px da base
+/// Metricas do PC (CPU/RAM/GPU). Slot grande: 3 colunas (rotulo, valor Big ou Head, barra de 8 px) centradas na area util
 pub fn metrics_mini(a: &mut App, s: R) {
     card(a, s); let sn = crate::metrics::snap();
     let cols = [("CPU", Some(sn.cpu), BLUE), ("RAM", Some(sn.ram), rgba(0x5EE0B0, 1.0)), ("GPU", sn.gpu, rgba(0xB69CFF, 1.0))];
-    if s.h > TALL_MIN { // 110 px: rotulo, valor grande (Big; Head se nao couber na coluna) e barra de 16 px ancorada a 10 px da base
+    if s.h > TALL_MIN {
+        let (ix, iy, iw, ih) = inner(s); let cw = (iw - 2.0 * 12.0) / 3.0; let top = iy + (ih - 77.0) / 2.0;
         for (i, (lbl, v, col)) in cols.into_iter().enumerate() {
-            let x = s.x + 14.0 + i as f32 * 58.0; let txt = v.map_or("—".into(), |v| format!("{v:.0}%"));
-            let vf = if a.gfx.measure(&txt, Fmt::Big) <= 56.0 { Fmt::Big } else { Fmt::Head };
-            a.gfx.text(lbl, Fmt::Small, x, s.y + 16.0, 50.0, 13.0, TEXT3, false); a.gfx.text(&txt, vf, x, s.y + 34.0, 58.0, 36.0, TEXT, false);
-            a.gfx.rrect(x, s.y + s.h - 30.0, 50.0, 20.0, 5.0, SURFACE_H); a.gfx.rrect(x, s.y + s.h - 30.0, 50.0 * (v.unwrap_or(0.0) / 100.0).clamp(0.0, 1.0), 20.0, 5.0, col);
+            let x = ix + i as f32 * (cw + 12.0); let txt = v.map_or("—".into(), |v| format!("{v:.0}%"));
+            let vf = if a.gfx.measure(&txt, Fmt::Big) <= cw { Fmt::Big } else { Fmt::Head };
+            a.gfx.text(lbl, Fmt::Small, x, top, cw, 13.0, TEXT3, false); a.gfx.text(&txt, vf, x, top + 17.0, cw, 36.0, TEXT, false);
+            a.gfx.rrect(x, top + 69.0, cw, 8.0, 4.0, SURFACE_H); a.gfx.rrect(x, top + 69.0, cw * (v.unwrap_or(0.0) / 100.0).clamp(0.0, 1.0), 8.0, 4.0, col);
         }
         return;
     }
@@ -247,7 +253,7 @@ mod tests {
     #[test]
     fn grade_de_arquivos_cabe_com_margem_de_12_px() { // 110 px: 3 x 2 cards dentro de EDGE 12 e barrinha de BAR_W antes da grade
         let s = r(SLOT_X, SLOT_TOP, SLOT_W, SLOT_BIG); let (gx, gy, tw, th, _) = grid_geom(s);
-        assert_eq!((tw, th), (48.0, 50.0));
+        assert_eq!((tw, th), (48.0, 44.0)); // slot 212x132: gh 100 - 12 entre linhas, 2 linhas
         assert!(gx + 3.0 * tw + 2.0 * CARD_GAP <= s.x + s.w - EDGE + 0.01, "colunas passam da margem direita");
         assert!(gy + 2.0 * th + CARD_GAP <= s.y + s.h - EDGE + 0.01, "linhas passam da margem de baixo");
         assert!(gx - s.x >= EDGE + BAR_W + ITEM_GAP - 0.01, "grade colide com a barrinha");
