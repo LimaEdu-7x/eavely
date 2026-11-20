@@ -1,12 +1,24 @@
-; Instalador do Eavely (NSIS). Por usuario (sem admin), atalhos opcionais, desinstalacao limpa.
-; Dados em %APPDATA%\Eavely so sao apagados se o usuario pedir (caixa na desinstalacao ou /DELETEDATA no modo silencioso).
-; Compilar: makensis /DVERSION=0.1.0 /DEXE=caminho\eavely.exe /DOUT=caminho\Eavely-Setup.exe installer\eavely.nsi
+; Instalador do canal estavel ou dev (NSIS). Por usuario (sem admin), atalhos opcionais, desinstalacao limpa.
+; Dados em %APPDATA%${APPDIR} (Eavely ou EavelyDev) so sao apagados se o usuario pedir.
+; Compilar: makensis /DVERSION=0.3.0 /DNUMVER=0.3.0.8 /DEXE=caminhoeavely.exe /DOUT=saida.exe [/DDEV] installereavely.nsi
 Unicode true
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
 !include "LogicLib.nsh"
 !include "Sections.nsh"
 
+; canal: makensis /DDEV ... gera o instalador Eavely Dev (nomes, pastas, atalhos e icone proprios; convive com a estavel)
+!ifdef DEV
+  !define APPNAME "Eavely Dev"
+  !define APPDIR "EavelyDev"
+  !define EXE_NAME "EavelyDev.exe"
+  !define APPICON "..\assets\app\eavely-dev-icon.ico"
+!else
+  !define APPNAME "Eavely"
+  !define APPDIR "Eavely"
+  !define EXE_NAME "Eavely.exe"
+  !define APPICON "..\assets\app\eavely-icon.ico"
+!endif
 !ifndef VERSION
   !define VERSION "0.1.0"
 !endif
@@ -14,29 +26,29 @@ Unicode true
   !define EXE "..\app\target\release\eavely.exe"
 !endif
 !ifndef OUT
-  !define OUT "Eavely-Setup.exe"
+  !define OUT "${APPNAME}-Setup.exe"
 !endif
 
-Name "Eavely"
+Name "${APPNAME}"
 OutFile "${OUT}"
-InstallDir "$LOCALAPPDATA\Programs\Eavely"
-InstallDirRegKey HKCU "Software\Eavely" "InstallDir"
+InstallDir "$LOCALAPPDATA\Programs\${APPNAME}"
+InstallDirRegKey HKCU "Software\${APPNAME}" "InstallDir"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
-BrandingText "Eavely ${VERSION}"
+BrandingText "${APPNAME} ${VERSION}"
 
 !define MUI_ICON "..\assets\app\eavely-icon.ico"
 !define MUI_UNICON "..\assets\app\eavely-icon.ico"
 !define MUI_ABORTWARNING
-!define MUI_FINISHPAGE_RUN "$INSTDIR\Eavely.exe"
-!define MUI_FINISHPAGE_RUN_TEXT "Iniciar o Eavely agora"
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${EXE_NAME}"
+!define MUI_FINISHPAGE_RUN_TEXT "Iniciar o ${APPNAME} agora"
 !define MUI_FINISHPAGE_LINK "Politica de privacidade e de assinatura de codigo"
 !define MUI_FINISHPAGE_LINK_LOCATION "https://github.com/LimaEdu-7x/eavely/blob/main/docs/PRIVACY.md"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "..\LICENSE"
 !define MUI_PAGE_HEADER_TEXT "Privacidade"
-!define MUI_PAGE_HEADER_SUBTEXT "Como o Eavely trata seus dados"
+!define MUI_PAGE_HEADER_SUBTEXT "Como o ${APPNAME} trata seus dados"
 !define MUI_LICENSEPAGE_TEXT_TOP "Leia o resumo abaixo (use a barra de rolagem)."
 !define MUI_LICENSEPAGE_TEXT_BOTTOM "A busca de letras e opcional e pode ser desligada nas Configuracoes depois da instalacao."
 !define MUI_LICENSEPAGE_BUTTON "&Continuar"
@@ -49,62 +61,65 @@ BrandingText "Eavely ${VERSION}"
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "PortugueseBR"
 
-VIProductVersion "${VERSION}.0"
-VIAddVersionKey /LANG=${LANG_PORTUGUESEBR} "ProductName" "Eavely"
-VIAddVersionKey /LANG=${LANG_PORTUGUESEBR} "FileDescription" "Instalador do Eavely"
+!ifndef NUMVER
+  !define NUMVER "${VERSION}.0"
+!endif
+VIProductVersion "${NUMVER}"
+VIAddVersionKey /LANG=${LANG_PORTUGUESEBR} "ProductName" "${APPNAME}"
+VIAddVersionKey /LANG=${LANG_PORTUGUESEBR} "FileDescription" "Instalador do ${APPNAME}"
 VIAddVersionKey /LANG=${LANG_PORTUGUESEBR} "FileVersion" "${VERSION}"
 VIAddVersionKey /LANG=${LANG_PORTUGUESEBR} "LegalCopyright" "MIT"
 
-Section "Eavely (obrigatorio)" SecMain
+Section "${APPNAME} (obrigatorio)" SecMain
   SectionIn RO
   SetOutPath "$INSTDIR"
-  nsExec::Exec 'taskkill /IM Eavely.exe'      ; 1o pedido gracioso (WM_CLOSE): o app salva e remove o icone da bandeja
+  nsExec::Exec 'taskkill /IM ${EXE_NAME}'      ; 1o pedido gracioso (WM_CLOSE): o app salva e remove o icone da bandeja
   Sleep 1500
-  nsExec::Exec 'taskkill /F /IM Eavely.exe'   ; so forca se ainda estiver vivo (ignora erro)
+  nsExec::Exec 'taskkill /F /IM ${EXE_NAME}'   ; so forca se ainda estiver vivo (ignora erro)
   Sleep 300
-  File "/oname=Eavely.exe" "${EXE}"
+  File "/oname=${EXE_NAME}" "${EXE}"
   File "..\LICENSE"
   WriteUninstaller "$INSTDIR\Desinstalar.exe"
-  WriteRegStr HKCU "Software\Eavely" "InstallDir" "$INSTDIR"
+  WriteRegStr HKCU "Software\${APPNAME}" "InstallDir" "$INSTDIR"
   ; Adicionar ou remover programas (por usuario)
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Eavely" "DisplayName" "Eavely"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Eavely" "DisplayVersion" "${VERSION}"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Eavely" "Publisher" "Eavely"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Eavely" "DisplayIcon" "$INSTDIR\Eavely.exe"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Eavely" "InstallLocation" "$INSTDIR"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Eavely" "UninstallString" '"$INSTDIR\Desinstalar.exe"'
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Eavely" "QuietUninstallString" '"$INSTDIR\Desinstalar.exe" /S'
-  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Eavely" "NoModify" 1
-  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Eavely" "NoRepair" 1
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayName" "${APPNAME}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayVersion" "${VERSION}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "Publisher" "${APPNAME}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayIcon" "$INSTDIR\${EXE_NAME}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "InstallLocation" "$INSTDIR"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "UninstallString" '"$INSTDIR\Desinstalar.exe"'
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "QuietUninstallString" '"$INSTDIR\Desinstalar.exe" /S'
+  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoModify" 1
+  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoRepair" 1
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
-  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Eavely" "EstimatedSize" "$0"
+  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "EstimatedSize" "$0"
 SectionEnd
 
-; Atalhos: o desinstalador so apaga o que o proprio instalador criou (gravado em HKCU\Software\Eavely).
-; Se ja existia um Eavely.lnk, ele nao e tocado nem registrado.
+; Atalhos: o desinstalador so apaga o que o proprio instalador criou (gravado em HKCU\Software\${APPNAME}).
+; Se ja existia um ${APPNAME}.lnk, ele nao e tocado nem registrado.
 Section "Atalho no Menu Iniciar" SecStart
-  ${IfNot} ${FileExists} "$SMPROGRAMS\Eavely.lnk"
-    CreateShortcut "$SMPROGRAMS\Eavely.lnk" "$INSTDIR\Eavely.exe"
-    WriteRegDWORD HKCU "Software\Eavely" "CreatedStartLnk" 1
+  ${IfNot} ${FileExists} "$SMPROGRAMS\${APPNAME}.lnk"
+    CreateShortcut "$SMPROGRAMS\${APPNAME}.lnk" "$INSTDIR\${EXE_NAME}"
+    WriteRegDWORD HKCU "Software\${APPNAME}" "CreatedStartLnk" 1
   ${EndIf}
 SectionEnd
 
 Section /o "Atalho na Area de Trabalho" SecDesk
-  ${IfNot} ${FileExists} "$DESKTOP\Eavely.lnk"
-    CreateShortcut "$DESKTOP\Eavely.lnk" "$INSTDIR\Eavely.exe"
-    WriteRegDWORD HKCU "Software\Eavely" "CreatedDesktopLnk" 1
+  ${IfNot} ${FileExists} "$DESKTOP\${APPNAME}.lnk"
+    CreateShortcut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\${EXE_NAME}"
+    WriteRegDWORD HKCU "Software\${APPNAME}" "CreatedDesktopLnk" 1
   ${EndIf}
 SectionEnd
 
 Section /o "Iniciar com o Windows" SecRun
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Eavely" '"$INSTDIR\Eavely.exe"'
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APPNAME}" '"$INSTDIR\${EXE_NAME}"'
 SectionEnd
 
 LangString DESC_Main ${LANG_PORTUGUESEBR} "O aplicativo (fica na bandeja do sistema)."
 LangString DESC_Start ${LANG_PORTUGUESEBR} "Cria um atalho no Menu Iniciar."
 LangString DESC_Desk ${LANG_PORTUGUESEBR} "Cria um atalho na Area de Trabalho (opcional)."
-LangString DESC_Run ${LANG_PORTUGUESEBR} "Abre o Eavely na bandeja ao entrar no Windows (opcional)."
+LangString DESC_Run ${LANG_PORTUGUESEBR} "Abre o ${APPNAME} na bandeja ao entrar no Windows (opcional)."
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} $(DESC_Main)
   !insertmacro MUI_DESCRIPTION_TEXT ${SecStart} $(DESC_Start)
@@ -128,35 +143,35 @@ Function .onInit
 FunctionEnd
 
 Section "Uninstall"
-  nsExec::Exec 'taskkill /IM Eavely.exe'
+  nsExec::Exec 'taskkill /IM ${EXE_NAME}'
   Sleep 1500
-  nsExec::Exec 'taskkill /F /IM Eavely.exe'
+  nsExec::Exec 'taskkill /F /IM ${EXE_NAME}'
   Sleep 300
-  Delete "$INSTDIR\Eavely.exe"
+  Delete "$INSTDIR\${EXE_NAME}"
   Delete "$INSTDIR\LICENSE"
   Delete "$INSTDIR\Desinstalar.exe"
   RMDir "$INSTDIR"
-  ReadRegDWORD $R2 HKCU "Software\Eavely" "CreatedStartLnk"
+  ReadRegDWORD $R2 HKCU "Software\${APPNAME}" "CreatedStartLnk"
   ${If} $R2 == 1
-    Delete "$SMPROGRAMS\Eavely.lnk"
+    Delete "$SMPROGRAMS\${APPNAME}.lnk"
   ${EndIf}
-  ReadRegDWORD $R2 HKCU "Software\Eavely" "CreatedDesktopLnk"
+  ReadRegDWORD $R2 HKCU "Software\${APPNAME}" "CreatedDesktopLnk"
   ${If} $R2 == 1
-    Delete "$DESKTOP\Eavely.lnk"
+    Delete "$DESKTOP\${APPNAME}.lnk"
   ${EndIf}
-  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Eavely"
-  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Eavely"
-  DeleteRegKey HKCU "Software\Eavely"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APPNAME}"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}"
+  DeleteRegKey HKCU "Software\${APPNAME}"
   DeleteRegKey HKCU "Software\Classes\AppUserModelId\app.eavely"   ; AUMID dos toasts criado pelo app
   ; dados do usuario (lista do Shelf, ui.json, cache de letras): so se o usuario pedir
   ${GetParameters} $R0
   ${GetOptions} $R0 "/DELETEDATA" $R1
   ${IfNot} ${Errors}
-    RMDir /r "$APPDATA\Eavely"
+    RMDir /r "$APPDATA\${APPNAME}"
   ${ElseIf} ${Silent}
     ; desinstalacao silenciosa sem /DELETEDATA: preserva os dados
   ${Else}
-    MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 "Remover tambem seus dados (lista do Shelf, configuracoes e cache de letras) em $APPDATA\Eavely?" IDNO +2
-    RMDir /r "$APPDATA\Eavely"
+    MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 "Remover tambem seus dados (lista do Shelf, configuracoes e cache de letras) em $APPDATA\${APPNAME}?" IDNO +2
+    RMDir /r "$APPDATA\${APPNAME}"
   ${EndIf}
 SectionEnd
