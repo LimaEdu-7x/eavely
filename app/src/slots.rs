@@ -148,6 +148,7 @@ pub fn player_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: I
     let big = hov(a, Act::Seek(R2(720, 2760))) || a.seek_drag; let bh = if big { 4.0 } else { 3.0 };
     let (sx, sw, sy) = if tall { (s.x + PAD, s.w - 2.0 * PAD, s.y + s.h - PAD - bh / 2.0) } else { (tx, s.x + s.w - PAD - tx, s.y + s.h - PAD - bh / 2.0) };
     a.gfx.rrect(sx, sy - bh / 2.0, sw, bh, 1.5, SURFACE_H); a.gfx.rrect(sx, sy - bh / 2.0, (sw * frac).max(0.0), bh, 1.5, TEXT);
+    crate::pages::thumb(a, 0, sx + (sw * frac).max(0.0), sy, big, now);
     if !empty { hits.push((r(sx + off, sy - 7.0, sw, 14.0), Act::Seek(R2(720, 2760)))); }
 }
 

@@ -55,7 +55,7 @@ pub struct PageState {
     pub tasks: Vec<crate::tasks::Task>, pub task_gen: u64, pub task_input: Option<String>, pub task_edit_id: Option<u64>, pub eye_move: Option<Instant>, pub blink_t: Option<Instant>, pub eye_x: Option<Tw>, pub eye_y: Option<Tw>, pub vol_muted: bool, pub pc_t0: Option<Instant>, pub pc_g: usize, pub pc_prev: usize, pub pc_chg: Option<Instant>, pub shelf_del: Vec<(String, Instant, bool)>, pub dots_at: Option<(Instant, usize)>, pub empty_at: Option<Instant>, pub shelf_n: usize, pub items_at: Option<Instant>, pub drag_end: Option<Instant>, pub shelf_new: Vec<(String, Instant)>, pub shelf_ids: Vec<String>, pub shelf_sx: f32, pub shelf_hover: Option<u32>, pub drag_t: Option<Instant>, pub task_edit_mode: bool, pub task_focus: Option<u64>, pub task_cal: bool, pub task_date: Option<(i32, u32, u32)>, pub task_month: (i32, u32), pub task_scroll: usize,
     pub mascot: crate::mascot::Mascot, pub mascot_over: bool, // pagina Mascote
     pub ov_cur: &'static str, pub ov_prev: &'static str, pub ov_v: Option<Tw>, pub ov_ic: Option<Tw>, // overlay: icone atual/anterior (crossfade) e valor animado
-    pub vol: f32, pub vol_t: Option<Instant>, pub vol_drag: bool, pub select: bool, pub sel: Vec<usize>, pub edit: Option<String>, pub shelf: Vec<crate::shelf::ShelfItem>, pub shelf_gen: u64, pub lyr_cur: String, pub drag_from: Option<(u32, f32, f32)>,
+    pub vol: f32, pub vol_t: Option<Instant>, pub thumb: [Option<Instant>; 2], pub vol_drag: bool, pub select: bool, pub sel: Vec<usize>, pub edit: Option<String>, pub shelf: Vec<crate::shelf::ShelfItem>, pub shelf_gen: u64, pub lyr_cur: String, pub drag_from: Option<(u32, f32, f32)>,
     pub kb_click: bool, pub kb_shelf_only: bool, pub sel_anchor: Option<usize>, pub shelf_sc: Option<Tw>, pub pan: Option<Pan>, pub slot_tip: Option<(String, f32, f32)>, // multi-selecao, rolagem com inercia, legenda do nome completo nos slots
 }
 /// arrasto da fileira de arquivos (rolagem com o mouse): ponto inicial, rolagem inicial, ultimo ponto/instante e velocidade (px/s)
@@ -577,6 +577,7 @@ fn music_normal(a: &mut App, now: Instant, t: f32, hits: &mut Vec<(R, Act)>, off
     let bh = if big { 6.0 } else { 4.0 };
     a.gfx.rrect(72.0, 85.0 - bh / 2.0, 276.0, bh, 2.0, SURFACE_H);
     a.gfx.rrect(72.0, 85.0 - bh / 2.0, (276.0 * frac).max(0.0), bh, 2.0, TEXT);
+    thumb(a, 0, 72.0 + (276.0 * frac).max(0.0), 85.0, big, now);
     hits.push((r(72.0 + off, 76.0, 276.0, 18.0), Act::Seek(R2(720, 2760))));
     // controles
     let dis = if empty { 0.35 } else { 1.0 };
@@ -584,6 +585,7 @@ fn music_normal(a: &mut App, now: Instant, t: f32, hits: &mut Vec<(R, Act)>, off
     if vol_open { // slider ~65 px ao lado do alto-falante; os controles de transporte continuam visiveis (mock 03)
         let vv = a.p.vol.clamp(0.0, 1.0);
         a.gfx.rrect(296.0, 107.0, 65.0, 6.0, 3.0, SURFACE_H); a.gfx.rrect(296.0, 107.0, 65.0 * vv, 6.0, 3.0, TEXT);
+        thumb(a, 1, 296.0 + 65.0 * vv, 110.0, hov(a, Act::VolSlider) || a.p.vol_drag, now);
         hits.push((r(290.0 + off, 98.0, 77.0, 24.0), Act::VolSlider));
     }
     let (p0, n0) = (r(160.0, 97.0, 26.0, 26.0), r(234.0, 97.0, 26.0, 26.0)); // grupo centrado em x=210 (QA5 C1: prev 173 / play 210 / next 247)
@@ -656,6 +658,7 @@ fn music_split(a: &mut App, now: Instant, hits: &mut Vec<(R, Act)>) {
     a.gfx.text(&format!("-{}", fmt_t(v.dur_ms.saturating_sub(pos))), Fmt::Body, 200.0, 76.0, 40.0, 14.0, TEXT, true);
     let act = Act::Seek(R2(560, 1400)); let big = hov(a, act) || a.seek_drag; let bh = if big { 6.0 } else { 4.0 };
     a.gfx.rrect(56.0, 83.0 - bh / 2.0, 140.0, bh, 2.0, SURFACE_H); a.gfx.rrect(56.0, 83.0 - bh / 2.0, 140.0 * frac, bh, 2.0, TEXT);
+    thumb(a, 0, 56.0 + 140.0 * frac, 83.0, big, Instant::now());
     hits.push((r(56.0, 74.0, 140.0, 18.0), act));
     let lb = r(16.0, 98.0, 24.0, 24.0); a.gfx.rrect(lb.x, lb.y, lb.w, lb.h, 9.0, rgba(0xFFFFFF, 0.16)); a.gfx.icon("message-square-quote", 20.0, 102.0, 16.0, TEXT, false); hits.push((lb, Act::Lyrics));
     button_bg(a, hits, r(72.0, 97.0, 26.0, 26.0), Act::Prev, 0.0, 13.0); a.gfx.icon("skip-back", 77.0, 102.0, 16.0, TEXT, true);
@@ -889,4 +892,14 @@ mod balloon_tests {
         assert_eq!(clamp_in(0.0, 4.0, 3.598), 4.0, "o caso do crash (min 4, max 3,598)");
         assert_eq!(clamp_in(50.0, 4.0, 100.0), 50.0);
     }
+}
+
+/// bolinha (THUMB px) no fim da barra de progresso (idx 0) ou do volume (idx 1): aparece ao passar o mouse (entrada de 120 ms, escala e alpha) e some ao sair; arrastar a mantem
+pub(crate) fn thumb(a: &mut App, idx: usize, x: f32, y: f32, on: bool, now: Instant) {
+    if !on { a.p.thumb[idx] = None; return; }
+    let t0 = *a.p.thumb[idx].get_or_insert(now);
+    let k = ((now - t0).as_secs_f32() / 0.12).clamp(0.0, 1.0);
+    if k < 1.0 { a.dirty = true; } // anima ate o fim
+    let d = crate::spacing::THUMB * (0.6 + 0.4 * k);
+    a.gfx.circle(x, y, d / 2.0, rgba(0xFFFFFF, k));
 }
