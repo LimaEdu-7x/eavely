@@ -73,7 +73,7 @@ pub fn shelf_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: In
         }
         let hv = a.hover == Some(act); let on = a.p.sel.contains(&i);
         a.gfx.rrect(x, y, tw, th, 10.0, if hv || on { SURFACE_H } else { SURFACE });
-        pages2::card_art(a, it, x + tw / 2.0, y + 8.0 + oy, 0.34); // icone pequeno: arte + nome cabem na faixa de 32 px (sem tocar a borda)
+        pages2::card_art(a, it, x + tw / 2.0, y + 12.0 + oy, 0.34); // icone desce 4 px para dentro do card (o topo do glifo fica a ~4 px da borda)
         let (nm, cut) = pages2::fit_name(a, &it.name, Fmt::Tiny, tw - 4.0); let nw = a.gfx.measure(&nm, Fmt::Tiny);
         a.gfx.text(&nm, Fmt::Tiny, x + tw / 2.0 - nw / 2.0, y + 17.0 + oy, nw + 4.0, 11.0, TEXT2, false);
         if on { a.gfx.rrect_stroke(x + 0.75, y + 0.75, tw - 1.5, th - 1.5, 9.25, 1.5, BLUE); }
@@ -124,7 +124,22 @@ pub fn player_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: I
 
 /// Tarefas: proxima pendente + concluidas hoje/total (clique abre a aba Tarefas); texto na faixa, barra 10 px acima da base
 pub fn tasks_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32) {
-    card(a, s); let list = tasks::list(); let today = tasks::now_local().date_str(); let (done, total) = tasks::counts(&list, &today);
+    card(a, s); hits.push((R { x: s.x + off, ..s }, Act::Page(pages::P_TASKS as u8)));
+    let list = tasks::list(); let today = tasks::now_local().date_str(); let (done, total) = tasks::counts(&list, &today);
+    let green = rgba(0x5EE0B0, 1.0);
+    if s.h > 60.0 { // 110 px: ate 3 pendentes com marcador + contagem e barra de progresso na base
+        let pend: Vec<&tasks::Task> = list.iter().filter(|t| !t.done).collect();
+        if pend.is_empty() { a.gfx.text("Sem tarefas pendentes", Fmt::Row, s.x + 14.0, s.y + 14.0, s.w - 28.0, 16.0, TEXT2, false); }
+        for (i, t) in pend.iter().take(3).enumerate() {
+            let y = s.y + 14.0 + i as f32 * 22.0;
+            a.gfx.circle(s.x + 20.0, y + 8.0, 4.0, green);
+            a.gfx.text(&t.text, Fmt::Row, s.x + 32.0, y, s.w - 44.0, 16.0, TEXT, false);
+        }
+        a.gfx.text(&format!("{done} de {total} hoje"), Fmt::Small, s.x + 14.0, s.y + s.h - 34.0, s.w - 28.0, 13.0, TEXT3, false);
+        a.gfx.rrect(s.x + 14.0, s.y + s.h - 14.0, s.w - 28.0, 4.0, 2.0, SURFACE_H);
+        if total > 0 { a.gfx.rrect(s.x + 14.0, s.y + s.h - 14.0, (s.w - 28.0) * done as f32 / total as f32, 4.0, 2.0, green); }
+        return;
+    }
     let top = band(s);
     a.gfx.icon("list-checks", s.x + 12.0, top, 18.0, rgba(0x5EE0B0, 1.0), false);
     let next = list.iter().find(|t| !t.done);
@@ -132,29 +147,56 @@ pub fn tasks_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32) {
     a.gfx.text(&format!("{done} de {total} hoje"), Fmt::Small, s.x + 40.0, top + 14.0, s.w - 92.0, 13.0, TEXT3, false);
     if total > 0 { a.gfx.rrect(s.x + 12.0, s.y + s.h - PAD - 3.0, s.w - 24.0, 3.0, 1.5, SURFACE_H); a.gfx.rrect(s.x + 12.0, s.y + s.h - PAD - 3.0, (s.w - 24.0) * done as f32 / total as f32, 3.0, 1.5, rgba(0x5EE0B0, 1.0)); }
     a.gfx.text(&format!("{done}/{total}"), Fmt::Small, s.x + s.w - 50.0, top + 1.0, 40.0, 13.0, rgba(0x5EE0B0, 1.0), true);
-    hits.push((R { x: s.x + off, ..s }, Act::Page(pages::P_TASKS as u8)));
 }
-/// Timer: tempo restante + modo (clique abre o Pomodoro); bloco na faixa de conteudo
+/// Timer: tempo restante + modo (clique abre o Pomodoro). 110 px: digitos grandes, play/pause e reset, barra de progresso. Clique do slot empilhado antes; botoes depois (vencem)
 pub fn timer_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32) {
-    card(a, s); let t = timer::timer_get().ok(); let running = timer_running();
-    let (rem, label) = t.map_or((0, "Foco".to_string()), |t| (t.remaining_sec, format!("{} · ciclo {}", match t.mode { timer::Mode::Focus => "Foco", _ => "Pausa" }, t.cycle.max(1))));
+    card(a, s); hits.push((R { x: s.x + off, ..s }, Act::Page(pages::P_POMO as u8)));
+    let t = timer::timer_get().ok(); let running = timer_running();
+    let (rem, total, label) = t.map_or((0, 0, "Foco".to_string()), |t| (t.remaining_sec, t.total_sec, format!("{} · ciclo {}", match t.mode { timer::Mode::Focus => "Foco", _ => "Pausa" }, t.cycle.max(1))));
+    let coral = rgba(0xFF7A66, 1.0);
+    if s.h > 60.0 {
+        a.gfx.text(&label, Fmt::Small, s.x + 14.0, s.y + 14.0, s.w - 28.0, 13.0, TEXT3, false);
+        a.gfx.text(&format!("{:02}:{:02}", rem / 60, rem % 60), Fmt::Big, s.x + 14.0, s.y + 30.0, s.w - 28.0, 36.0, TEXT, false);
+        let (pl, rs) = (r(s.x + 14.0, s.y + 66.0, 60.0, 26.0), r(s.x + 82.0, s.y + 66.0, 26.0, 26.0)); // 6 px acima da barra (y+96)
+        a.gfx.rrect(pl.x, pl.y, pl.w, pl.h, 13.0, rgba(0xFF7A66, if running { 0.35 } else { 1.0 }));
+        a.gfx.icon(if running { "pause" } else { "play" }, pl.x + 23.0, pl.y + 6.0, 14.0, TEXT, true); hits.push((R { x: pl.x + off, ..pl }, Act::TimerPlay));
+        a.gfx.rrect(rs.x, rs.y, rs.w, rs.h, 13.0, SURFACE_H); a.gfx.icon("rotate-ccw", rs.x + 6.0, rs.y + 6.0, 14.0, TEXT, false); hits.push((R { x: rs.x + off, ..rs }, Act::TimerReset));
+        let frac = if total > 0 { 1.0 - rem as f32 / total as f32 } else { 0.0 }.clamp(0.0, 1.0);
+        a.gfx.rrect(s.x + PAD, s.y + s.h - 14.0, s.w - 2.0 * PAD, 4.0, 2.0, SURFACE_H); a.gfx.rrect(s.x + PAD, s.y + s.h - 14.0, (s.w - 2.0 * PAD) * frac, 4.0, 2.0, coral);
+        return;
+    }
     let top = band(s);
     a.gfx.icon("timer", s.x + 12.0, mid(s, 18.0), 18.0, rgba(0xFF7A66, 1.0), false);
     a.gfx.text(&format!("{:02}:{:02}", rem / 60, rem % 60), Fmt::Clock, s.x + 40.0, top, 90.0, 22.0, TEXT, false);
     a.gfx.text(&label, Fmt::Small, s.x + 40.0, top + 19.0, s.w - 90.0, 13.0, TEXT3, false);
     a.gfx.circle(s.x + s.w - 26.0, s.y + s.h / 2.0, 14.0, rgba(0xFF7A66, if running { 0.35 } else { 1.0 })); a.gfx.icon(if running { "pause" } else { "play" }, s.x + s.w - 33.0, s.y + s.h / 2.0 - 7.0, 14.0, TEXT, true);
-    hits.push((R { x: s.x + off, ..s }, Act::Page(pages::P_POMO as u8)));
 }
-/// Relogio / data: hora e data na faixa de conteudo
+/// Relogio / data: 52 px = hora + data; 110 px = hora grande (Big), data e icone de 40 px a direita
 pub fn clock_mini(a: &mut App, s: R) {
-    card(a, s); let (hm, date) = pages::rest_clock(); let t0 = band(s);
+    card(a, s); let (hm, date) = pages::rest_clock();
+    if s.h > 60.0 {
+        a.gfx.text(&hm, Fmt::Big, s.x + 14.0, s.y + 27.0, s.w - 70.0, 36.0, TEXT, false); a.gfx.text(&date, Fmt::Row, s.x + 14.0, s.y + 67.0, s.w - 70.0, 16.0, TEXT3, false);
+        a.gfx.icon("clock", s.x + s.w - 54.0, s.y + (s.h - 40.0) / 2.0, 40.0, TEXT2, false);
+        return;
+    }
+    let t0 = band(s);
     a.gfx.text(&hm, Fmt::Clock, s.x + 14.0, t0, 100.0, 22.0, TEXT, false); a.gfx.text(&date, Fmt::Small, s.x + 14.0, t0 + 19.0, s.w - 60.0, 13.0, TEXT3, false);
     a.gfx.icon("clock", s.x + s.w - 34.0, s.y + s.h / 2.0 - 10.0, 20.0, TEXT2, false);
 }
 /// Metricas do PC (CPU/RAM/GPU) lidas por evento/1 Hz so com o compacto/ilha visivel. Colunas 58 px a partir de 12 px: margem de 12 px a direita; barra 10 px da base
 pub fn metrics_mini(a: &mut App, s: R) {
-    card(a, s); let sn = crate::metrics::snap(); let top = band(s);
-    for (i, (lbl, v, col)) in [("CPU", Some(sn.cpu), BLUE), ("RAM", Some(sn.ram), rgba(0x5EE0B0, 1.0)), ("GPU", sn.gpu, rgba(0xB69CFF, 1.0))].into_iter().enumerate() {
+    card(a, s); let sn = crate::metrics::snap();
+    let cols = [("CPU", Some(sn.cpu), BLUE), ("RAM", Some(sn.ram), rgba(0x5EE0B0, 1.0)), ("GPU", sn.gpu, rgba(0xB69CFF, 1.0))];
+    if s.h > 60.0 { // 110 px: valor grande (Head) e barra de 6 px na base; grafico fica para depois
+        for (i, (lbl, v, col)) in cols.into_iter().enumerate() {
+            let x = s.x + 14.0 + i as f32 * 58.0;
+            a.gfx.text(lbl, Fmt::Small, x, s.y + 14.0, 50.0, 13.0, TEXT3, false); a.gfx.text(&v.map_or("—".into(), |v| format!("{v:.0}%")), Fmt::Head, x, s.y + 32.0, 56.0, 22.0, TEXT, false);
+            a.gfx.rrect(x, s.y + s.h - 16.0, 50.0, 6.0, 3.0, SURFACE_H); a.gfx.rrect(x, s.y + s.h - 16.0, 50.0 * (v.unwrap_or(0.0) / 100.0).clamp(0.0, 1.0), 6.0, 3.0, col);
+        }
+        return;
+    }
+    let top = band(s);
+    for (i, (lbl, v, col)) in cols.into_iter().enumerate() {
         let x = s.x + 12.0 + i as f32 * 58.0;
         a.gfx.text(lbl, Fmt::Tiny, x, top, 40.0, 11.0, TEXT3, false); a.gfx.text(&v.map_or("—".into(), |v| format!("{v:.0}%")), Fmt::BodyStrong, x, top + 11.0, 48.0, 16.0, TEXT, false);
         a.gfx.rrect(x, s.y + s.h - PAD - 3.0, 50.0, 3.0, 1.5, SURFACE_H); a.gfx.rrect(x, s.y + s.h - PAD - 3.0, 50.0 * (v.unwrap_or(0.0) / 100.0).clamp(0.0, 1.0), 3.0, 1.5, col);
