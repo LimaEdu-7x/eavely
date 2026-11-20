@@ -507,6 +507,7 @@ impl App {
         self.prev_page = self.page; self.page = p; self.page_t = Spring::new(0.0); self.page_t.go_p(1.0, SPRING_PAGE); if self.tw.settled() && self.th.settled() && self.tr.settled() { self.last_step = Instant::now(); } self.p.dots_at = Some((now, self.prev_page));
         let (w, _, _) = self.target(); self.tw.go(now, w, 300.0);
         if save { crate::pages::save_page(p); } self.dirty = true;
+        self.sync_metrics(); // entrar na pagina Mascote com a ilha aberta liga a amostragem (slot Metricas)
     }
     /// ha algo animando? (precisa de quadros no ritmo do monitor)
     /// animacao de forma/pagina/dock (ou pedido de redesenho): um quadro por vblank
@@ -680,7 +681,7 @@ impl App {
     }
     /// (h) aparencia recolhida aplicada AO VIVO: troca relogio <-> olhos sem desligar/ligar o notch
     /// o compacto de PC esta na tela e ha o que mostrar? (so entao o timer de 1 Hz existe)
-    fn metrics_active(&self) -> bool { self.enabled && self.state == St::Peek && self.vis && !self.look_eyes && crate::pages::pc_needs_tick() }
+    fn metrics_active(&self) -> bool { metrics_wanted(self.enabled, self.vis, self.state, self.page, self.look_eyes, crate::pages::pc_needs_tick(), crate::pages::mascot_metrics()) }
     pub fn sync_metrics(&mut self) {
         unsafe { if self.metrics_active() { SetTimer(Some(self.hwnd), T_METRICS, 1000, None); } else { let _ = KillTimer(Some(self.hwnd), T_METRICS); crate::metrics::reset(); } }
     }
@@ -1039,4 +1040,15 @@ mod follow_tests {
     fn ilha_aberta_nao_troca_de_monitor() { assert_eq!(follow_target(cursor_class(0, false, 0), 1, true), None); }
     #[test]
     fn zona_e_dock_continuam_nos_bits_antigos() { let c = cursor_class(2, true, 1); assert_eq!(c & 3, 2); assert_eq!(c & 4, 4); assert_eq!((c >> 3) & 7, 1); }
+}
+/// amostra metricas (1 Hz) so quando alguem as mostra: compacto visivel (Peek) ou slot Metricas na pagina Mascote com a ilha aberta
+fn metrics_wanted(enabled: bool, vis: bool, state: St, page: usize, look_eyes: bool, pc_tick: bool, mascot_metric: bool) -> bool {
+    enabled && vis && ((state == St::Peek && !look_eyes && pc_tick) || (state == St::Open && page == crate::pages::P_MASCOT && mascot_metric))
+}
+#[cfg(test)]
+mod metrics_want_tests {
+    use super::*;
+    #[test] fn metricas_ligam_no_slot_da_pagina_mascote_com_ilha_aberta() { assert!(metrics_wanted(true, true, St::Open, crate::pages::P_MASCOT, false, false, true)); }
+    #[test] fn metricas_nao_ligam_sem_slot_ou_em_outra_pagina() { assert!(!metrics_wanted(true, true, St::Open, crate::pages::P_MASCOT, false, false, false)); assert!(!metrics_wanted(true, true, St::Open, crate::pages::P_MUSIC, false, false, true)); }
+    #[test] fn metricas_continuam_no_compacto_e_param_oculta() { assert!(metrics_wanted(true, true, St::Peek, 1, false, true, false)); assert!(!metrics_wanted(true, false, St::Open, 0, false, false, true)); }
 }

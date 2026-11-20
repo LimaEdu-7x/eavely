@@ -98,8 +98,11 @@ pub fn peek_w() -> f32 {
 pub fn pc_needs_tick() -> bool { pc_mode() }
 pub fn pc_sample() {
     use crate::settings::{flag, F_PC_CPU, F_PC_GPU, F_PC_NET, F_PC_RAM, F_PC_STATE};
-    crate::metrics::sample(flag(F_PC_CPU), flag(F_PC_RAM), flag(F_PC_GPU), flag(F_PC_NET), flag(F_PC_STATE));
+    let m = mascot_metrics(); // slot Metricas visivel na pagina Mascote: CPU/RAM/GPU sao lidos mesmo com o compacto desligado
+    crate::metrics::sample(flag(F_PC_CPU) || m, flag(F_PC_RAM) || m, flag(F_PC_GPU) || m, flag(F_PC_NET), flag(F_PC_STATE));
 }
+/// algum slot da pagina Mascote mostra Metricas do PC
+pub fn mascot_metrics() -> bool { let c = crate::settings::get(); c.slot_top == "metrics" || c.slot_bottom == "metrics" }
 
 // ---- consultas ----
 pub fn is_playing() -> bool { media::view().status == "playing" }
