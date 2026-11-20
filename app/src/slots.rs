@@ -157,10 +157,10 @@ pub fn timer_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32) {
     if s.h > 60.0 {
         a.gfx.text(&label, Fmt::Small, s.x + 14.0, s.y + 14.0, s.w - 28.0, 13.0, TEXT3, false);
         a.gfx.text(&format!("{:02}:{:02}", rem / 60, rem % 60), Fmt::Big, s.x + 14.0, s.y + 30.0, s.w - 28.0, 36.0, TEXT, false);
-        let (pl, rs) = (r(s.x + 14.0, s.y + 66.0, 60.0, 26.0), r(s.x + 82.0, s.y + 66.0, 26.0, 26.0)); // 6 px acima da barra (y+96)
-        a.gfx.rrect(pl.x, pl.y, pl.w, pl.h, 13.0, rgba(0xFF7A66, if running { 0.35 } else { 1.0 }));
-        a.gfx.icon(if running { "pause" } else { "play" }, pl.x + 23.0, pl.y + 6.0, 14.0, TEXT, true); hits.push((R { x: pl.x + off, ..pl }, Act::TimerPlay));
-        a.gfx.rrect(rs.x, rs.y, rs.w, rs.h, 13.0, SURFACE_H); a.gfx.icon("rotate-ccw", rs.x + 6.0, rs.y + 6.0, 14.0, TEXT, false); hits.push((R { x: rs.x + off, ..rs }, Act::TimerReset));
+        let (pl, rs) = (r(s.x + 14.0, s.y + 64.0, 60.0, 22.0), r(s.x + 82.0, s.y + 64.0, 22.0, 22.0)); // botoes terminam em y+86: 10 px acima da barra (y+96)
+        a.gfx.rrect(pl.x, pl.y, pl.w, pl.h, 11.0, rgba(0xFF7A66, if running { 0.35 } else { 1.0 }));
+        a.gfx.icon(if running { "pause" } else { "play" }, pl.x + 23.0, pl.y + 4.0, 14.0, TEXT, true); hits.push((R { x: pl.x + off, ..pl }, Act::TimerPlay));
+        a.gfx.rrect(rs.x, rs.y, rs.w, rs.h, 11.0, SURFACE_H); a.gfx.icon("rotate-ccw", rs.x + 4.0, rs.y + 4.0, 14.0, TEXT, false); hits.push((R { x: rs.x + off, ..rs }, Act::TimerReset));
         let frac = if total > 0 { 1.0 - rem as f32 / total as f32 } else { 0.0 }.clamp(0.0, 1.0);
         a.gfx.rrect(s.x + PAD, s.y + s.h - 14.0, s.w - 2.0 * PAD, 4.0, 2.0, SURFACE_H); a.gfx.rrect(s.x + PAD, s.y + s.h - 14.0, (s.w - 2.0 * PAD) * frac, 4.0, 2.0, coral);
         return;
@@ -187,11 +187,12 @@ pub fn clock_mini(a: &mut App, s: R) {
 pub fn metrics_mini(a: &mut App, s: R) {
     card(a, s); let sn = crate::metrics::snap();
     let cols = [("CPU", Some(sn.cpu), BLUE), ("RAM", Some(sn.ram), rgba(0x5EE0B0, 1.0)), ("GPU", sn.gpu, rgba(0xB69CFF, 1.0))];
-    if s.h > 60.0 { // 110 px: valor grande (Head) e barra de 6 px na base; grafico fica para depois
+    if s.h > 60.0 { // 110 px: rotulo, valor grande (Big; Head se nao couber na coluna) e barra de 16 px ancorada a 10 px da base
         for (i, (lbl, v, col)) in cols.into_iter().enumerate() {
-            let x = s.x + 14.0 + i as f32 * 58.0;
-            a.gfx.text(lbl, Fmt::Small, x, s.y + 14.0, 50.0, 13.0, TEXT3, false); a.gfx.text(&v.map_or("—".into(), |v| format!("{v:.0}%")), Fmt::Head, x, s.y + 32.0, 56.0, 22.0, TEXT, false);
-            a.gfx.rrect(x, s.y + s.h - 16.0, 50.0, 6.0, 3.0, SURFACE_H); a.gfx.rrect(x, s.y + s.h - 16.0, 50.0 * (v.unwrap_or(0.0) / 100.0).clamp(0.0, 1.0), 6.0, 3.0, col);
+            let x = s.x + 14.0 + i as f32 * 58.0; let txt = v.map_or("—".into(), |v| format!("{v:.0}%"));
+            let vf = if a.gfx.measure(&txt, Fmt::Big) <= 56.0 { Fmt::Big } else { Fmt::Head };
+            a.gfx.text(lbl, Fmt::Small, x, s.y + 16.0, 50.0, 13.0, TEXT3, false); a.gfx.text(&txt, vf, x, s.y + 31.0, 58.0, 36.0, TEXT, false);
+            a.gfx.rrect(x, s.y + s.h - 26.0, 50.0, 16.0, 4.0, SURFACE_H); a.gfx.rrect(x, s.y + s.h - 26.0, 50.0 * (v.unwrap_or(0.0) / 100.0).clamp(0.0, 1.0), 16.0, 4.0, col);
         }
         return;
     }
