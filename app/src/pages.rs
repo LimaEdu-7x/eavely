@@ -465,7 +465,7 @@ mod mascot_pose_tests {
     #[test] fn com_slots_o_eavy_fica_a_esquerda() { assert_eq!(mascot_pose(false, 150.0).0, 118.0); }
 }
 /// Pagina Mascote (v0.2.0): rosto a esquerda (150 px, reage ao mouse e a cliques), 2 slots configuraveis a direita (padrao: Arquivos em cima, Player mini embaixo).
-/// Sem slots: Eavy no centro, maior, com a cena (globo, toca-discos etc.); balao de status so quando houver.
+/// Sem slots: Eavy no centro, maior, com a cena (toca-discos, fones etc.); balao de status so quando houver.
 fn mascot_page(a: &mut App, hits: &mut Vec<(R, Act)>, off: f32, now: Instant) {
     a.p.mascot.mini = false;
     let cfg = crate::settings::get(); a.p.slot_tip = None;

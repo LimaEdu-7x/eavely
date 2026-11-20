@@ -11,7 +11,7 @@ const SKIN: &str = include_str!("../../assets/mascote/eavy/skin-areia.json");
 const TAU: f32 = std::f32::consts::TAU;
 type C3 = [f32; 3];
 // ordem do catalogo `cenario` do rig (a ordem de desenho do JS = ordem de insercao)
-const CENA: [&str; 9] = ["globo", "toca", "parede", "bateria", "sino", "cartaz", "chave", "xicara", "trofeu"];
+const CENA: [&str; 8] = ["toca", "parede", "bateria", "sino", "cartaz", "chave", "xicara", "trofeu"];
 
 pub struct Rig { pub v: Value, pub skin: Value, idx: HashMap<String, usize>, body: Vec<Seg> }
 pub fn rig() -> &'static Rig {
@@ -69,9 +69,6 @@ fn sprite_grid(name: &str, fr: i32, ph: f32, o: &SpO) -> Option<Grid> {
             ell(&mut g, 9.5, 6.2, 7.6, 3.1, if rec { b'k' } else { b'D' }); if rec { ell(&mut g, 9.5, 6.2, 2.3, 1.05, lab); }
             if rec && arm { let a = ph * TAU * 4.0; gp(&mut g, (9.5 + a.cos() * 5.2).round() as i32, (6.2 + a.sin() * 2.1).round() as i32, b'G'); } else if !rec { gp(&mut g, 9, 6, b'g'); }
             if arm { gl(&mut g, 19, 3, 13, 6, b'g'); } else { gl(&mut g, 19, 3, 17, 0, b'g'); } gr(&mut g, 18, 2, 3, 3, b'G'); gr(&mut g, 3, 10, 2, 2, b'r'); gr(&mut g, 7, 10, 2, 2, if rec && arm { b'l' } else { b'y' }); g }
-        "globo" => { let mut g = mg(16, 20); gr(&mut g, 7, 1, 1, 5, b'g'); gr(&mut g, 6, 5, 3, 2, b'D');
-            for j in 0..20 { for i in 0..16 { if (i as f32 + 0.5 - 8.0).powi(2) + (j as f32 + 0.5 - 13.0).powi(2) <= 36.0 { g[j][i] = [b'w', b'B', b'g', b'C'][(i + j + fr as usize) % 4]; } } }
-            gp(&mut g, 5, 9, b'w'); gp(&mut g, 6, 8, b'w'); g }
         "vinil" => { let mut g = mg(14, 14); gd(&mut g, 7.0, 7.0, 6.0, b'k'); for j in 0..14 { for i in 0..14 { let d = (i as f32 + 0.5 - 7.0).hypot(j as f32 + 0.5 - 7.0); if d > 3.6 && d < 4.4 { g[j][i] = b'D'; } } }
             gd(&mut g, 7.0, 7.0, 2.2, o.lab); let a = ph * TAU * 4.0; gp(&mut g, 7 + (a.cos() * 4.8).round() as i32, 7 + (a.sin() * 4.8).round() as i32, b'G'); g }
         "trofeu" => { let mut g = mg(14, 16); gr(&mut g, 3, 1, 8, 5, b'y'); gr(&mut g, 4, 6, 6, 2, b'y'); gr(&mut g, 5, 8, 4, 1, b'y'); gr(&mut g, 6, 9, 2, 2, b'Y'); gr(&mut g, 4, 11, 6, 2, b'Y');
@@ -127,7 +124,7 @@ fn sprite(g: &Gfx, name: &'static str, tm: f32, u: f32, o: &SpO, dim: f32, a: f3
 }
 
 // ---------------------------------------------------------------- particulas
-#[derive(Clone, Copy, PartialEq, Debug)] enum PT { Star, Spark, Sweat, Z, Dots, Note, Bang, Bolt, File, Conf, Refl, Fumaca, Puff }
+#[derive(Clone, Copy, PartialEq, Debug)] enum PT { Star, Spark, Sweat, Z, Dots, Bang, Bolt, File, Conf, Refl, Fumaca, Puff }
 #[derive(Clone, Debug)] struct Part { ty: PT, age: f32, life: f32, x: f32, y: f32, vx: f32, vy: f32, size: f32, rot: f32, c: C3, delay: f32, seed: f32 }
 #[derive(Clone, Copy, Default)] struct Hand { x: f32, y: f32, r: f32, v: f32 }
 #[derive(Clone, Default)] struct Scn { a: f32, t0: f32, vis: bool, par: Option<&'static Value>, traj: Option<&'static Value> }
@@ -139,9 +136,9 @@ struct FxRun { d: usize, t: f32, done: HashSet<usize> }
 /// Motor do Eavy (equivalente a `class Mascot` do mascote3.js).
 pub struct Eavy {
     t: f32, dt: f32, s_t: f32, seed: u32, cur: Cur, base: usize, base_id: &'static str, fx: Option<FxRun>, parts: Vec<Part>, timers: HashMap<(usize, &'static str), f32>,
-    dance: f32, blink_v: f32, next_blink: f32, blink_q: Vec<f32>, ptr: Option<(f32, f32)>, ptr_t: f32, badge_s: f32,
+    blink_v: f32, next_blink: f32, blink_q: Vec<f32>, ptr: Option<(f32, f32)>, ptr_t: f32, badge_s: f32,
     sc: HashMap<&'static str, Scn>, hand: [Hand; 2], cab: (f32, f32), prev_ox_px: f32, read_lift: f32, el_now: f32,
-    tw: Tw, d_roll: f32, dsx: f32, dsy: f32, eye: &'static str, tint_a: f32, badge: Option<&'static str>, face_x: Option<f32>,
+    tw: Tw, eye: &'static str, tint_a: f32, badge: Option<&'static str>, face_x: Option<f32>,
     frozen: bool, pub ctx_musica: bool, pub n_eyes: u32, pub n_mouths: u32, pub n_hands: u32,
 }
 fn bd(r: f32, dt: f32) -> f32 { 1.0 - r.powf(dt) }
@@ -149,9 +146,9 @@ impl Eavy {
     pub fn new() -> Eavy {
         let r = rig(); let base = r.v["estado_inicial"].as_str().and_then(|n| r.idx.get(n)).copied().unwrap_or(0);
         let mut e = Eavy { t: 0.0, dt: 0.033, s_t: 0.0, seed: 7, cur: Cur { gx: 0.0, gy: 0.0, tilt: 0.0, oy: 0.0, ox: 0.0, sx: 1.0, sy: 1.0, blush: 0.12, tint_a: 0.0, tint: [1.0; 3], mc: 0.8, mw: fo(&r.skin["bocaDW"], 5.0), mo: 0.0 },
-            base, base_id: r.def(base)["id"].as_str().unwrap_or(""), fx: None, parts: Vec::new(), timers: HashMap::new(), dance: 0.0, blink_v: 1.0, next_blink: 0.0, blink_q: Vec::new(), ptr: None, ptr_t: -99.0, badge_s: 0.0,
+            base, base_id: r.def(base)["id"].as_str().unwrap_or(""), fx: None, parts: Vec::new(), timers: HashMap::new(), blink_v: 1.0, next_blink: 0.0, blink_q: Vec::new(), ptr: None, ptr_t: -99.0, badge_s: 0.0,
             sc: HashMap::new(), hand: [Hand { x: 2.0, y: 66.0, r: -35.0, v: 0.0 }, Hand { x: 98.0, y: 66.0, r: 35.0, v: 0.0 }], cab: (0.0, 0.0), prev_ox_px: 0.0, read_lift: 0.0, el_now: 0.0,
-            tw: Tw::default(), d_roll: 0.0, dsx: 1.0, dsy: 1.0, eye: "open", tint_a: 0.0, badge: None, face_x: None, frozen: false, ctx_musica: true, n_eyes: 0, n_mouths: 0, n_hands: 0 };
+            tw: Tw::default(), eye: "open", tint_a: 0.0, badge: None, face_x: None, frozen: false, ctx_musica: true, n_eyes: 0, n_mouths: 0, n_hands: 0 };
         e.next_blink = 1.5 + e.rnd() * 2.0; e
     }
     fn rnd(&mut self) -> f32 { // mulberry32 (igual ao rng() do JS)
@@ -190,7 +187,6 @@ impl Eavy {
             "sweat" => { p.ty = PT::Sweat; p.x = 84.0; p.y = 18.0; p.vy = 26.0; p.life = 1.0; p.size = 5.0; p.c = hex("#8cc8ff"); }
             "z" => { let k = fo(&o["k"], 0.0); p.ty = PT::Z; p.x = 80.0; p.y = 12.0; p.vx = 9.0; p.vy = -14.0; p.life = 1.7; p.size = 9.0 + k * 2.0; p.c = hex("#c9d4f2"); p.delay = k * 0.3; }
             "dots" => { p.ty = PT::Dots; p.x = 84.0; p.y = 4.0; p.life = 1.5; }
-            "note" => { p.ty = PT::Note; p.x = 20.0 + self.rnd() * 60.0; p.y = 4.0; p.vx = (self.rnd() - 0.5) * 14.0; p.vy = -18.0; p.life = 1.6; p.size = 11.0; p.c = hex("#ff9ae0"); }
             "bang" => { p.ty = PT::Bang; p.x = 82.0; p.y = -2.0; p.life = 0.9; p.size = 14.0; p.c = hex("#ffb020"); }
             "bolt" => { p.ty = PT::Bolt; let a = self.rnd() * TAU; let d = 44.0 + self.rnd() * 10.0; p.x = 50.0 + a.cos() * d; p.y = 48.0 + a.sin() * d * 0.85; p.rot = a; p.life = 0.3 + self.rnd() * 0.12; p.size = 12.0 + self.rnd() * 10.0;
                 p.c = if self.rnd() < 0.5 { hex("#ffe45c") } else { hex("#6ff2ff") }; p.seed = self.rnd() * 99.0; }
@@ -266,13 +262,9 @@ impl Eavy {
         // ---- alvos continuos do estado de base
         let dd_eye = if has_b { b["eye"].as_str().unwrap_or("open") } else { "open" };
         let dd_tint = if has_b { b["tint"].as_str().unwrap_or("#ffffff") } else { "#ffffff" }; let dd_tint_a = if has_b { fo(&b["tintA"], 0.0) } else { 0.0 };
-        if has_b && !b["dance"].is_null() { let on = f(&b["dance"]) != 0.0; self.dance = clamp(self.dance + dt / if on { 0.3 } else { 0.5 } * if on { 1.0 } else { -1.0 }, 0.0, 1.0); } else { self.dance = clamp(self.dance - dt / 0.5, 0.0, 1.0); }
         let (mut t_tilt, mut t_sx, mut t_sy, t_blush, mut t_oy, mut t_ox) = (if has_b { fo(&b["tilt"], 0.0) } else { 0.0 }, if has_b { fo(&b["sx"], 1.0) } else { 1.0 }, if has_b { fo(&b["sy"], 1.0) } else { 1.0 }, if has_b { fo(&b["blush"], 0.12) } else { 0.12 }, 0.0f32, 0.0f32);
         if has_b && !b["breathe"].is_null() { let s = (f(&b["breathe"]["w"]) * self.t).sin() * f(&b["breathe"]["a"]); t_sy *= 1.0 + s; t_sx *= 1.0 - s * 0.57; }
         if has_b && !b["bounce"].is_null() { t_oy -= (f(&b["bounce"]["w"]) * self.t).sin().abs() * f(&b["bounce"]["a"]); }
-        let (mut d_roll, mut dsx, mut dsy) = (0.0f32, 1.0f32, 1.0f32);
-        if self.dance > 0.0 { let beat = self.t * f(&rg["danca_bpm"]) / 60.0; let hop = (std::f32::consts::PI * beat).sin().abs(); let land = (1.0 - hop).powi(6); let sw = (std::f32::consts::PI * beat / 2.0).sin(); let a = self.dance;
-            t_oy -= 0.1 * hop * a; t_ox += 0.06 * sw * a; d_roll = 0.1 * sw * a; dsx = 1.0 + 0.045 * land * a; dsy = 1.0 - 0.06 * land * a; if self.timer((usize::MAX - 1, "note"), 1.1) { self.spawn("note", 1, &Value::Null); } }
         let (bl, tc) = match tint_ov { Some((c, a)) => (a, c), None => (dd_tint_a, hex(dd_tint)) };
         let k_m = 1.0 - 0.00002f32.powf(dt); let skin_dw = fo(&r.skin["bocaDW"], 5.0);
         let bb = boca_ov.or(if has_b && !b["boca"].is_null() { Some(&b["boca"]) } else { None });
@@ -298,7 +290,7 @@ impl Eavy {
         self.parts.retain_mut(|p| { if p.delay > 0.0 { p.delay -= dt; return true; } p.age += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.age < p.life });
         self.badge = if has_b { b["badge"].as_str() } else { None };
         self.badge_s += ((if self.badge.is_some() { 1.0 } else { 0.0 }) - self.badge_s) * k_gen;
-        self.tw = tw; self.d_roll = d_roll; self.dsx = dsx; self.dsy = dsy; self.eye = eye; self.tint_a = self.cur.tint_a;
+        self.tw = tw; self.eye = eye; self.tint_a = self.cur.tint_a;
     }
 
     // ---------------------------------------------------------------- desenho
@@ -311,8 +303,8 @@ impl Eavy {
         g.set_matrix(u);
         let r = rig(); let skin = &r.skin; let c = self.cur.clone(); let tw = self.tw.clone(); let (w100, h90) = (100.0f32, 90.0f32);
         let jit = if tw.jit != 0.0 { (self.t * 190.0).sin() * tw.jit } else { 0.0 };
-        let ox = (c.ox + tw.ox + jit + c.gx * 0.02) * w100; let oy = (c.oy + tw.oy) * h90; let roll = (tw.roll + self.d_roll + c.tilt + tw.tilt + c.gx * 0.04) * 180.0 / std::f32::consts::PI;
-        let (sx, sy) = (c.sx * tw.sx * self.dsx, c.sy * tw.sy * self.dsy);
+        let ox = (c.ox + tw.ox + jit + c.gx * 0.02) * w100; let oy = (c.oy + tw.oy) * h90; let roll = (tw.roll + c.tilt + tw.tilt + c.gx * 0.04) * 180.0 / std::f32::consts::PI;
+        let (sx, sy) = (c.sx * tw.sx, c.sy * tw.sy);
         let pal_c = |k: &str| hex(skin["paleta"][k].as_str().unwrap_or("#ffffff")); let (corpo, sombra, acento) = (pal_c("corpo"), pal_c("sombra"), pal_c("acento")); let tm = fo(&skin["tint_corpo"], 1.0);
         let top = mix(corpo, c.tint, c.tint_a * 0.14 * tm); let bot = mix(sombra, c.tint, c.tint_a * 0.55 * tm); let ink = hex(skin["olhos"]["cor"].as_str().unwrap_or("#14121a"));
         if !mini { // brilho de estado + camada de tras + sombra de contato
@@ -423,7 +415,6 @@ impl Eavy {
                 PT::Sweat => { g.set_matrix(sc(q.size / 5.0, q.size / 5.0) * at); g.path(&[Seg::M(0.0, -6.0), Seg::C(3.0, -1.0, 4.0, 2.0, 0.0, 4.0), Seg::C(-4.0, 2.0, -3.0, -1.0, 0.0, -6.0), Seg::Z], Some(col), Some((0.8, (0.169, 0.435, 0.839, fo_)))); }
                 PT::Z => { let z = q.size * (0.6 + 0.5 * a) / 9.0 * 4.0; g.set_matrix(at); g.path(&[Seg::M(-z, -z), Seg::L(z, -z), Seg::L(-z, z), Seg::L(z, z)], None, Some((1.8, col))); }
                 PT::Dots => { g.set_matrix(m); for i in 0..3 { if a > i as f32 * 0.2 { g.circle(q.x + i as f32 * 8.0, q.y - i as f32 * 6.0, 2.2 + i as f32 * 0.9, (0.8, 0.75, 1.0, fo_)); } } }
-                PT::Note => { g.set_matrix(at); let z = q.size / 11.0; g.ellipse(0.0, 0.0, 3.0 * z, 2.2 * z, col); g.path(&[Seg::M(2.6 * z, 0.0), Seg::L(2.6 * z, -9.0 * z), Seg::Q(2.6 * z, -6.0 * z, 6.0 * z, -5.0 * z)], None, Some((1.6 * z, col))); }
                 PT::Bang => { let z = q.size / 14.0 * pop * (1.0 + (1.0 - (a * 3.0).min(1.0)) * 0.4); g.set_matrix(sc(z, z) * at); g.path(&[Seg::M(0.0, -8.0), Seg::L(0.0, 0.0)], None, Some((3.0, col))); g.circle(0.0, 4.0, 1.7, col); }
                 PT::Bolt => { let (rr, s2) = (q.size, q.seed); g.set_matrix(rot(q.rot.to_degrees(), 0.0, 0.0) * at); if a < 0.8 { g.path(&[Seg::M(0.0, 0.0), Seg::L(rr * 0.3, s2.sin() * 4.0), Seg::L(rr * 0.55, -(s2 * 2.0).cos() * 5.0), Seg::L(rr * 0.8, (s2 * 3.0).sin() * 4.0), Seg::L(rr, 0.0)], None, Some((2.2, col))); } }
                 PT::File => { g.set_matrix(at); sprite(g, "pasta", 0.0, 2.2, &SP0, 1.0, 1.0, f32::INFINITY); }
@@ -517,7 +508,7 @@ impl Mascot {
     fn want(&self, c: &Ctx) -> &'static str {
         if self.cool_until.is_some() { return "irritado"; }
         match ATTENTION.load(Relaxed) { 1 => return "approval", 2 => return "pergunta", 3 => return "busca", _ => {} }
-        if self.low { "bateria-baixa" } else if c.timer == 1 { "pomodoro-inicio" } else if c.playing { "danca" } else if c.charging == Some(true) { "carregando-ativo" } else if self.asleep { "sono" } else { "idle-pisca" }
+        if self.low { "bateria-baixa" } else if c.timer == 1 { "pomodoro-inicio" } else if c.playing { "idle-pisca" } else if c.charging == Some(true) { "carregando-ativo" } else if self.asleep { "sono" } else { "idle-pisca" }
     }
     fn resync(&mut self, c: &Ctx, now: Instant, greet: bool) {
         self.prev = *c; self.key = c.track; self.cand = (c.track, now); self.errors = ERRORS.load(Relaxed); self.notifs = NOTIFS.load(Relaxed); self.slaps.clear(); self.pending = None;
@@ -557,7 +548,7 @@ impl Mascot {
             } else if !self.sleep_lock { self.asleep = false; }
             if let Some(g) = self.pending { if !self.e.gesture_running() { self.pending = None; self.e.play(g); } }
         }
-        // estado de base: depois de um gesto volta ao estado ATUAL (danca se musica, carregando-ativo se plugado...), nao a idle
+        // estado de base: depois de um gesto volta ao estado ATUAL (idle se musica, carregando-ativo se plugado...), nao a idle
         if !self.e.gesture_running() { let w = self.want(c); if self.e.base_id() != w { self.e.play(w); } }
         // tempo real: a 4 fps (dormindo/reduzido) o passo de 0,25 s vira subpassos de <= 50 ms (gestos na velocidade certa)
         let n = (dt / 0.05).ceil().clamp(1.0, 30.0) as u32; for _ in 0..n { self.e.step(dt / n as f32); }
@@ -570,7 +561,7 @@ mod tests {
     /// seed fixa nos testes (o Default real usa o relogio)
     fn seeded() -> Mascot { let mut m = Mascot::default(); m.e.reseed(7); m }
     fn steps(m: &mut Mascot, c: &Ctx, t: &mut Instant, secs: f32) { for _ in 0..(secs * 30.0) as u32 { *t += Duration::from_millis(33); m.step(c, *t); } }
-    #[test] fn rig_embutido_tem_22_reacoes_e_skin() { let r = rig(); assert_eq!(r.ids().len(), 23); assert_eq!(r.skin["id"], "areia-final"); assert!(r.idx.contains_key("carregando-ativo")); }
+    #[test] fn rig_embutido_tem_22_reacoes_e_skin() { let r = rig(); assert_eq!(r.ids().len(), 22); assert_eq!(r.skin["id"], "areia-final"); assert!(r.idx.contains_key("carregando-ativo")); }
     #[test] fn rig_embutido_sem_textos_de_terceiros() { let t = RIG.to_lowercase(); assert!(!t.contains("coucou") && !t.contains("mochi")); }
     #[test] fn caminho_do_corpo_vira_segmentos_fechados() { let s = &rig().body; assert!(matches!(s[0], Seg::M(26.0, 22.0))); assert!(matches!(s.last(), Some(Seg::Z))); assert_eq!(s.iter().filter(|x| matches!(x, Seg::C(..))).count(), 4); }
     #[test] fn seguir_alvo_independe_do_fps() {
@@ -580,24 +571,24 @@ mod tests {
         let r = rig(); for id in r.ids() { let mut e = Eavy::new(); e.play(&id); let gesto = e.fx.is_some();
             for _ in 0..(30 * 12) { e.step(1.0 / 30.0); assert!(e.cur.ox.is_finite() && e.cur.oy.is_finite() && e.cur.sx.is_finite() && e.cur.mw.is_finite() && e.tw.roll.is_finite(), "{id}"); assert!(e.cur.sx > 0.2 && e.cur.sy > 0.2, "{id}"); }
             if gesto { assert!(e.fx.is_none(), "{id} nao terminou"); } } }
-    #[test] fn troca_de_faixa_volta_para_danca_se_a_musica_segue() {
-        let mut e = Eavy::new(); e.ctx_musica = true; e.play("danca"); e.play("troca-faixa"); for _ in 0..(30 * 6) { e.step(1.0 / 30.0); } assert_eq!(e.base_id(), "danca");
+    #[test] fn troca_de_faixa_volta_ao_idle_com_musica() {
+        let mut e = Eavy::new(); e.ctx_musica = true; e.play("troca-faixa"); for _ in 0..(30 * 6) { e.step(1.0 / 30.0); } assert_eq!(e.base_id(), "idle-pisca");
         let mut e = Eavy::new(); e.ctx_musica = false; e.play("troca-faixa"); for _ in 0..(30 * 6) { e.step(1.0 / 30.0); } assert_eq!(e.base_id(), "idle-pisca"); }
     #[test] fn gatilhos_reais_e_volta_ao_estado_atual() {
         let mut m = seeded(); let mut t = Instant::now(); let mut c = Ctx { track: 1, charging: Some(false), ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
-        c.playing = true; steps(&mut m, &c, &mut t, 0.2); assert_eq!(m.e.base_id(), "danca");
-        c.track = 2; steps(&mut m, &c, &mut t, 0.1); assert!(!m.e.gesture_running(), "debounce: ainda nao troca"); steps(&mut m, &c, &mut t, 0.5); assert!(m.e.gesture_running(), "troca de faixa"); steps(&mut m, &c, &mut t, 6.0); assert_eq!(m.e.base_id(), "danca");
-        c.charging = Some(true); steps(&mut m, &c, &mut t, 0.2); assert!(m.e.gesture_running(), "carregando"); steps(&mut m, &c, &mut t, 7.0); assert_eq!(m.e.base_id(), "danca", "musica tem prioridade sobre carregando-ativo");
+        c.playing = true; steps(&mut m, &c, &mut t, 0.2); assert_eq!(m.e.base_id(), "idle-pisca");
+        c.track = 2; steps(&mut m, &c, &mut t, 0.1); assert!(!m.e.gesture_running(), "debounce: ainda nao troca"); steps(&mut m, &c, &mut t, 0.5); assert!(m.e.gesture_running(), "troca de faixa"); steps(&mut m, &c, &mut t, 6.0); assert_eq!(m.e.base_id(), "idle-pisca");
+        c.charging = Some(true); steps(&mut m, &c, &mut t, 0.2); assert!(m.e.gesture_running(), "carregando"); steps(&mut m, &c, &mut t, 7.0); assert_eq!(m.e.base_id(), "idle-pisca", "musica tem prioridade sobre carregando-ativo");
         c.playing = false; steps(&mut m, &c, &mut t, 3.0); assert_eq!(m.e.base_id(), "carregando-ativo", "pausar a musica nao perde o carregador");
         c.timer = 1; steps(&mut m, &c, &mut t, 0.2); assert_eq!(m.e.base_id(), "pomodoro-inicio"); c.timer = 3; c.playing = true; steps(&mut m, &c, &mut t, 0.2); assert!(m.e.gesture_running(), "pomodoro-fim");
-        steps(&mut m, &c, &mut t, 4.0); assert_eq!(m.e.base_id(), "danca", "pomodoro-fim volta ao estado atual"); }
+        steps(&mut m, &c, &mut t, 4.0); assert_eq!(m.e.base_id(), "idle-pisca", "pomodoro-fim volta ao estado atual"); }
     #[test] fn titulo_e_artista_em_dois_eventos_disparam_uma_troca() {
         let mut m = seeded(); let mut t = Instant::now(); let mut c = Ctx { track: 1, playing: true, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
         c.track = 2; steps(&mut m, &c, &mut t, 0.1); c.track = 3; steps(&mut m, &c, &mut t, 0.5); assert!(m.e.gesture_running()); steps(&mut m, &c, &mut t, 6.0);
         let mut n = 0; let mut was = false; for _ in 0..200 { t += Duration::from_millis(33); m.step(&c, t); let g = m.e.gesture_running(); if g && !was { n += 1; } was = g; } assert_eq!(n, 0, "so uma troca"); }
     #[test] fn reabrir_descarta_gestos_vencidos_e_mostra_o_estado_atual() {
         let mut m = seeded(); let mut t = Instant::now(); let mut c = Ctx { track: 1, ..Default::default() }; steps(&mut m, &c, &mut t, 6.0);
-        c.playing = true; c.timer = 3; t += Duration::from_secs(30); m.step(&c, t); assert_eq!(m.e.base_id(), "danca"); }
+        c.playing = true; c.timer = 3; t += Duration::from_secs(30); m.step(&c, t); assert_eq!(m.e.base_id(), "idle-pisca"); }
     #[test] fn ocioso_bocejo_sono_e_acorda() {
         let mut m = seeded(); let mut t = Instant::now(); let mut c = Ctx { track: 1, pointer: Some((400.0, 0.0)), ..Default::default() }; steps(&mut m, &c, &mut t, 59.0); assert!(!m.e.gesture_running());
         steps(&mut m, &c, &mut t, 2.0); assert!(m.e.gesture_running(), "bocejo aos 60 s"); steps(&mut m, &c, &mut t, 62.0); assert!(m.e.sleeping(), "sono aos 120 s com mouse longe");

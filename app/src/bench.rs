@@ -134,7 +134,7 @@ fn scenario(a: &mut App, i: u32) -> Option<&'static str> {
         94 => { open(a, 1, false, false); "95-tamanho-grande-musica" }
         95 => { crate::settings::update(|s| { s.size_preset = base_preset(); s.mascot_size = "auto".into(); }); open(a, 0, false, false); "skip" }
         96 => { crate::media::fake_none(); open(a, 0, false, false); a.p.mascot.seek("idle-pisca", 800); "96-eavy-idle" }
-        97 => { a.p.mascot.seek("danca", 1300); "97-eavy-danca-globo-toca-discos" }
+        97 => { a.p.mascot.seek("toca", 1300); "97-eavy-toca-discos" }
         98 => { a.p.mascot.seek("troca-faixa", 1500); "98-eavy-troca-faixa" }
         99 => { a.p.mascot.seek("carregando", 2700); "99-eavy-carregando-eletrico" }
         100 => { a.p.mascot.seek("engolir", 1250); "100-eavy-engolir" }
