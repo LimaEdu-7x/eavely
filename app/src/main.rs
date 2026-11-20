@@ -10,7 +10,7 @@ mod pages2;
 mod tasks;
 mod settings;
 mod settings_ui;
-mod overlay; mod netstat; mod layout; mod mascot; mod slots; mod spacing;
+mod overlay; mod netstat; mod layout; mod mascot; mod slots; mod spacing; mod channel;
 mod tray;
 #[cfg(feature = "devtools")]
 mod bench;
@@ -25,7 +25,7 @@ use windows::Win32::Foundation::HMODULE;
 pub(crate) fn data_dir() -> std::path::PathBuf {
     // EAVELY_DATA_DIR: so para testes automatizados (nunca gravar lixo de teste no APPDATA real)
     if let Some(d) = std::env::var_os("EAVELY_DATA_DIR") { return d.into(); }
-    std::env::var_os("APPDATA").map(std::path::PathBuf::from).unwrap_or_else(std::env::temp_dir).join("Eavely")
+    std::env::var_os("APPDATA").map(std::path::PathBuf::from).unwrap_or_else(std::env::temp_dir).join(channel::DATA_DIR)
 }
 
 /// Log PERSISTENTE (sempre ligado, pequeno, gira em 200 KB) de tudo que liga/desliga/esconde a ilha e de crashes: %APPDATA%\Eavely\state.log. Sem dados do usuario.
@@ -85,7 +85,7 @@ unsafe extern "system" fn veh(ep: *mut windows::Win32::System::Diagnostics::Debu
     0
 }
 
-fn main() {
+fn main() { channel::seed_settings();
     unsafe { windows::Win32::System::Diagnostics::Debug::AddVectoredExceptionHandler(1, Some(veh)); }
     unsafe { windows::Win32::System::Diagnostics::Debug::SetUnhandledExceptionFilter(Some(ueh)); }
     std::panic::set_hook(Box::new(|i| { std::env::set_var("EAVELY_LOG", "1"); log(&format!("PANIC: {i}")); state_log(&format!("CRASH: panic: {i}")); relaunch("panic"); }));

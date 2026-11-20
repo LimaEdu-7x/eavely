@@ -7,9 +7,9 @@ fn main() {
     println!("cargo:rustc-env=EAVELY_BUILD={:04}{:02}{:02}.{:02}{:02}", y, m, d, tod / 3600, (tod % 3600) / 60);
     println!("cargo:rustc-link-arg-bins=/PDBALTPATH:eavely.pdb"); // nao grava o caminho local do PDB no exe
     println!("cargo:rerun-if-changed=src");
-    println!("cargo:rerun-if-changed=../assets/app/eavely-icon.ico");
+    println!("cargo:rerun-if-changed=../assets/app/eavely-icon.ico"); println!("cargo:rerun-if-changed=../assets/app/eavely-dev-icon.ico");
     let mut res = winres::WindowsResource::new();
-    res.set_icon("../assets/app/eavely-icon.ico");
+    let dev = std::env::var_os("CARGO_FEATURE_DEV").is_some(); res.set_icon(if dev { "../assets/app/eavely-dev-icon.ico" } else { "../assets/app/eavely-icon.ico" });
     res.set_manifest(r#"<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3"><security><requestedPrivileges><requestedExecutionLevel level="asInvoker" uiAccess="false"/></requestedPrivileges></security></trustInfo>
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1"><application>
@@ -21,8 +21,8 @@ fn main() {
     <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
   </windowsSettings></application>
 </assembly>"#);
-    res.set("ProductName", "Eavely");
-    res.set("FileDescription", "Eavely - ilha de notificacoes e midia");
+    res.set("ProductName", if dev { "Eavely Dev" } else { "Eavely" });
+    res.set("FileDescription", if dev { "Eavely Dev - ilha de notificacoes e midia (canal dev)" } else { "Eavely - ilha de notificacoes e midia" });
     res.set("LegalCopyright", "MIT");
     if let Err(e) = res.compile() { println!("cargo:warning=winres: {e}"); }
 }

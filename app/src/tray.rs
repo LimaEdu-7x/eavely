@@ -1,6 +1,7 @@
 // Bandeja nativa (Shell_NotifyIcon): inicia escondido; menu "Desligar notch"/"Ligar notch" e "Sair".
 use windows::{core::{w, PCWSTR}, Win32::{Foundation::*, UI::{Shell::*, WindowsAndMessaging::*}}};
 use crate::island::{self, App};
+use crate::channel;
 
 const ID_TOGGLE: u32 = 1;
 const ID_QUIT: u32 = 2;
@@ -11,13 +12,13 @@ pub fn app_icon() -> HICON { static I: std::sync::OnceLock<isize> = std::sync::O
 fn make_icon() -> HICON {
     // um unico desenho que le em bandeja clara e escura; tamanho pelo DPI (16/20/24/32) para ficar nitido
     let want = unsafe { GetSystemMetrics(SM_CXSMICON) };
-    let (png, px): (&[u8], i32) = match want { ..=16 => (include_bytes!("../../assets/app/eavely-tray-16.png"), 16), 17..=20 => (include_bytes!("../../assets/app/eavely-tray-20.png"), 20), 21..=24 => (include_bytes!("../../assets/app/eavely-tray-24.png"), 24), _ => (include_bytes!("../../assets/app/eavely-tray-32.png"), 32) };
+    let (png, px): (&[u8], i32) = if channel::DEV { match want { ..=16 => (include_bytes!("../../assets/app/eavely-dev-tray-16.png"), 16), 17..=20 => (include_bytes!("../../assets/app/eavely-dev-tray-20.png"), 20), 21..=24 => (include_bytes!("../../assets/app/eavely-dev-tray-24.png"), 24), _ => (include_bytes!("../../assets/app/eavely-dev-tray-32.png"), 32) } } else { match want { ..=16 => (include_bytes!("../../assets/app/eavely-tray-16.png"), 16), 17..=20 => (include_bytes!("../../assets/app/eavely-tray-20.png"), 20), 21..=24 => (include_bytes!("../../assets/app/eavely-tray-24.png"), 24), _ => (include_bytes!("../../assets/app/eavely-tray-32.png"), 32) } };
     unsafe { CreateIconFromResourceEx(png, true, 0x00030000, px, px, LR_DEFAULTCOLOR).or_else(|_| LoadIconW(None, IDI_APPLICATION)).unwrap_or_default() }
 }
 
 fn data(hwnd: HWND) -> NOTIFYICONDATAW {
     let mut d = NOTIFYICONDATAW { cbSize: size_of::<NOTIFYICONDATAW>() as u32, hWnd: hwnd, uID: 1, uFlags: NIF_ICON | NIF_MESSAGE | NIF_TIP, uCallbackMessage: island::WM_TRAY, hIcon: app_icon(), ..Default::default() };
-    for (i, c) in "Eavely".encode_utf16().enumerate() { d.szTip[i] = c; }
+    for (i, c) in crate::channel::NAME.encode_utf16().enumerate() { d.szTip[i] = c; }
     d
 }
 pub fn add(hwnd: HWND) { unsafe { let d = data(hwnd); let _ = Shell_NotifyIconW(NIM_ADD, &d); } }

@@ -214,7 +214,7 @@ unsafe extern "system" fn scan_cb(h: HWND, lp: LPARAM) -> BOOL {
     let (st, ex) = (GetWindowLongPtrW(h, GWL_STYLE) as u32, GetWindowLongPtrW(h, GWL_EXSTYLE) as u32);
     if ex & (WS_EX_TRANSPARENT.0 | WS_EX_TOOLWINDOW.0) != 0 { return TRUE; }
     let mut cls = [0u16; 40]; let n = GetClassNameW(h, &mut cls).max(0) as usize;
-    if matches!(String::from_utf16_lossy(&cls[..n]).as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd" | "EavelyIsland") { return TRUE; }
+    if matches!(String::from_utf16_lossy(&cls[..n]).as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd" | crate::channel::CLASS_ISLAND) { return TRUE; }
     let mut r = RECT::default(); if GetWindowRect(h, &mut r).is_err() { return TRUE; }
     let zoomed = IsZoomed(h).as_bool();
     for (i, m) in sc.mons.iter().enumerate() {
@@ -897,20 +897,20 @@ pub fn start() -> Option<std::thread::JoinHandle<()>> {
         let _ = windows::Win32::System::Ole::OleInitialize(None);
         crate::layout::set_k(crate::settings::get().size_k()); // preset de tamanho do notch
         let hi: HINSTANCE = GetModuleHandleW(None).unwrap().into();
-        let wc = WNDCLASSW { lpfnWndProc: Some(wndproc), hInstance: hi, lpszClassName: w!("EavelyIsland"), hCursor: LoadCursorW(None, IDC_ARROW).unwrap_or_default(), ..Default::default() };
+        let wc = WNDCLASSW { lpfnWndProc: Some(wndproc), hInstance: hi, lpszClassName: windows::core::PCWSTR(crate::channel::wide(crate::channel::CLASS_ISLAND).as_ptr()), hCursor: LoadCursorW(None, IDC_ARROW).unwrap_or_default(), ..Default::default() };
         RegisterClassW(&wc);
         let mut mons = monitors(); if mons.is_empty() { mons.push(Mon { x: 0, y: 0, w: 1920, h: 1080, s: 1.0 }); } // sessao sem monitor (remota/bloqueada): padrao ate o WM_DISPLAYCHANGE
         let mut p = POINT::default(); let _ = GetCursorPos(&mut p);
         let active = mons.iter().position(|m| p.x >= m.x && p.x < m.x + m.w && p.y >= m.y && p.y < m.y + m.h).unwrap_or(0);
         let m = mons[active];
         let (pw, ph) = ((crate::layout::win_w() * m.s).round() as i32, (crate::layout::win_h() * m.s).round() as i32);
-        let hwnd = CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, w!("EavelyIsland"), w!("Eavely"), WS_POPUP,
+        let hwnd = CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, windows::core::PCWSTR(crate::channel::wide(crate::channel::CLASS_ISLAND).as_ptr()), windows::core::PCWSTR(crate::channel::wide(crate::channel::NAME).as_ptr()), WS_POPUP,
             m.x + (m.w - pw) / 2, m.y, pw, ph, None, None, Some(hi), None).unwrap();
         HW.store(hwnd.0 as isize, Relaxed); crate::overlay::register_power(hwnd);
         crate::log(&format!("hwnd={}", hwnd.0 as isize));
-        let wc2 = WNDCLASSW { lpfnWndProc: Some(trace_proc), hInstance: hi, lpszClassName: w!("EavelyTrace"), ..Default::default() };
+        let wc2 = WNDCLASSW { lpfnWndProc: Some(trace_proc), hInstance: hi, lpszClassName: windows::core::PCWSTR(crate::channel::wide(crate::channel::CLASS_TRACE).as_ptr()), ..Default::default() };
         RegisterClassW(&wc2);
-        let trace = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST, w!("EavelyTrace"), w!(""), WS_POPUP, 0, 0, 1, 1, None, None, Some(hi), None).unwrap();
+        let trace = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST, windows::core::PCWSTR(crate::channel::wide(crate::channel::CLASS_TRACE).as_ptr()), w!(""), WS_POPUP, 0, 0, 1, 1, None, None, Some(hi), None).unwrap();
         let gfx = Slot { g: None, scale: m.s, size: (pw as u32, ph as u32) };
         let mut hz = 60.0f32;
         let mut ti = DWM_TIMING_INFO { cbSize: size_of::<DWM_TIMING_INFO>() as u32, ..Default::default() };

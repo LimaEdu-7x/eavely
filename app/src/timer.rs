@@ -114,11 +114,11 @@ pub fn notify(title: &str, body: &str) {
     use windows::{core::{w, HSTRING}, Data::Xml::Dom::XmlDocument, UI::Notifications::*, Win32::System::{Com::{CoInitializeEx, COINIT_MULTITHREADED}, Registry::*}};
     let esc = |s: &str| s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
     let (t, b) = (esc(title), esc(body));
-    const ID: &str = "app.eavely";
+    const ID: &str = crate::channel::AUMID;
     std::thread::spawn(move || unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-        let name: Vec<u16> = "Eavely\0".encode_utf16().collect();
-        let _ = RegSetKeyValueW(HKEY_CURRENT_USER, w!(r"Software\Classes\AppUserModelId\app.eavely"), w!("DisplayName"), REG_SZ.0, Some(name.as_ptr() as *const _), (name.len() * 2) as u32);
+        let name: Vec<u16> = format!("{}\0", crate::channel::NAME).encode_utf16().collect();
+        let _ = RegSetKeyValueW(HKEY_CURRENT_USER, &windows::core::HSTRING::from(format!(r"Software\Classes\AppUserModelId\{}", crate::channel::AUMID)), w!("DisplayName"), REG_SZ.0, Some(name.as_ptr() as *const _), (name.len() * 2) as u32);
         let r = (|| -> windows::core::Result<()> {
             let d = XmlDocument::new()?;
             d.LoadXml(&HSTRING::from(format!("<toast><visual><binding template='ToastGeneric'><text>{t}</text><text>{b}</text></binding></visual></toast>")))?;

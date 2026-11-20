@@ -449,7 +449,7 @@ unsafe extern "system" fn proc(h: HWND, m: u32, wp: WPARAM, lp: LPARAM) -> LRESU
 
 unsafe fn run() {
     let hi: HINSTANCE = GetModuleHandleW(None).unwrap().into();
-    let wc = WNDCLASSW { lpfnWndProc: Some(proc), hInstance: hi, lpszClassName: w!("EavelySettings"), hCursor: LoadCursorW(None, IDC_ARROW).unwrap_or_default(), hIcon: crate::tray::app_icon(), ..Default::default() };
+    let wc = WNDCLASSW { lpfnWndProc: Some(proc), hInstance: hi, lpszClassName: windows::core::PCWSTR(crate::channel::wide(crate::channel::CLASS_SETTINGS).as_ptr()), hCursor: LoadCursorW(None, IDC_ARROW).unwrap_or_default(), hIcon: crate::tray::app_icon(), ..Default::default() };
     RegisterClassW(&wc);
     let mut p = POINT::default(); let _ = GetCursorPos(&mut p);
     let mon = windows::Win32::Graphics::Gdi::MonitorFromPoint(p, windows::Win32::Graphics::Gdi::MONITOR_DEFAULTTONEAREST);
@@ -459,7 +459,7 @@ unsafe fn run() {
     let mut mi = windows::Win32::Graphics::Gdi::MONITORINFO { cbSize: size_of::<windows::Win32::Graphics::Gdi::MONITORINFO>() as u32, ..Default::default() };
     let _ = windows::Win32::Graphics::Gdi::GetMonitorInfoW(mon, &mut mi);
     let (x, y) = (mi.rcWork.left + (mi.rcWork.right - mi.rcWork.left - ww) / 2, mi.rcWork.top + ((mi.rcWork.bottom - mi.rcWork.top - wh) / 2).max(0));
-    let Ok(hwnd) = CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP | WS_EX_APPWINDOW, w!("EavelySettings"), w!("Configurações — Eavely"), WS_POPUP | WS_MINIMIZEBOX | WS_SYSMENU, x, y, ww, wh, None, None, Some(hi), None) else { return };
+    let Ok(hwnd) = CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP | WS_EX_APPWINDOW, windows::core::PCWSTR(crate::channel::wide(crate::channel::CLASS_SETTINGS).as_ptr()), w!("Configurações — Eavely"), WS_POPUP | WS_MINIMIZEBOX | WS_SYSMENU, x, y, ww, wh, None, None, Some(hi), None) else { return };
     let dark = 1i32; let _ = DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark as *const _ as *const _, 4);
     let round = 2i32; let _ = DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &round as *const _ as *const _, 4);
     let mg = MARGINS { cxLeftWidth: 1, cxRightWidth: 1, cyTopHeight: 1, cyBottomHeight: 1 }; let _ = DwmExtendFrameIntoClientArea(hwnd, &mg); // sombra da janela

@@ -10,6 +10,7 @@ winres = "0.1"
 [features]
 # ferramentas de captura/benchmark/teste interno (EAVELY_*): NAO entram no exe de release
 devtools = []
+dev = []
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

@@ -197,8 +197,8 @@ pub fn set_autostart(on: bool) {
         if on {
             let exe = std::env::current_exe().map(|p| format!("\"{}\"", p.display())).unwrap_or_default();
             let v: Vec<u16> = exe.encode_utf16().chain([0]).collect();
-            let _ = RegSetKeyValueW(HKEY_CURRENT_USER, w!(r"Software\Microsoft\Windows\CurrentVersion\Run"), &HSTRING::from("Eavely"), REG_SZ.0, Some(v.as_ptr() as *const _), (v.len() * 2) as u32);
-        } else { let _ = RegDeleteKeyValueW(HKEY_CURRENT_USER, w!(r"Software\Microsoft\Windows\CurrentVersion\Run"), &HSTRING::from("Eavely")); }
+            let _ = RegSetKeyValueW(HKEY_CURRENT_USER, w!(r"Software\Microsoft\Windows\CurrentVersion\Run"), &HSTRING::from(crate::channel::NAME), REG_SZ.0, Some(v.as_ptr() as *const _), (v.len() * 2) as u32);
+        } else { let _ = RegDeleteKeyValueW(HKEY_CURRENT_USER, w!(r"Software\Microsoft\Windows\CurrentVersion\Run"), &HSTRING::from(crate::channel::NAME)); }
     }
 }
 
