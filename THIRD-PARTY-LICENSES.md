@@ -1,9 +1,9 @@
 # Licenças de terceiros
 
-Lista de TODAS as dependencias de terceiros distribuidas pelo Eavely: as 25 crates do Cargo.lock (fonte de registro), com licenca, repositorio, avisos de copyright e o texto integral de cada licenca. Gerado com cargo metadata --locked e os arquivos de licenca de cada crate.
+Lista de TODAS as dependências de terceiros distribuídas pelo Eavely: as 25 crates do Cargo.lock (fonte de registro), com licença, repositório, avisos de copyright e o texto integral de cada licenca. Gerado com cargo metadata --locked e os arquivos de licenca de cada crate.
 
 ## Outros componentes
-- **Lucide** (ícones SVG em `assets/icons/`) - ISC License, Copyright Copyright (c) Lucide Icons and Contributors. Texto completo em `assets/icons/LICENSE-lucide.txt`.
+- **Lucide** (ícones SVG em `assets/icons/`) - ISC License, Copyright (c) Lucide Icons and Contributors. Texto completo em `assets/icons/LICENSE-lucide.txt`.
 - **Mascote Eavy** (`assets/mascote/eavy/`, rig e pele de areia): arte e dados próprios do projeto, sem dependência de terceiros.
 - **LRCLIB** (letras, apenas consulta de rede opcional; sem código de terceiros): https://lrclib.net.
 
