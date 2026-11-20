@@ -1,6 +1,6 @@
 ; Instalador do canal estavel ou dev (NSIS). Por usuario (sem admin), atalhos opcionais, desinstalacao limpa.
-; Dados em %APPDATA%${APPDIR} (Eavely ou EavelyDev) so sao apagados se o usuario pedir.
-; Compilar: makensis /DVERSION=0.3.0 /DNUMVER=0.3.0.8 /DEXE=caminhoeavely.exe /DOUT=saida.exe [/DDEV] installereavely.nsi
+; Dados em %APPDATA%\${APPDIR} (Eavely ou EavelyDev) so sao apagados se o usuario pedir.
+; Compilar: makensis /DVERSION=0.3.0 /DNUMVER=0.3.0.8 /DEXE=caminho\eavely.exe /DOUT=saida.exe [/DDEV] installer\eavely.nsinsi
 Unicode true
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
