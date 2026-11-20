@@ -155,8 +155,8 @@ pub fn timer_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32) {
     let (rem, total, label) = t.map_or((0, 0, "Foco".to_string()), |t| (t.remaining_sec, t.total_sec, format!("{} · ciclo {}", match t.mode { timer::Mode::Focus => "Foco", _ => "Pausa" }, t.cycle.max(1))));
     let coral = rgba(0xFF7A66, 1.0);
     if s.h > 60.0 {
-        a.gfx.text(&label, Fmt::Small, s.x + 14.0, s.y + 14.0, s.w - 28.0, 13.0, TEXT3, false);
-        a.gfx.text(&format!("{:02}:{:02}", rem / 60, rem % 60), Fmt::Big, s.x + 14.0, s.y + 30.0, s.w - 28.0, 36.0, TEXT, false);
+        a.gfx.text(&label, Fmt::Small, s.x + 14.0, s.y + 12.0, s.w - 28.0, 13.0, TEXT3, false);
+        a.gfx.text(&format!("{:02}:{:02}", rem / 60, rem % 60), Fmt::Big, s.x + 14.0, s.y + 24.0, s.w - 28.0, 36.0, TEXT, false);
         let (pl, rs) = (r(s.x + 14.0, s.y + 64.0, 60.0, 22.0), r(s.x + 82.0, s.y + 64.0, 22.0, 22.0)); // botoes terminam em y+86: 10 px acima da barra (y+96)
         a.gfx.rrect(pl.x, pl.y, pl.w, pl.h, 11.0, rgba(0xFF7A66, if running { 0.35 } else { 1.0 }));
         a.gfx.icon(if running { "pause" } else { "play" }, pl.x + 23.0, pl.y + 4.0, 14.0, TEXT, true); hits.push((R { x: pl.x + off, ..pl }, Act::TimerPlay));
@@ -191,8 +191,8 @@ pub fn metrics_mini(a: &mut App, s: R) {
         for (i, (lbl, v, col)) in cols.into_iter().enumerate() {
             let x = s.x + 14.0 + i as f32 * 58.0; let txt = v.map_or("—".into(), |v| format!("{v:.0}%"));
             let vf = if a.gfx.measure(&txt, Fmt::Big) <= 56.0 { Fmt::Big } else { Fmt::Head };
-            a.gfx.text(lbl, Fmt::Small, x, s.y + 16.0, 50.0, 13.0, TEXT3, false); a.gfx.text(&txt, vf, x, s.y + 31.0, 58.0, 36.0, TEXT, false);
-            a.gfx.rrect(x, s.y + s.h - 26.0, 50.0, 16.0, 4.0, SURFACE_H); a.gfx.rrect(x, s.y + s.h - 26.0, 50.0 * (v.unwrap_or(0.0) / 100.0).clamp(0.0, 1.0), 16.0, 4.0, col);
+            a.gfx.text(lbl, Fmt::Small, x, s.y + 16.0, 50.0, 13.0, TEXT3, false); a.gfx.text(&txt, vf, x, s.y + 34.0, 58.0, 36.0, TEXT, false);
+            a.gfx.rrect(x, s.y + s.h - 30.0, 50.0, 20.0, 5.0, SURFACE_H); a.gfx.rrect(x, s.y + s.h - 30.0, 50.0 * (v.unwrap_or(0.0) / 100.0).clamp(0.0, 1.0), 20.0, 5.0, col);
         }
         return;
     }
