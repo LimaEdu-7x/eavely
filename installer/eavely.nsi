@@ -13,11 +13,13 @@ Unicode true
   !define APPDIR "EavelyDev"
   !define EXE_NAME "EavelyDev.exe"
   !define APPICON "..\assets\app\eavely-dev-icon.ico"
+  !define AUMID "app.eavely.dev"
 !else
   !define APPNAME "Eavely"
   !define APPDIR "Eavely"
   !define EXE_NAME "Eavely.exe"
   !define APPICON "..\assets\app\eavely-icon.ico"
+  !define AUMID "app.eavely"
 !endif
 !ifndef VERSION
   !define VERSION "0.1.0"
@@ -162,7 +164,7 @@ Section "Uninstall"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APPNAME}"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPDIR}"
   DeleteRegKey HKCU "Software\${APPDIR}"
-  DeleteRegKey HKCU "Software\Classes\AppUserModelId\app.eavely"   ; AUMID dos toasts criado pelo app
+  DeleteRegKey HKCU "Software\Classes\AppUserModelId\${AUMID}"   ; AUMID dos toasts deste canal (dev = app.eavely.dev)
   ; dados do usuario (lista do Shelf, ui.json, cache de letras): so se o usuario pedir
   ${GetParameters} $R0
   ${GetOptions} $R0 "/DELETEDATA" $R1
