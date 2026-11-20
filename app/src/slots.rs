@@ -195,7 +195,7 @@ pub fn timer_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32) {
         a.gfx.rrect(pl.x, pl.y, pl.w, pl.h, 16.0, rgba(0xFF7A66, if running { 0.35 } else { 1.0 }));
         a.gfx.icon(if running { "pause" } else { "play" }, pl.x + 25.0, pl.y + 9.0, 14.0, TEXT, true); hits.push((R { x: pl.x + off, ..pl }, Act::TimerPlay));
         a.gfx.rrect(rs.x, rs.y, rs.w, rs.h, 16.0, SURFACE_H); a.gfx.icon("rotate-ccw", rs.x + 9.0, rs.y + 9.0, 14.0, TEXT, false); hits.push((R { x: rs.x + off, ..rs }, Act::TimerReset));
-        let lab = pages2::ellip(a, &label, Fmt::Small, iw); a.gfx.text(&lab, Fmt::Small, ix, iy + 84.0, iw, 13.0, TEXT3, false);
+        let lab = pages2::ellip(a, &label, Fmt::Small, iw); a.gfx.text(&lab, Fmt::Small, ix, iy + 80.0, iw, 13.0, TEXT3, false);
         let frac = if total > 0 { 1.0 - rem as f32 / total as f32 } else { 0.0 }.clamp(0.0, 1.0);
         a.gfx.rrect(ix, iy + ih - 4.0, iw, 4.0, 2.0, SURFACE_H); a.gfx.rrect(ix, iy + ih - 4.0, iw * frac, 4.0, 2.0, coral);
         return;
