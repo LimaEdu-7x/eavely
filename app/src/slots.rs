@@ -3,6 +3,7 @@
 // Cada widget recebe o retangulo INTEIRO do slot (52 px ou 110 px de altura). O conteudo fica numa faixa de BAND px com PAD px de folga
 // em cima e embaixo (em 52 px a faixa e o slot menos 10 px de cada lado); em 110 px a faixa fica centralizada.
 use std::time::Instant;
+use crate::spacing::{EDGE, GAP, BAR_W};
 use crate::{gfx::{rgba, Fmt, Rgba}, island::App, media, pages::{self, hov, button_bg, ui_pos, draw_cover, timer_running, r, Act, R, R2}, pages2, shelf, tasks, timer};
 
 const TEXT: Rgba = rgba(0xFFFFFF, 1.0);
@@ -11,7 +12,7 @@ const TEXT3: Rgba = rgba(0xFFFFFF, 0.52);
 const SURFACE: Rgba = rgba(0xFFFFFF, 0.08);
 const SURFACE_H: Rgba = rgba(0xFFFFFF, 0.14);
 const BLUE: Rgba = rgba(0x7CC4FF, 1.0);
-const PAD: f32 = 10.0; // margem minima vertical e horizontal do conteudo
+const PAD: f32 = crate::spacing::SLOT_PAD; // margem do conteudo no slot de 52 px (modulo spacing)
 const BAND: f32 = 32.0; // altura util do conteudo (52 - 2 x PAD)
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)] pub enum Widget { #[default] Empty, Shelf, Player, Tasks, Timer, Clock, Metrics }
@@ -55,7 +56,8 @@ pub fn shelf_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: In
     card(a, s);
     if items.is_empty() || drag {
         let col = if drag { BLUE } else { rgba(0xFFFFFF, 0.28) };
-        a.gfx.rrect_dashed(s.x + PAD, s.y + PAD, s.w - 2.0 * PAD, s.h - 2.0 * PAD, 10.0, 1.5, col, 3.0, 2.0);
+        let pd = if s.h > 60.0 { EDGE } else { PAD }; // 110 px: caixa com a margem de 12 px
+        a.gfx.rrect_dashed(s.x + pd, s.y + pd, s.w - 2.0 * pd, s.h - 2.0 * pd, 10.0, 1.5, col, 3.0, 2.0);
         a.gfx.icon("inbox", s.x + 20.0, mid(s, 20.0), 20.0, if drag { BLUE } else { TEXT2 }, false);
         let ty = band(s);
         a.gfx.text(if drag { "Solte para adicionar" } else { "Solte arquivos aqui" }, Fmt::BodyStrong, s.x + 48.0, ty, s.w - 58.0, 16.0, if drag { BLUE } else { TEXT }, false);
@@ -63,6 +65,7 @@ pub fn shelf_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: In
         return;
     }
     hits.push((R { x: s.x + off, ..s }, Act::ShelfPan)); // clicar no vazio do slot limpa a selecao
+    if s.h > 60.0 { return shelf_grid(a, s, hits, off, &items); }
     let (tw, step) = (52.0f32, 56.0f32); let th = s.h - 2.0 * PAD; let y = s.y + PAD; let oy = (th - BAND) / 2.0; // cards ocupam a altura do slot; o conteudo do card fica na faixa
     let max = ((s.w - 2.0 * PAD - step) / step) as usize; // 2 cards + alvo de soltar (ou +N) dentro da margem de 10 px
     for (i, it) in items.iter().take(max).enumerate() {
@@ -88,6 +91,32 @@ pub fn shelf_mini(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, now: In
     } else if dx + tw <= s.x + s.w - PAD {
         a.gfx.rrect_dashed(dx + 0.75, y + 0.75, tw - 1.5, th - 1.5, 10.0, 1.5, rgba(0xFFFFFF, 0.28), 3.0, 2.0); a.gfx.icon("plus", dx + tw / 2.0 - 6.0, y + 5.0 + oy, 12.0, TEXT2, false);
         let t = "soltar"; let tw2 = a.gfx.measure(t, Fmt::Tiny); a.gfx.text(t, Fmt::Tiny, dx + tw / 2.0 - tw2 / 2.0, y + 17.0 + oy, tw2 + 4.0, 11.0, TEXT3, false);
+    }
+}
+
+/// Arquivos no slot de 110 px: grade 3 x 2 (ate 6 itens) e barrinha vertical a esquerda, de cima a baixo, que abre a pagina Arquivos.
+/// Medidas do modulo spacing (margem EDGE 12, GAP 6, BAR_W 4): 48x40 por card.
+/// geometria da grade: (x do 1o card, y do 1o card, largura, altura) e a faixa da barrinha
+fn grid_geom(s: R) -> (f32, f32, f32, f32, f32) {
+    let gx = s.x + EDGE + BAR_W + GAP; let gw = s.w - EDGE - (gx - s.x); let (gy, gh) = (s.y + EDGE, s.h - 2.0 * EDGE);
+    (gx, gy, (gw - 2.0 * GAP) / 3.0, (gh - GAP) / 2.0, gh)
+}
+fn shelf_grid(a: &mut App, s: R, hits: &mut Vec<(R, Act)>, off: f32, items: &[shelf::ShelfItem]) {
+    let (gx, gy, tw, th, gh) = grid_geom(s);
+    let bar = R { x: s.x + EDGE, y: gy, w: BAR_W, h: gh }; let shelf_act = Act::Page(pages::P_SHELF as u8);
+    let hv_bar = a.hover == Some(shelf_act);
+    a.gfx.rrect(bar.x, bar.y, bar.w, bar.h, BAR_W / 2.0, if hv_bar { rgba(0xFFFFFF, 0.42) } else { rgba(0xFFFFFF, 0.22) });
+    hits.push((R { x: bar.x + off - 4.0, y: bar.y, w: bar.w + 8.0, h: bar.h }, shelf_act)); // a barrinha (com folga de 4 px) abre a pagina Arquivos
+    for (i, it) in items.iter().take(6).enumerate() {
+        let (x, y) = (gx + (i % 3) as f32 * (tw + GAP), gy + (i / 3) as f32 * (th + GAP)); let act = Act::ShelfOpen(i as u32);
+        let hv = a.hover == Some(act); let on = a.p.sel.contains(&i);
+        a.gfx.rrect(x, y, tw, th, 10.0, if hv || on { SURFACE_H } else { SURFACE });
+        pages2::card_art(a, it, x + tw / 2.0, y + 12.0, 0.4); // icone pequeno no topo do card; nome numa linha embaixo
+        let (nm, cut) = pages2::fit_name(a, &it.name, Fmt::Tiny, tw - 6.0); let nw = a.gfx.measure(&nm, Fmt::Tiny);
+        a.gfx.text(&nm, Fmt::Tiny, x + tw / 2.0 - nw / 2.0, y + 24.0, nw + 4.0, 11.0, TEXT2, false);
+        if on { a.gfx.rrect_stroke(x + 0.75, y + 0.75, tw - 1.5, th - 1.5, 9.25, 1.5, BLUE); }
+        if cut && hv { a.p.slot_tip = Some((it.name.clone(), x + tw / 2.0, if s.y > 40.0 { y - 20.0 } else { y + th + 3.0 })); }
+        hits.push((R { x: x + off, y, w: tw, h: th }, act));
     }
 }
 
@@ -212,6 +241,14 @@ mod tests {
         assert_eq!(layout("shelf", "none")[0].1.h, 110.0);
         assert_eq!(layout("shelf", "player")[0].1.h, SLOT_H);
         assert_eq!(layout("shelf", "player")[1].1.h, SLOT_H);
+    }
+    #[test]
+    fn grade_de_arquivos_cabe_com_margem_de_12_px() { // 110 px: 3 x 2 cards dentro de EDGE 12 e barrinha de BAR_W antes da grade
+        let s = r(206.0, 10.0, SLOT_W, 110.0); let (gx, gy, tw, th, _) = grid_geom(s);
+        assert_eq!((tw, th), (48.0, 40.0));
+        assert!(gx + 3.0 * tw + 2.0 * GAP <= s.x + s.w - EDGE + 0.01, "colunas passam da margem direita");
+        assert!(gy + 2.0 * th + GAP <= s.y + s.h - EDGE + 0.01, "linhas passam da margem de baixo");
+        assert!(gx - s.x >= EDGE + BAR_W + GAP - 0.01, "grade colide com a barrinha");
     }
     #[test]
     fn bloco_centrado_com_margem_de_10_px() { // a faixa de conteudo tem >= 10 px em cima e embaixo, em 52 e em 110 px
